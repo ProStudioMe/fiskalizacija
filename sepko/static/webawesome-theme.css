@@ -42,6 +42,16 @@ html.wa-theme-shoelace.wa-dark {
   background: var(--cta-hover);
   border-color: var(--cta-hover);
 }
+.inv-actions wa-button[variant="brand"]::part(base) {
+  background: var(--cta);
+  border-color: var(--cta);
+  color: #fff;
+  font-weight: 600;
+}
+.inv-actions wa-button[variant="brand"]:hover::part(base) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
+}
 
 html.wa-theme-shoelace.wa-light,
 html.wa-theme-shoelace:not(.wa-dark) {
@@ -134,6 +144,9 @@ wa-dialog .modal-list {
 
 .per-page-select {
   width: 5.5rem;
+}
+.inv-filter-toolbar .per-page-select {
+  width: 4.25rem;
 }
 
 /* Checkbox stacks in forms */

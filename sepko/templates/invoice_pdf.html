@@ -233,13 +233,13 @@
           <td class="name-cell">{% if ui and ui.a4_item_name_own_line %}<div>{{ row.name }}</div>{% else %}{{ row.name }}{% endif %}</td>
           <td class="ctr">{{ row.unit }}</td>
           <td class="num">{{ row.qty }}</td>
-          <td class="num">{{ row.vp }}</td>
-          <td class="num">{{ row.net }}</td>
+          <td class="num">{{ row.vp }} €</td>
+          <td class="num">{{ row.net }} €</td>
           <td class="num">{{ row.discount }}</td>
           <td class="ctr">{{ row.vat_label }}</td>
-          <td class="num">{{ row.vat_amt }}</td>
-          <td class="num">{{ row.unit_gross }}</td>
-          <td class="num">{{ row.gross }}</td>
+          <td class="num">{{ row.vat_amt }} €</td>
+          <td class="num">{{ row.unit_gross }} €</td>
+          <td class="num">{{ row.gross }} €</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -252,7 +252,7 @@
           <thead><tr><th>Oslobođenje</th><th>Iznos</th></tr></thead>
           <tbody>
           {% for e in exempt_rows %}
-            <tr><td>{{ e.label }}</td><td class="num">{{ e.amount }}</td></tr>
+            <tr><td>{{ e.label }}</td><td class="num">{{ e.amount }} €</td></tr>
           {% endfor %}
           </tbody>
         </table>
@@ -265,12 +265,12 @@
         {% if desc_note %}<div class="notes">{{ desc_note }}</div>{% endif %}
       </div>
       <div class="totals">
-        <div class="row"><span>Vrijednost bez PDV-a i popusta:</span><span>{{ totals.net_before|money }} {{ currency }}</span></div>
-        <div class="row"><span>Vrijednost popusta:</span><span>{{ totals.discount|money }} {{ currency }}</span></div>
-        <div class="row"><span>Osnovica:</span><span>{{ invoice.total_net|money }} {{ currency }}</span></div>
-        <div class="row"><span>PDV ukupno:</span><span>{{ invoice.total_vat|money }} {{ currency }}</span></div>
-        <div class="row strong"><span>Za uplatu:</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
-        <div class="row"><span>{{ pay_label }}:</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
+        <div class="row"><span>Vrijednost bez PDV-a i popusta:</span><span>{{ totals.net_before|money }} €</span></div>
+        <div class="row"><span>Vrijednost popusta:</span><span>{{ totals.discount|money }} €</span></div>
+        <div class="row"><span>Osnovica:</span><span>{{ invoice.total_net|money }} €</span></div>
+        <div class="row"><span>PDV ukupno:</span><span>{{ invoice.total_vat|money }} €</span></div>
+        <div class="row strong"><span>Za uplatu:</span><span>{{ invoice.total_gross|money }} €</span></div>
+        <div class="row"><span>{{ pay_label }}:</span><span>{{ invoice.total_gross|money }} €</span></div>
       </div>
     </div>
 

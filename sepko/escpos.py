@@ -74,13 +74,15 @@ def build_receipt(
         name = str(row.get("name") or "")
         qty = str(row.get("qty") or "")
         gross = str(row.get("gross") or "")
+        if gross and not gross.endswith("€"):
+            gross = f"{gross} €"
         out += _txt(name[: opt.width]) + b"\n"
         out += _txt(_line(f"  {qty} x", gross, opt.width)) + b"\n"
     out += b"-" * opt.width + b"\n"
     out += ESC + b"E" + b"\x01"
     from sepko.money import format_amount
 
-    total_s = f"{format_amount(total_gross)} EUR"
+    total_s = f"{format_amount(total_gross)} €"
     out += _txt(_line("UKUPNO", total_s, opt.width)) + b"\n"
     out += ESC + b"E" + b"\x00"
     out += _txt(_line(pay_label, total_s, opt.width)) + b"\n"

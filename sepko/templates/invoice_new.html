@@ -112,16 +112,16 @@
             <tbody>
               <tr>
                 <th scope="row">Bez PDV-a</th>
-                <td class="num" id="sum-net">0,00</td>
+                <td class="num"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></td>
               </tr>
               <tr>
                 <th scope="row">PDV</th>
-                <td class="num" id="sum-vat">0,00</td>
+                <td class="num"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></td>
               </tr>
               <tr>
                 <th scope="row">Popust</th>
                 <td class="num">
-                  <button type="button" class="linkish" id="btn-discount"><span id="sum-disc">0,00</span></button>
+                  <button type="button" class="linkish" id="btn-discount"><span id="sum-disc">0,00</span><span class="totals-cur"> €</span></button>
                 </td>
               </tr>
               <tr class="is-total">
@@ -440,7 +440,7 @@ function renderSuggest(q){
         <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}</span></span>
         ${isOnInv ? `<span class="inv-suggest-added${isFlash?' is-pulse':''}" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>'}
         <span class="modal-row-side">
-          <span class="modal-row-price">${money(a.price)}</span>
+          <span class="modal-row-price">${money(a.price)} €</span>
           <span class="modal-row-vat">PDV ${a.vat}%</span>
         </span>
       </button>`;
@@ -496,7 +496,7 @@ function renderLines(){
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
         </div>
       </td>
-      <td class="num inv-line-total">${money(a.gross)}</td>
+      <td class="num inv-line-total">${money(a.gross)} €</td>
       <td class="inv-line-actions">
         <button type="button" class="inv-line-del" data-del="${i}" aria-label="Ukloni" title="Ukloni">
           <i data-lucide="x"></i>
@@ -511,7 +511,7 @@ function renderLines(){
       <td colspan="5">
         <div class="inv-line-fields">
           <label>VP cijena<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
-          <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)}</strong></div>
+          <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)} €</strong></div>
         </div>
       </td>`;
     linesBody.appendChild(detail);
@@ -774,7 +774,7 @@ function renderArticles(filter=''){
         <span class="modal-row-meta">${esc(a.unit || 'kom')}</span>
       </span>
       <span class="modal-row-side">
-        <span class="modal-row-price">${money(a.price)}</span>
+        <span class="modal-row-price">${money(a.price)} €</span>
         <span class="modal-row-vat">PDV ${a.vat}%</span>
       </span>
     </button>`).join('') || '<div class="muted" style="padding:1rem">Nema rezultata</div>';

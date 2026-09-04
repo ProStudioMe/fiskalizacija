@@ -2319,6 +2319,16 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
         "OTHER": "Drugo bezgotovinsko",
         "ACCOUNT": "Na račun",
     }
+    buyer_customer = None
+    if invoice.buyer_pib:
+        buyer_customer = (
+            db.query(Customer)
+            .filter(
+                Customer.tenant_id == tenant.id,
+                Customer.pib == invoice.buyer_pib,
+            )
+            .first()
+        )
     return render(
         request,
         "invoice_view.html",
@@ -2333,6 +2343,7 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
             "contract_number": contract_number,
             "period": period,
             "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
+            "buyer_customer": buyer_customer,
         },
     )
 

@@ -461,13 +461,13 @@ def build_kartica_html(
 
     rows = []
     for r in ledger:
-        dug = format_amount(r["Duguje"]) if r.get("Duguje") else ""
-        pot = format_amount(r["Potražuje"]) if r.get("Potražuje") else ""
+        dug = f"{format_amount(r['Duguje'])} €" if r.get("Duguje") else ""
+        pot = f"{format_amount(r['Potražuje'])} €" if r.get("Potražuje") else ""
         rows.append(
             f"<tr><td>{r.get('Datum') or ''}</td><td>{r.get('Vrsta') or ''}</td>"
             f"<td>{r.get('Dokument') or ''}</td><td>{r.get('Opis') or ''}</td>"
             f"<td class='num'>{dug}</td><td class='num'>{pot}</td>"
-            f"<td class='num'><strong>{format_amount(r.get('Saldo', 0))}</strong></td></tr>"
+            f"<td class='num'><strong>{format_amount(r.get('Saldo', 0))} €</strong></td></tr>"
         )
     print_js = "window.onload=function(){window.print();};" if auto_print else ""
     return f"""<!DOCTYPE html>

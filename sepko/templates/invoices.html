@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ t('page.fakture', 'Fakture') }} — Sepko{% endblock %}
 {% block page_title %}{{ t('page.fakture', 'Fakture') }}{% endblock %}
-{% block page_actions %}
+{% block content %}
+<nav class="inv-status-tabs" aria-label="{{ t('col.status', 'Status') }}">
   <div class="tabs" style="margin:0">
     <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
     <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">{{ t('status.fiscalized', 'Fiskalizovane') }}</a>
     <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
+    <a class="tab {% if status == 'failed' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='failed') }}">{{ t('status.failed', 'Greške') }}</a>
   </div>
-  <a class="btn" href="/racuni/novi">+ {{ t('btn.add_invoice', 'Nova faktura') }}</a>
-{% endblock %}
-{% block content %}
+</nav>
 {% include "_invoices_list.html" %}
 {% endblock %}

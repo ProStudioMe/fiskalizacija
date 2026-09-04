@@ -11,7 +11,7 @@
     <p><strong>{{ invoice.supplier_name or '—' }}</strong><br>
       <span class="muted">PIB {{ invoice.supplier_pib or '—' }}</span></p>
     <p>Datum: {{ invoice.issue_date or '—' }}</p>
-    <p>Neto {{ (invoice.total_net or 0)|money }} · PDV {{ (invoice.total_vat or 0)|money }} ·
+    <p>Neto {{ (invoice.total_net or 0)|money }} € · PDV {{ (invoice.total_vat or 0)|money }} € ·
       <strong>Bruto {{ (invoice.total_gross or 0)|money }} €</strong></p>
     {% if invoice.ikof %}<p class="muted">IKOF: <code>{{ invoice.ikof }}</code></p>{% endif %}
     {% if invoice.jikr %}<p class="muted">JIKR: <code>{{ invoice.jikr }}</code></p>{% endif %}
@@ -48,7 +48,7 @@
             <td>{{ ln.name }}</td>
             <td class="num">{{ ln.quantity }}</td>
             <td class="num">{{ ln.vat_rate }}</td>
-            <td class="num">{{ (ln.total_gross or 0)|money }}</td>
+            <td class="num">{{ (ln.total_gross or 0)|money }} €</td>
           </tr>
         {% else %}
           <tr><td colspan="5" class="muted">Nema stavki</td></tr>

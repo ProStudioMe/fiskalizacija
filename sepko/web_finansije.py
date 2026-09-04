@@ -306,7 +306,7 @@ async def kartica_send_mail(
             f"<h2>Faktura {display_inv_num(inv)}</h2>"
             f"<p>{inv.buyer_name or ''} · PIB {inv.buyer_pib or '—'}</p>"
             f"<p>Datum: {inv.issue_datetime.strftime('%d.%m.%Y %H:%M') if inv.issue_datetime else '—'}</p>"
-            f"<p><strong>Ukupno: {float(inv.total_gross):.2f} {inv.currency or 'EUR'}</strong></p>"
+            f"<p><strong>Ukupno: {float(inv.total_gross):.2f} €</strong></p>"
             f"<p>IKOF: {inv.ikof or '—'} · JIKR: {inv.jikr or '—'}</p>"
             f"<p><a href='{inv.qr_url or '#'}'>Verifikacija</a></p>"
             f"</body></html>"

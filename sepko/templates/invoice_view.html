@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ t('page.invoice_view', 'Pregled fakture') }} — Sepko{% endblock %}
-{% block page_title %}{{ t('page.invoice_view', 'Pregled fakture') }}{% endblock %}
-{% block page_actions %}
+{% block page_title %}
+<span class="inv-page-title">
+  <a class="btn secondary inv-actions-icon inv-title-back" href="/racuni" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+    <i data-lucide="arrow-left" aria-hidden="true"></i>
+  </a>
+  <span>{{ t('page.invoice_view', 'Pregled fakture') }}</span>
   {% if invoice.status == 'fiscalized' %}
     <span class="pill-tag ok">{{ t('status.fiscalized', 'Fiskalizovan') }}</span>
   {% elif invoice.status == 'failed' %}
@@ -9,75 +13,68 @@
   {% else %}
     <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
   {% endif %}
-  <a class="btn secondary" href="/racuni/{{ invoice.id }}/stampa" title="{{ t('btn.print', 'Štampa') }}">{{ t('btn.print', 'Štampa') }}</a>
-  <a class="btn secondary" href="/racuni/{{ invoice.id }}/pdf" title="A4">A4</a>
-  {% if not readonly %}
-    <a class="btn secondary" href="/racuni/{{ invoice.id }}/izmijeni">{{ t('btn.edit', 'Izmijeni') }}</a>
-    <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" style="display:inline;margin:0">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-button type="submit" variant="brand">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
-    </form>
-  {% endif %}
-  <a class="btn secondary" href="/racuni">← {{ t('btn.back', 'Lista') }}</a>{% endblock %}
+</span>
+{% endblock %}
+{% block page_actions %}
+  <div class="inv-actions">
+    <div class="inv-actions-btns">
+      <div class="inv-actions-group" role="group" aria-label="{{ t('btn.print', 'Štampa') }}">
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/stampa" title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
+          <i data-lucide="printer" aria-hidden="true"></i>
+        </a>
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/pdf" title="A4 PDF" aria-label="A4 PDF">
+          <i data-lucide="file-text" aria-hidden="true"></i>
+        </a>
+      </div>
+      {% if not readonly %}
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+          <i data-lucide="pencil" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
 {% block content %}
 {% if readonly %}
-<p class="muted" style="margin-top:0">Fiskalizovani račun — samo pregled, izmjene nisu dozvoljene.</p>
+<p class="muted inv-readonly-banner">Fiskalizovani račun — samo pregled, izmjene nisu dozvoljene.</p>
 {% endif %}
 
 <div class="inv-editor inv-view {% if readonly %}is-readonly{% endif %}">
   <div class="inv-main">
     {# 1. Zaglavlje #}
-    <div class="card inv-meta">
-      <div class="inv-section-title">Zaglavlje</div>
-      <div class="inv-meta-grid">
-        <div class="inv-meta-block">
-          <label>Broj fakture</label>
-          <div class="inv-field-value inv-field-num">
-            <div class="inv-num-stack">
-              <span class="inv-status-rail {% if invoice.status == 'fiscalized' %}ok{% elif invoice.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
-              <span class="inv-num-local">{{ invoice|display_inv_num }}</span>
-            </div>
-            <span class="inv-field-sub">EFI {{ invoice.inv_num or invoice.external_id or '—' }}</span>
-          </div>
+    <div class="card inv-meta inv-meta-view">
+      <div class="inv-meta-facts inv-meta-facts-head">
+        <div class="inv-meta-fact inv-meta-fact-num">
+          <span class="inv-meta-fact-label">Broj fakture</span>
+          <span class="inv-meta-fact-value inv-num-local">{{ invoice|display_inv_num }}</span>
+          <span class="inv-field-sub">EFI {{ invoice.inv_num or invoice.external_id or '—' }}</span>
         </div>
-        <div class="inv-meta-block">
-          <label>Vrijeme</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ invoice.issue_datetime.strftime('%d.%m.%Y %H:%M') if invoice.issue_datetime else '—' }}</span>
-          </div>
+        <div class="inv-meta-fact">
+          <span class="inv-meta-fact-label">Vrijeme</span>
+          <span class="inv-meta-fact-value">{{ invoice.issue_datetime.strftime('%d.%m.%Y %H:%M') if invoice.issue_datetime else '—' }}</span>
         </div>
-        <div class="inv-meta-block">
-          <label>Rok plaćanja</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ due_date or '—' }}</span>
-          </div>
+        <div class="inv-meta-fact">
+          <span class="inv-meta-fact-label">Rok plaćanja</span>
+          <span class="inv-meta-fact-value">{{ due_date or '—' }}</span>
         </div>
-        <div class="inv-meta-block">
-          <label>Tip plaćanja</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ pay_label }}</span>
-          </div>
+        <div class="inv-meta-fact">
+          <span class="inv-meta-fact-label">Tip plaćanja</span>
+          <span class="inv-meta-fact-value">{{ pay_label }}</span>
         </div>
-        <div class="inv-meta-block">
-          <label>Valuta</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ invoice.currency or 'EUR' }}</span>
-          </div>
+        <div class="inv-meta-fact">
+          <span class="inv-meta-fact-label">Valuta</span>
+          <span class="inv-meta-fact-value">{{ invoice.currency or 'EUR' }}</span>
         </div>
         {% if contract_number %}
-        <div class="inv-meta-block">
-          <label>Broj ugovora</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ contract_number }}</span>
-          </div>
+        <div class="inv-meta-fact">
+          <span class="inv-meta-fact-label">Broj ugovora</span>
+          <span class="inv-meta-fact-value">{{ contract_number }}</span>
         </div>
         {% endif %}
         {% if period %}
-        <div class="inv-meta-block inv-meta-wide">
-          <label>Period</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ period }}</span>
-          </div>
+        <div class="inv-meta-fact inv-meta-fact-wide">
+          <span class="inv-meta-fact-label">Period</span>
+          <span class="inv-meta-fact-value">{{ period }}</span>
         </div>
         {% endif %}
       </div>
@@ -88,30 +85,30 @@
 
     {# 2. Kupac #}
     <div class="card inv-buyer">
-      <div class="inv-section-title">Kupac</div>
-      <div class="inv-meta-grid">
-        <div class="inv-meta-block inv-meta-client">
-          <label>Naziv</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ invoice.buyer_name or 'Bez kupca' }}</span>
-            {% if invoice.buyer_pib %}
-            <span class="inv-field-sub">PIB {{ invoice.buyer_pib }}</span>
-            {% endif %}
-          </div>
-        </div>
-        {% if invoice.buyer_address %}
-        <div class="inv-meta-block inv-meta-wide">
-          <label>Adresa</label>
-          <div class="inv-field-value">
-            <span class="inv-field-main">{{ invoice.buyer_address }}</span>
-          </div>
-        </div>
+      <div class="inv-buyer-head">
+        <div class="inv-section-title">Kupac</div>
+        {% if buyer_customer %}
+          <a class="btn secondary inv-actions-icon inv-buyer-edit" href="/kupci?edit={{ buyer_customer.id }}" title="{{ t('btn.edit_customer', 'Izmijeni kupca') }}" aria-label="{{ t('btn.edit_customer', 'Izmijeni kupca') }}">
+            <i data-lucide="user-pen" aria-hidden="true"></i>
+          </a>
+        {% elif not readonly %}
+          <a class="btn secondary inv-actions-icon inv-buyer-edit" href="/racuni/{{ invoice.id }}/izmijeni" title="{{ t('btn.edit_customer', 'Izmijeni kupca') }}" aria-label="{{ t('btn.edit_customer', 'Izmijeni kupca') }}">
+            <i data-lucide="user-pen" aria-hidden="true"></i>
+          </a>
         {% endif %}
       </div>
+      <div class="inv-buyer-name">{{ invoice.buyer_name or 'Bez kupca' }}</div>
+      {% if invoice.buyer_pib or invoice.buyer_address %}
+      <div class="inv-buyer-meta">
+        {% if invoice.buyer_pib %}<span>PIB {{ invoice.buyer_pib }}</span>{% endif %}
+        {% if invoice.buyer_pib and invoice.buyer_address %}<span class="inv-buyer-sep" aria-hidden="true">·</span>{% endif %}
+        {% if invoice.buyer_address %}<span>{{ invoice.buyer_address }}</span>{% endif %}
+      </div>
+      {% endif %}
     </div>
 
     {# 3. Stavke #}
-    <div class="card" style="padding:0;overflow:auto">
+    <div class="card inv-lines-card" style="padding:0;overflow:auto">
       <div class="inv-section-title" style="padding:0.85rem 1rem 0.35rem">Stavke računa</div>
       <table class="data-table">
         <thead>
@@ -137,10 +134,10 @@
             <td><strong>{{ line.name }}</strong></td>
             <td>kom</td>
             <td class="num">{{ line.quantity|money(3) }}</td>
-            <td class="num">{{ line.unit_price_net|money(4) }}</td>
+            <td class="num">{{ line.unit_price_net|money(4) }} €</td>
             <td class="num">{{ "%.0f"|format(line.vat_rate) }}</td>
-            <td class="num">{{ line_vat|money }}</td>
-            <td class="num"><strong>{{ line.total_gross|money }}</strong></td>
+            <td class="num">{{ line_vat|money }} €</td>
+            <td class="num"><strong>{{ line.total_gross|money }} €</strong></td>
           </tr>
         {% else %}
           <tr><td colspan="9" class="muted" style="padding:1rem">Nema stavki.</td></tr>
@@ -149,46 +146,95 @@
       </table>
     </div>
 
-    {# 4. Zbir — ispod stavki, kao na PDF-u #}
+    {# 4. Zbir #}
     <div class="totals-bar card totals-below">
-      <div><span class="muted">Vrijednost bez PDV-a</span><strong>{{ invoice.total_net|money }}</strong></div>
-      <div><span class="muted">PDV ukupno</span><strong>{{ invoice.total_vat|money }}</strong></div>
-      <div class="totals-pay"><span class="muted">Za uplatu</span><strong>{{ invoice.total_gross|money }}</strong></div>
+      <div>
+        <span class="muted">Vrijednost bez PDV-a</span>
+        <strong>{{ invoice.total_net|money }} <span class="totals-cur">€</span></strong>
+      </div>
+      <div>
+        <span class="muted">PDV ukupno</span>
+        <strong>{{ invoice.total_vat|money }} <span class="totals-cur">€</span></strong>
+      </div>
+      <div class="totals-pay">
+        <span class="muted">Za uplatu</span>
+        <strong>{{ invoice.total_gross|money }} <span class="totals-cur">€</span></strong>
+      </div>
     </div>
   </div>
 
   <aside class="inv-side">
-    <div class="card">
-      <label>Napomena za fiskalizaciju</label>
-      <div class="inv-note-display">{{ fiscal_note or '—' }}</div>
-    </div>
-    <div class="card" style="margin-top:0.75rem">
-      <label>Opis za račun</label>
-      <div class="inv-note-display">{{ desc_note or '—' }}</div>
-    </div>
-    <div class="card" style="margin-top:0.75rem">
-      <label>Fiskalni podaci</label>
-      <div class="cell-secondary" style="line-height:1.6">
-        Status: <strong>{{ invoice.status }}</strong><br>
-        IKOF: <code>{{ invoice.ikof or '—' }}</code><br>
-        JIKR: <code>{{ invoice.jikr or '—' }}</code><br>
-        {% if invoice.qr_url %}
-        <a href="{{ invoice.qr_url }}" target="_blank" rel="noopener">QR / verifikacija</a>
-        {% endif %}
-        {% if invoice.error_message %}
-        <div class="flash error" style="margin-top:0.75rem">{{ invoice.error_message }}</div>
-        {% endif %}
-      </div>
-    </div>
     {% if not readonly %}
-    <a class="btn secondary" href="/racuni/{{ invoice.id }}/izmijeni" style="width:100%;margin-top:1rem;text-align:center">{{ t('btn.edit', 'Izmijeni') }}</a>
-    <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" style="margin-top:0.5rem">
+    <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" class="inv-fiscalize-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-button type="submit" variant="brand" style="width:100%">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
+      <button type="submit" class="btn inv-fiscalize-btn">
+        <i data-lucide="badge-check" aria-hidden="true"></i>
+        <span>{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
+      </button>
     </form>
     {% endif %}
-    <a class="btn secondary" href="/racuni" style="width:100%;margin-top:0.5rem;text-align:center">← {{ t('page.fakture', 'Lista faktura') }}</a>
-    <a class="btn" href="/racuni/{{ invoice.id }}/pdf" style="width:100%;margin-top:0.5rem;text-align:center">PDF / {{ t('btn.print', 'štampa') }}</a>
+    <div class="card inv-fiscal-card {% if invoice.status == 'fiscalized' %}is-ok{% elif invoice.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">
+      <div class="inv-section-title">Fiskalni podaci</div>
+      <dl class="inv-fiscal-dl">
+        <div>
+          <dt>IKOF</dt>
+          <dd>
+            {% if invoice.ikof %}
+              <code class="inv-fiscal-code">{{ invoice.ikof }}</code>
+            {% else %}
+              <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt>JIKR</dt>
+          <dd>
+            {% if invoice.jikr %}
+              <code class="inv-fiscal-code">{{ invoice.jikr }}</code>
+            {% else %}
+              <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+      {% if invoice.qr_url %}
+      <a class="inv-fiscal-link" href="{{ invoice.qr_url }}" target="_blank" rel="noopener">QR / verifikacija →</a>
+      {% endif %}
+      {% if invoice.error_message %}
+      <div class="flash error" style="margin-top:0.85rem;margin-bottom:0">{{ invoice.error_message }}</div>
+      {% endif %}
+    </div>
+
+    {% if fiscal_note or desc_note %}
+    <div class="card inv-side-notes">
+      {% if fiscal_note %}
+      <div class="inv-side-note-block">
+        <label>Napomena za fiskalizaciju</label>
+        <div class="inv-note-display">{{ fiscal_note }}</div>
+      </div>
+      {% endif %}
+      {% if desc_note %}
+      <div class="inv-side-note-block">
+        <label>Opis za račun</label>
+        <div class="inv-note-display">{{ desc_note }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <details class="inv-notes-soft inv-side-notes-empty">
+      <summary>Bez napomena</summary>
+      <div class="inv-notes-stack">
+        <div class="inv-side-note-block">
+          <label>Napomena za fiskalizaciju</label>
+          <div class="inv-note-display is-empty">Nema napomene</div>
+        </div>
+        <div class="inv-side-note-block">
+          <label>Opis za račun</label>
+          <div class="inv-note-display is-empty">Nema opisa</div>
+        </div>
+      </div>
+    </details>
+    {% endif %}
   </aside>
 </div>
 {% endblock %}

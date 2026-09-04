@@ -48,9 +48,9 @@
             {% endif %}
           </td>
           <td>{{ r.Opis }}</td>
-          <td class="num">{% if r.Duguje %}{{ r.Duguje|money }}{% endif %}</td>
-          <td class="num">{% if r['Potražuje'] %}{{ r['Potražuje']|money }}{% endif %}</td>
-          <td class="num"><strong>{{ r.Saldo|money }}</strong></td>
+          <td class="num">{% if r.Duguje %}{{ r.Duguje|money }} €{% endif %}</td>
+          <td class="num">{% if r['Potražuje'] %}{{ r['Potražuje']|money }} €{% endif %}</td>
+          <td class="num"><strong>{{ r.Saldo|money }} €</strong></td>
         </tr>
       {% else %}
         <tr><td colspan="7" class="muted" style="padding:1.25rem">Nema stavki na kartici.</td></tr>

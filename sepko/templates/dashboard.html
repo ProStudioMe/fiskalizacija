@@ -2,12 +2,7 @@
 {% block title %}{{ t('page.pregled', 'Pregled') }} — Sepko{% endblock %}
 {% block page_title %}{{ t('page.pregled', 'Pregled') }}{% endblock %}
 {% block page_actions %}
-  <div class="tabs" style="margin:0">
-    <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
-    <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">{{ t('status.fiscalized', 'Fiskalizovane') }}</a>
-    <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
-  </div>
-  <a class="btn btn-lg" href="/racuni/novi">+ {{ t('nav.izdaj', 'Izdaj račun') }}</a>
+  <a class="btn" href="/racuni/novi">+ {{ t('nav.izdaj', 'Izdaj račun') }}</a>
 {% endblock %}
 {% block content %}
 <section class="dash-primary" aria-label="{{ t('dash.quick_actions', 'Brze akcije') }}">
@@ -53,6 +48,14 @@
 </div>
 
 <div style="margin-top:1rem">
+<nav class="inv-status-tabs" aria-label="{{ t('col.status', 'Status') }}">
+  <div class="tabs" style="margin:0">
+    <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
+    <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">{{ t('status.fiscalized', 'Fiskalizovane') }}</a>
+    <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
+    <a class="tab {% if status == 'failed' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='failed') }}">{{ t('status.failed', 'Greške') }}</a>
+  </div>
+</nav>
 {% include "_invoices_list.html" %}
 </div>
 {% endblock %}

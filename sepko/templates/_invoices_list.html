@@ -10,66 +10,117 @@
 {% set lbl_select_all = t('btn.select_all', 'Odaberi sve') %}
 {% set lbl_deselect_all = t('btn.deselect_all', 'Poništi odabir') %}
 {% set lbl_no_buyer = t('inv.no_buyer', 'Bez kupca') %}
+{% macro iso_to_dmy(val) -%}
+{%- if val and val|length >= 10 -%}{{ val[8:10] }}.{{ val[5:7] }}.{{ val[0:4] }}{%- endif -%}
+{%- endmacro %}
 
 <form method="get" action="{{ list_path }}" class="inv-filter-toolbar" id="inv-filter-form">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="dir" value="{{ dir }}">
   <input type="hidden" name="client" value="{{ client }}">
   <input type="hidden" name="tip" value="{{ tip }}">
+  <input type="hidden" name="status" value="{{ status or 'all' }}">
 
-  <div class="inv-filter-field inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
+  <div class="inv-filter-search {% if q %}has-value{% endif %}">
     <span class="inv-filter-ico" aria-hidden="true">
-      <i data-lucide="calendar"></i>
+      <i data-lucide="search"></i>
     </span>
-    <div class="inv-filter-body">
-      <label class="inv-filter-label" for="date_from">{{ t('inv.date_range', 'Izaberite datumski opseg') }}</label>
-      <div class="inv-date-range">
-        <input type="date" id="date_from" name="date_from" value="{{ date_from }}" title="{{ t('label.from', 'Od') }}">
-        <span class="inv-date-sep">–</span>
-        <input type="date" id="date_to" name="date_to" value="{{ date_to }}" title="{{ t('label.to', 'Do') }}">
-      </div>
-    </div>
-    {% if date_from or date_to %}
-    <a class="inv-filter-clear" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}" title="{{ t('btn.clear_filters', 'Obriši') }}">×</a>
-    {% endif %}
-  </div>
-
-  <div class="inv-filter-field inv-filter-number {% if q %}has-value{% endif %}">
-    <span class="inv-filter-ico" aria-hidden="true">
-      <i data-lucide="file-text"></i>
-    </span>
-    <div class="inv-filter-body">
-      <label class="inv-filter-label" for="inv-q">{{ t('inv.number', 'Broj fakture') }}</label>
-      <input type="search" id="inv-q" name="q" value="{{ q }}" placeholder="{{ t('label.search', 'broj / kupac / JIKR') }}" autocomplete="off">
-    </div>
+    <input type="search" id="inv-q" name="q" value="{{ q }}" placeholder="{{ t('label.search', 'Broj, kupac ili JIKR…') }}" autocomplete="off">
     {% if q %}
     <a class="inv-filter-clear" href="{{ list_path }}?{{ qs(q='') }}" title="{{ t('btn.clear_filters', 'Obriši') }}">×</a>
     {% endif %}
   </div>
 
-  <div class="inv-filter-field inv-filter-status">
-    <div class="inv-filter-body">
-      <wa-select id="inv-status" name="status" label="{{ t('nav.fakture', 'Fakture') }}" value="{{ status or 'all' }}" size="small">
-        <wa-option value="all" {% if status == 'all' %}selected{% endif %}>{{ t('inv.all', 'Sve fakture') }}</wa-option>
-        <wa-option value="fiscalized" {% if status == 'fiscalized' %}selected{% endif %}>{{ t('status.fiscalized', 'Fiskalizovane') }}</wa-option>
-        <wa-option value="pending" {% if status == 'pending' %}selected{% endif %}>{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</wa-option>
-        <wa-option value="failed" {% if status == 'failed' %}selected{% endif %}>{{ t('status.failed', 'Greške') }}</wa-option>
-      </wa-select>
-    </div>
+  <div class="inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
+    <span class="inv-filter-ico" aria-hidden="true">
+      <i data-lucide="calendar"></i>
+    </span>
+    <input type="text" class="inv-date-dmy" id="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" title="{{ t('label.from', 'Od') }}" aria-label="{{ t('label.from', 'Od') }}" autocomplete="off">
+    <input type="hidden" name="date_from" id="date_from" value="{{ date_from }}">
+    <span class="inv-date-sep">–</span>
+    <input type="text" class="inv-date-dmy" id="date_to_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_to) }}" title="{{ t('label.to', 'Do') }}" aria-label="{{ t('label.to', 'Do') }}" autocomplete="off">
+    <input type="hidden" name="date_to" id="date_to" value="{{ date_to }}">
+    {% if date_from or date_to %}
+    <a class="inv-filter-clear" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}" title="{{ t('btn.clear_filters', 'Obriši') }}">×</a>
+    {% endif %}
   </div>
 
   <div class="inv-filter-actions">
     {% include "_per_page.html" %}
-    <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
   </div>
 </form>
 <script>
 (function () {
-  var sel = document.getElementById('inv-status');
-  if (!sel) return;
-  function go() { sel.closest('form') && sel.closest('form').submit(); }
-  sel.addEventListener('change', go);
-  sel.addEventListener('wa-change', go);
+  var form = document.getElementById('inv-filter-form');
+  if (!form) return;
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+  function dmyToIso(raw) {
+    var s = (raw || '').trim();
+    if (!s) return '';
+    var m = s.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/);
+    if (!m) return null;
+    var d = parseInt(m[1], 10);
+    var mo = parseInt(m[2], 10);
+    var y = parseInt(m[3], 10);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    var dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+    return y + '-' + pad(mo) + '-' + pad(d);
+  }
+
+  function syncDate(dmyEl, hiddenEl) {
+    var raw = (dmyEl.value || '').trim();
+    if (!raw) {
+      hiddenEl.value = '';
+      dmyEl.classList.remove('is-invalid');
+      return true;
+    }
+    var iso = dmyToIso(raw);
+    if (!iso) {
+      dmyEl.classList.add('is-invalid');
+      return false;
+    }
+    dmyEl.classList.remove('is-invalid');
+    hiddenEl.value = iso;
+    return true;
+  }
+
+  function submitForm() {
+    var fromOk = syncDate(document.getElementById('date_from_dmy'), document.getElementById('date_from'));
+    var toOk = syncDate(document.getElementById('date_to_dmy'), document.getElementById('date_to'));
+    if (!fromOk || !toOk) return;
+    form.submit();
+  }
+
+  var q = document.getElementById('inv-q');
+  var qTimer;
+  if (q) {
+    q.addEventListener('input', function () {
+      clearTimeout(qTimer);
+      qTimer = setTimeout(submitForm, 400);
+    });
+    q.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(qTimer);
+        submitForm();
+      }
+    });
+  }
+
+  ['date_from_dmy', 'date_to_dmy'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', submitForm);
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitForm();
+      }
+    });
+  });
 })();
 </script>
 
@@ -89,20 +140,20 @@
     <a class="pill-tag" href="{{ list_path }}?{{ qs(client='') }}">{{ t('col.client', 'Klijent') }}: {% if client == '__none__' %}{{ lbl_no_buyer }}{% else %}{{ client }}{% endif %} ×</a>
     {% endif %}
     {% if date_from or date_to %}
-    <a class="pill-tag" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}">{{ t('col.date', 'Datum') }}: {{ date_from or '…' }} – {{ date_to or '…' }} ×</a>
+    <a class="pill-tag" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}">{{ t('col.date', 'Datum') }}: {{ iso_to_dmy(date_from) or '…' }} – {{ iso_to_dmy(date_to) or '…' }} ×</a>
     {% endif %}
   </div>
   <a class="btn secondary btn-clear-filters" href="{{ list_path }}?per_page={{ per_page }}&sort={{ sort }}&dir={{ dir }}">{{ t('btn.clear_filters', 'Poništi filtere') }}</a>
 </div>
 {% endif %}
 
-<div class="plan-card">
+<div class="plan-card" id="inv-list-card">
   <div class="plan-head">
-    <div>
+    <div class="plan-head-meta">
       <h2>{{ tenant.name }}</h2>
       <div class="cell-secondary">PIB {{ tenant.pib }} · {{ invoices|length }} / {{ total }}</div>
     </div>
-    <div class="plan-head-actions">
+    <div class="bulk-bar" id="bulk-bar" hidden>
       <form method="post" id="bulk-actions-form" class="bulk-copy-form"
             data-msg-fisc="{{ t('inv.confirm_fiscalize', 'Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.') }}"
             data-msg-copy="{{ t('inv.confirm_copy', 'Kopirati %n odabranih faktura kao nacrte?') }}"
@@ -111,15 +162,16 @@
             data-lbl-select="{{ lbl_select_all }}"
             data-lbl-deselect="{{ lbl_deselect_all }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <wa-button type="button" variant="neutral" appearance="outlined" id="btn-select-all">{{ lbl_select_all }}</wa-button>
-        <wa-button type="submit" formaction="/racuni/kopiraj" variant="neutral" appearance="outlined" id="btn-bulk-copy" disabled>
-          {{ t('btn.copy', 'Kopiraj') }} (<span id="bulk-count">0</span>)
+        <span class="bulk-bar-count"><strong id="bulk-count">0</strong> {{ t('inv.selected', 'odabrano') }}</span>
+        <wa-button type="button" variant="neutral" appearance="outlined" size="small" id="btn-select-all">{{ lbl_select_all }}</wa-button>
+        <wa-button type="submit" formaction="/racuni/kopiraj" variant="neutral" appearance="outlined" size="small" id="btn-bulk-copy" disabled>
+          {{ t('btn.copy', 'Kopiraj') }}
         </wa-button>
-        <wa-button type="submit" formaction="/racuni/fiskalizuj-odabrane" variant="brand" id="btn-bulk-fiscalize" disabled>
+        <wa-button type="submit" formaction="/racuni/fiskalizuj-odabrane" variant="brand" size="small" id="btn-bulk-fiscalize" disabled>
           {{ lbl_fisc_selected }}
         </wa-button>
+        <button type="button" class="bulk-bar-clear" id="btn-clear-selection" title="{{ t('btn.deselect_all', 'Poništi odabir') }}">×</button>
       </form>
-      <a class="btn" href="/racuni/novi">+ {{ t('btn.add_invoice', 'Dodaj fakturu') }}</a>
     </div>
   </div>
   <div class="plan-table-wrap">
@@ -150,27 +202,6 @@
                   <a href="{{ list_path }}?{{ qs(status='fiscalized') }}" class="{% if status == 'fiscalized' %}on{% endif %}" data-filter-item>{{ t('status.fiscalized', 'Fiskalizovan') }}</a>
                   <a href="{{ list_path }}?{{ qs(status='pending') }}" class="{% if status == 'pending' %}on{% endif %}" data-filter-item>{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
                   <a href="{{ list_path }}?{{ qs(status='failed') }}" class="{% if status == 'failed' %}on{% endif %}" data-filter-item>{{ t('status.failed', 'Greška') }}</a>
-                </div>
-              </div>
-            </details>
-          </div>
-        </th>
-        <th>
-          <div class="th-with-filter">
-            <a class="th-sort {% if sort == 'tip' %}active{% endif %}" href="{{ list_path }}?{{ qs(sort='tip', dir='asc' if sort == 'tip' and dir == 'desc' else 'desc') }}">
-              {{ t('col.tip', 'Tip') }} {% if sort == 'tip' %}{% if dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
-            </a>
-            <details class="th-filter {% if tip %}has-value{% endif %}">
-              <summary title="{{ t('col.tip', 'Tip') }}" aria-label="{{ t('col.tip', 'Tip') }}"></summary>
-              <div class="th-filter-menu">
-                <div class="th-filter-search">
-                  <input type="search" placeholder="{{ t('label.search', 'Pretraži…') }}" data-filter-list autocomplete="off">
-                </div>
-                <div class="th-filter-options">
-                  <a href="{{ list_path }}?{{ qs(tip='') }}" class="{% if not tip %}on{% endif %}" data-filter-item>{{ t('common.all', 'Svi') }}</a>
-                  {% for tip_val in tips %}
-                  <a href="{{ list_path }}?{{ qs(tip=tip_val) }}" class="{% if tip == tip_val %}on{% endif %}" data-filter-item>{{ tip_val }}</a>
-                  {% endfor %}
                 </div>
               </div>
             </details>
@@ -214,9 +245,11 @@
                   <input type="hidden" name="client" value="{{ client }}">
                   <input type="hidden" name="tip" value="{{ tip }}">
                   <input type="hidden" name="per_page" value="{{ per_page }}">
-                  <label>{{ t('label.from', 'Od') }} <input type="date" name="date_from" value="{{ date_from }}"></label>
-                  <label>{{ t('label.to', 'Do') }} <input type="date" name="date_to" value="{{ date_to }}"></label>
-                  <wa-button type="submit" size="small" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
+                  <label>{{ t('label.from', 'Od') }} <input type="text" class="inv-date-dmy" name="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" data-iso-target="date_from_th" autocomplete="off"></label>
+                  <input type="hidden" name="date_from" id="date_from_th" value="{{ date_from }}">
+                  <label>{{ t('label.to', 'Do') }} <input type="text" class="inv-date-dmy" name="date_to_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_to) }}" data-iso-target="date_to_th" autocomplete="off"></label>
+                  <input type="hidden" name="date_to" id="date_to_th" value="{{ date_to }}">
+                  <wa-button type="submit" size="small" variant="neutral" appearance="outlined" class="th-date-submit">{{ t('btn.apply', 'Primijeni') }}</wa-button>
                   {% if date_from or date_to %}
                   <a class="btn secondary" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}">{{ t('btn.clear_filters', 'Obriši') }}</a>
                   {% endif %}
@@ -235,7 +268,7 @@
     </thead>
     <tbody>
     {% for inv in invoices %}
-      <tr>
+      <tr class="inv-row" data-href="/racuni/{{ inv.id }}" tabindex="0" role="link" aria-label="{{ inv|display_inv_num }}">
         <td class="col-check">
           <input type="checkbox" class="inv-check" name="invoice_ids" value="{{ inv.id }}" form="bulk-actions-form" data-status="{{ inv.status }}" aria-label="{{ inv|display_inv_num }}">
         </td>
@@ -255,29 +288,30 @@
           {% endif %}
         </td>
         <td>
-          <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ inv.payment_method }}</div>
-          <div class="cell-secondary">{% if inv.inv_type == 'CORRECTIVE' %}{{ t('inv.corrective', 'Korekcija') }}{% else %}{{ t('inv.receipt', 'Račun') }}{% endif %}</div>
-        </td>
-        <td>
           <div class="cell-client">{{ inv.buyer_name or lbl_no_buyer }}</div>
         </td>
         <td>
-          <div class="cell-primary" style="font-weight:500;font-size:0.9rem">
+          <div class="cell-date">
             {{ inv.issue_datetime.strftime('%d.%m.%Y') if inv.issue_datetime else '—' }}
           </div>
-          <div class="cell-secondary">{{ inv.issue_datetime.strftime('%H:%M:%S') if inv.issue_datetime else '' }}</div>
+          <div class="cell-secondary">{{ inv.issue_datetime.strftime('%H:%M') if inv.issue_datetime else '' }}</div>
         </td>
-        <td class="num"><strong>{{ inv.total_gross|money }} €</strong></td>
+        <td class="num cell-amount">{{ inv.total_gross|money }} €</td>
         <td class="cell-actions">
-          <a class="btn secondary" href="/racuni/{{ inv.id }}">{{ t('page.pregled', 'Pregled') }}</a>
-          {% if inv.status != 'fiscalized' %}
-          <a class="btn secondary" href="/racuni/{{ inv.id }}/izmijeni">{{ t('btn.edit', 'Izmijeni') }}</a>
-          {% endif %}
-          <a class="btn" href="/racuni/{{ inv.id }}/pdf">PDF</a>
+          <div class="row-actions">
+            {% if inv.status != 'fiscalized' %}
+            <a class="btn-icon-row" href="/racuni/{{ inv.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+              <i data-lucide="pencil" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" title="PDF" aria-label="PDF">
+              <i data-lucide="file-text" aria-hidden="true"></i>
+            </a>
+          </div>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="8" class="muted" style="padding:1.5rem">{{ t('common.empty', 'Nema faktura.') }} <a href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj prvu') }}</a>.</td></tr>
+      <tr><td colspan="7" class="muted inv-empty">{{ t('common.empty', 'Nema faktura.') }} <a href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj prvu') }}</a>.</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -288,9 +322,12 @@
 <script>
 (function () {
   var form = document.getElementById('bulk-actions-form');
+  var bulkBar = document.getElementById('bulk-bar');
+  var card = document.getElementById('inv-list-card');
   var btnCopy = document.getElementById('btn-bulk-copy');
   var btnFisc = document.getElementById('btn-bulk-fiscalize');
   var btnSelectAll = document.getElementById('btn-select-all');
+  var btnClear = document.getElementById('btn-clear-selection');
   var countEl = document.getElementById('bulk-count');
   var checkAll = document.getElementById('inv-check-all');
   var checks = Array.prototype.slice.call(document.querySelectorAll('.inv-check'));
@@ -326,6 +363,19 @@
       checkAll.checked = checks.length > 0 && n === checks.length;
       checkAll.indeterminate = n > 0 && n < checks.length;
     }
+    var hasSel = n > 0;
+    if (bulkBar) bulkBar.hidden = !hasSel;
+    if (card) card.classList.toggle('has-selection', hasSel);
+  }
+
+  function selectDrafts() {
+    draftChecks.forEach(function (c) { c.checked = true; });
+    syncBulk();
+  }
+
+  function clearSelection() {
+    checks.forEach(function (c) { c.checked = false; });
+    syncBulk();
   }
 
   checks.forEach(function (c) {
@@ -339,14 +389,12 @@
   }
   if (btnSelectAll) {
     btnSelectAll.addEventListener('click', function () {
-      var deselect = btnSelectAll.getAttribute('data-mode') === 'deselect';
-      if (deselect) {
-        checks.forEach(function (c) { c.checked = false; });
-      } else {
-        draftChecks.forEach(function (c) { c.checked = true; });
-      }
-      syncBulk();
+      if (btnSelectAll.getAttribute('data-mode') === 'deselect') clearSelection();
+      else selectDrafts();
     });
+  }
+  if (btnClear) {
+    btnClear.addEventListener('click', clearSelection);
   }
   if (form) {
     form.addEventListener('submit', function (e) {
@@ -377,6 +425,23 @@
   }
   syncBulk();
 
+  document.querySelectorAll('tr.inv-row[data-href]').forEach(function (row) {
+    function go() {
+      var href = row.getAttribute('data-href');
+      if (href) window.location.href = href;
+    }
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, label, .row-actions, .col-check')) return;
+      go();
+    });
+    row.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target !== row) return;
+      e.preventDefault();
+      go();
+    });
+  });
+
   function placeMenu(details) {
     var menu = details.querySelector('.th-filter-menu');
     var btn = details.querySelector('summary');
@@ -395,6 +460,42 @@
       menu.style.top = (r.top - 6 - mh) + 'px';
     }
   }
+
+  document.querySelectorAll('.th-date-form').forEach(function (thForm) {
+    thForm.addEventListener('submit', function (e) {
+      var ok = true;
+      thForm.querySelectorAll('input.inv-date-dmy[data-iso-target]').forEach(function (dmy) {
+        var hidden = document.getElementById(dmy.getAttribute('data-iso-target'));
+        if (!hidden) return;
+        var raw = (dmy.value || '').trim();
+        if (!raw) {
+          hidden.value = '';
+          dmy.classList.remove('is-invalid');
+          return;
+        }
+        var m = raw.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/);
+        if (!m) {
+          dmy.classList.add('is-invalid');
+          ok = false;
+          return;
+        }
+        var d = parseInt(m[1], 10);
+        var mo = parseInt(m[2], 10);
+        var y = parseInt(m[3], 10);
+        var dt = new Date(y, mo - 1, d);
+        if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) {
+          dmy.classList.add('is-invalid');
+          ok = false;
+          return;
+        }
+        dmy.classList.remove('is-invalid');
+        hidden.value = y + '-' + (mo < 10 ? '0' : '') + mo + '-' + (d < 10 ? '0' : '') + d;
+      });
+      // strip visible dmy fields from query
+      thForm.querySelectorAll('input[name$="_dmy"]').forEach(function (el) { el.disabled = true; });
+      if (!ok) e.preventDefault();
+    });
+  });
 
   document.querySelectorAll('.th-filter').forEach(function (details) {
     var input = details.querySelector('[data-filter-list]');

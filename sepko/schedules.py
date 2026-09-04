@@ -156,7 +156,7 @@ def _invoice_email_html(
         f"<p>{invoice.buyer_name or ''} · PIB {invoice.buyer_pib or '—'}</p>"
         f"<p>Datum: {when}</p>"
         f"{extra}"
-        f"<p><strong>Za uplatu: {format_amount(invoice.total_gross)} {invoice.currency or 'EUR'}</strong></p>"
+        f"<p><strong>Za uplatu: {format_amount(invoice.total_gross)} €</strong></p>"
         f"<p>Status: {invoice.status}</p>"
         f"<p>IKOF: {invoice.ikof or '—'}<br>JIKR: {invoice.jikr or '—'}</p>"
         f"<p><a href='{invoice.qr_url or '#'}'>Verifikacija QR</a></p>"
@@ -257,7 +257,7 @@ def run_schedule(
             "",
             f"u prilogu je faktura {display_inv_num(inv)}",
             f"za {inv.buyer_name or 'vas'}",
-            f"({format_amount(inv.total_gross)} {inv.currency or 'EUR'}).",
+            f"({format_amount(inv.total_gross)} €).",
         ]
         if contract:
             body_lines.append(f"Broj ugovora: {contract}")

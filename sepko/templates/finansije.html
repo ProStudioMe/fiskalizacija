@@ -122,7 +122,7 @@
                 <wa-select name="incoming_id" size="small" style="max-width:140px">
                   <wa-option value="">Ulazna…</wa-option>
                   {% for inv in incoming_options %}
-                  <wa-option value="{{ inv.id }}">#{{ inv.id }} {{ inv.number or inv.supplier_name }} {{ (inv.total_gross or 0)|money }}</wa-option>
+                  <wa-option value="{{ inv.id }}">#{{ inv.id }} {{ inv.number or inv.supplier_name }} {{ (inv.total_gross or 0)|money }} €</wa-option>
                   {% endfor %}
                 </wa-select>
                 <wa-button type="submit" variant="neutral" appearance="outlined" size="small">AP</wa-button>
