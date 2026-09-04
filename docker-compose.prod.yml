@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    image: ghcr.io/OWNER/sepko:latest
+    image: ghcr.io/prostudiome/fiskalizacija:latest
     env_file:
       - .env
     environment:
