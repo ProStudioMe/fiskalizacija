@@ -22,10 +22,14 @@
 {% endblock %}
 {% block content %}
 {% if not day.has_initial and not is_template %}
-<wa-alert variant="warning" open class="inv-cash-alert">
-  <strong>Nema početnog depozita</strong> za danas.
-  Za gotovinu prvo otvori <a href="/blagajna">Blagajnu</a>.
-</wa-alert>
+<div class="inv-cash-banner" role="alert">
+  <span class="inv-cash-banner-ico" aria-hidden="true"><i data-lucide="alert-triangle"></i></span>
+  <div class="inv-cash-banner-body">
+    <strong>Nema početnog depozita</strong>
+    <span>Za gotovinu prvo otvori blagajnu za danas.</span>
+  </div>
+  <a class="btn secondary inv-cash-banner-btn" href="/blagajna">Otvori blagajnu</a>
+</div>
 {% endif %}
 {% if is_template %}
 <p class="muted inv-template-hint">Šablon za automatsku (mjesečnu) fakturu — kupac i stavke fiksnog iznosa. Nakon čuvanja vratićeš se na listu.</p>
@@ -71,7 +75,20 @@
           <p class="lines-empty-keys"><kbd>/</kbd> fokus pretrage</p>
         </div>
 
-        <div class="inv-line-list" id="lines-body" hidden></div>
+        <div class="fb-table-wrap inv-lines-table-wrap" id="lines-wrap" hidden>
+          <table class="fb-table fb-table--compact fb-table--lines fb-table--hover">
+            <thead>
+              <tr>
+                <th>Artikal</th>
+                <th class="num">Pop. %</th>
+                <th class="num">Kol.</th>
+                <th class="num">Iznos</th>
+                <th class="inv-line-actions-h"><span class="sr-only">Akcije</span></th>
+              </tr>
+            </thead>
+            <tbody id="lines-body"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="inv-dock" role="toolbar" aria-label="Akcije fakture">
@@ -203,6 +220,7 @@ const RECENT_KEY = 'sepko-recent-articles';
 const FREQ_KEY = 'sepko-freq-articles';
 
 const linesBody = document.getElementById('lines-body');
+const linesWrap = document.getElementById('lines-wrap');
 const linesEmpty = document.getElementById('lines-empty');
 const artInline = document.getElementById('art-inline');
 const artSuggest = document.getElementById('art-suggest');
@@ -219,7 +237,6 @@ let hideCustSuggestTimer = null;
 let justAddedId = null;
 let justAddedTimer = null;
 let suggestFlashId = null;
-let suggestFlashLabel = '';
 let suggestFlashTimer = null;
 
 document.querySelector('.app')?.classList.remove('inv-compose-mode');
@@ -304,23 +321,27 @@ function recalc(){
   renderLines();
 }
 
-function flashSuggestRow(id, bumped){
+function lineQtyForArticle(id){
+  const l = lines.find(x => x.id === id);
+  if (!l) return 0;
+  const q = parseFloat(l.qty);
+  return isFinite(q) ? q : 0;
+}
+
+function flashSuggestRow(id){
   suggestFlashId = id;
-  suggestFlashLabel = bumped ? 'Količina +1' : 'Dodato';
   if (suggestFlashTimer) clearTimeout(suggestFlashTimer);
   suggestFlashTimer = setTimeout(() => {
     suggestFlashId = null;
-    suggestFlashLabel = '';
     suggestFlashTimer = null;
     if (artSuggest && !artSuggest.hidden) {
-      const row = artSuggest.querySelector('.inv-suggest-row.is-added');
-      if (row) {
+      artSuggest.querySelectorAll('.inv-suggest-row.is-added').forEach(row => {
         row.classList.remove('is-added');
-        const badge = row.querySelector('.inv-suggest-added');
-        if (badge) badge.remove();
-      }
+        const pulse = row.querySelector('.inv-suggest-added.is-pulse');
+        if (pulse) pulse.classList.remove('is-pulse');
+      });
     }
-  }, 1400);
+  }, 1200);
 }
 
 function markJustAdded(id){
@@ -329,7 +350,7 @@ function markJustAdded(id){
   justAddedTimer = setTimeout(() => {
     justAddedId = null;
     justAddedTimer = null;
-    const row = linesBody && linesBody.querySelector('.inv-line.is-just-added');
+    const row = linesBody && linesBody.querySelector('tr.inv-line.is-just-added');
     if (row) row.classList.remove('is-just-added');
   }, 900);
 }
@@ -337,7 +358,6 @@ function markJustAdded(id){
 function addArticle(a){
   if (!a) return;
   const existing = lines.find(l => l.id === a.id);
-  const bumped = !!existing;
   if (existing) {
     existing.qty = (parseFloat(existing.qty)||0) + 1;
   } else {
@@ -348,7 +368,7 @@ function addArticle(a){
   cancelHideSuggest();
   artInline.value = '';
   suggestIndex = -1;
-  flashSuggestRow(a.id, bumped);
+  flashSuggestRow(a.id);
   markJustAdded(a.id);
   recalc();
   requestAnimationFrame(() => {
@@ -412,13 +432,17 @@ function renderSuggest(q){
   built.sections.forEach(sec => {
     if (sec.label) html += `<div class="inv-suggest-label">${sec.label}</div>`;
     sec.items.forEach(a => {
+      const qtyOnInv = lineQtyForArticle(a.id);
+      const isOnInv = qtyOnInv > 0;
       const isFlash = suggestFlashId === a.id;
-      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isFlash?' is-added':''}" data-si="${idx}" data-aid="${a.id}">
+      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${isFlash?' is-added':''}" data-si="${idx}" data-aid="${a.id}">
         <span class="modal-code">${esc(a.code)}</span>
         <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}</span></span>
-        ${isFlash
-          ? `<span class="inv-suggest-added" aria-live="polite"><i data-lucide="check" aria-hidden="true"></i>${esc(suggestFlashLabel)}</span>`
-          : `<span class="modal-row-side"><span class="modal-row-price">${money(a.price)}</span><span class="modal-row-vat">PDV ${a.vat}%</span></span>`}
+        ${isOnInv ? `<span class="inv-suggest-added${isFlash?' is-pulse':''}" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>'}
+        <span class="modal-row-side">
+          <span class="modal-row-price">${money(a.price)}</span>
+          <span class="modal-row-vat">PDV ${a.vat}%</span>
+        </span>
       </button>`;
       idx += 1;
     });
@@ -434,23 +458,23 @@ function renderSuggest(q){
 function renderLines(){
   const hasLines = lines.length > 0;
   linesEmpty.hidden = hasLines;
-  linesBody.hidden = !hasLines;
+  if (linesWrap) linesWrap.hidden = !hasLines;
   linesBody.innerHTML = '';
   if (!hasLines) return;
 
   lines.forEach((l, i)=>{
     const a = lineAmounts(l);
-    const row = document.createElement('div');
-    row.className = 'inv-line' + (l.open ? ' is-open' : '') + (justAddedId === l.id ? ' is-just-added' : '');
-    row.innerHTML = `
-      <input type="hidden" name="line_article_id" value="${l.id}">
-      <input type="hidden" name="line_qty" value="${l.qty}">
-      <input type="hidden" name="line_price" value="${l.price}">
-      <input type="hidden" name="line_discount" value="${l.discount||0}">
-      <input type="hidden" name="line_code" value="${esc(l.code)}">
-      <input type="hidden" name="line_name" value="${esc(l.name)}">
-      <input type="hidden" name="line_vat" value="${l.vat||0}">
-      <div class="inv-line-main">
+    const main = document.createElement('tr');
+    main.className = 'inv-line' + (l.open ? ' is-open' : '') + (justAddedId === l.id ? ' is-just-added' : '');
+    main.innerHTML = `
+      <td class="inv-line-art">
+        <input type="hidden" name="line_article_id" value="${l.id}">
+        <input type="hidden" name="line_qty" value="${l.qty}">
+        <input type="hidden" name="line_price" value="${l.price}">
+        <input type="hidden" name="line_discount" value="${l.discount||0}">
+        <input type="hidden" name="line_code" value="${esc(l.code)}">
+        <input type="hidden" name="line_name" value="${esc(l.name)}">
+        <input type="hidden" name="line_vat" value="${l.vat||0}">
         <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="Više detalja">
           <span class="inv-line-chev" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
           <span class="inv-line-text">
@@ -458,27 +482,39 @@ function renderLines(){
             <span class="inv-line-sub muted">${esc(l.code)} · ${esc(l.unit||'kom')}</span>
           </span>
         </button>
+      </td>
+      <td class="num inv-line-disc-cell">
         <label class="inv-line-disc" title="Popust %">
           <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="Popust %" value="${money(l.discount||0)}">
           <span class="inv-disc-suffix">%</span>
         </label>
+      </td>
+      <td class="num inv-line-qty-cell">
         <div class="inv-qty">
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="-1" aria-label="Manje">−</button>
           <input class="inv-qty-input" data-i="${i}" data-f="qty" inputmode="decimal" value="${qtyFmt(l.qty)}">
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
         </div>
-        <strong class="inv-line-total">${money(a.gross)}</strong>
+      </td>
+      <td class="num inv-line-total">${money(a.gross)}</td>
+      <td class="inv-line-actions">
         <button type="button" class="inv-line-del" data-del="${i}" aria-label="Ukloni" title="Ukloni">
           <i data-lucide="x"></i>
         </button>
-      </div>
-      <div class="inv-line-detail" ${l.open ? '' : 'hidden'}>
+      </td>`;
+    linesBody.appendChild(main);
+
+    const detail = document.createElement('tr');
+    detail.className = 'inv-line-detail-row' + (l.open ? ' is-open' : '');
+    if (!l.open) detail.hidden = true;
+    detail.innerHTML = `
+      <td colspan="5">
         <div class="inv-line-fields">
           <label>VP cijena<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
           <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)}</strong></div>
         </div>
-      </div>`;
-    linesBody.appendChild(row);
+      </td>`;
+    linesBody.appendChild(detail);
   });
   if (window.sepkoIcons) window.sepkoIcons();
 

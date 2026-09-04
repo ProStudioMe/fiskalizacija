@@ -19,8 +19,8 @@
   --topbar: transparent;
   --accent: #5a32d6;
   --accent-soft: #ebe4ff;
-  --cta: #1740e8;
-  --cta-hover: #1235c4;
+  --cta: #5a32d6;
+  --cta-hover: #4c2bc0;
   --danger: #d93025;
   --ok: #0d7a4f;
   --warn: #b45309;
@@ -1349,8 +1349,8 @@ button.danger:hover, .btn.danger:hover { background: #fef2f2; }
   max-width: none;
   margin: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
-  gap: 1.15rem;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 300px);
+  gap: 1rem;
   align-items: start;
 }
 .inv-compose-main {
@@ -1554,33 +1554,81 @@ button.danger:hover, .btn.danger:hover { background: #fef2f2; }
   font-size: 1rem;
 }
 .inv-suggest-row.is-added {
-  background: color-mix(in srgb, var(--ok) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--ok) 28%, var(--line));
   animation: inv-suggest-flash 0.85s ease;
+}
+.inv-suggest-row.is-on-invoice {
+  background: color-mix(in srgb, var(--ok) 6%, transparent);
+}
+.inv-suggest-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(9.5rem, max-content) auto;
+  gap: 0.55rem 0.75rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 92%, var(--ink));
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: none;
+}
+.inv-suggest-row:last-child { border-bottom: none; }
+.inv-suggest-row:hover,
+.inv-suggest-row.is-active,
+.inv-suggest-row:focus-visible {
+  background: var(--row-hover);
+  color: var(--ink);
+  outline: none;
+}
+.inv-suggest-added-slot {
+  display: block;
+  min-width: 1px;
+  min-height: 1px;
+  justify-self: center;
+}
+.inv-suggest-row .modal-row-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+  flex-shrink: 0;
+  justify-self: end;
 }
 .inv-suggest-added {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
+  justify-self: center;
   flex-shrink: 0;
-  padding: 0.2rem 0.55rem;
+  padding: 0.28rem 0.65rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ok) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--line));
   color: var(--ok);
   font-size: 0.75rem;
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+  line-height: 1.2;
   white-space: nowrap;
-  animation: inv-suggest-badge-in 0.2s ease;
 }
 .inv-suggest-added svg {
   width: 13px;
   height: 13px;
   display: block;
+  flex-shrink: 0;
+}
+.inv-suggest-added.is-pulse {
+  animation: inv-suggest-badge-in 0.22s ease;
+  background: color-mix(in srgb, var(--ok) 28%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 50%, var(--line));
 }
 @keyframes inv-suggest-badge-in {
-  from { opacity: 0; transform: scale(0.9); }
+  from { opacity: 0; transform: scale(0.85); }
   to { opacity: 1; transform: scale(1); }
 }
 @keyframes inv-suggest-flash {
@@ -1633,29 +1681,6 @@ button.danger:hover, .btn.danger:hover { background: #fef2f2; }
   color: var(--muted);
 }
 .inv-suggest-empty { padding: 0.85rem 1rem; }
-.inv-suggest-row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  width: 100%;
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  box-shadow: none;
-}
-.inv-suggest-row:last-child { border-bottom: none; }
-.inv-suggest-row:hover,
-.inv-suggest-row.is-active,
-.inv-suggest-row:focus-visible {
-  background: var(--row-hover);
-  color: var(--ink);
-  outline: none;
-}
 .inv-line-list {
   margin-top: 0.75rem;
   display: flex;
@@ -1668,6 +1693,12 @@ button.danger:hover, .btn.danger:hover { background: #fef2f2; }
   border-radius: var(--radius-sm);
   background: var(--soft-3);
   overflow: hidden;
+}
+tr.inv-line {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
 }
 .inv-line-main {
   display: grid;
@@ -2707,7 +2738,7 @@ html[data-theme="dark"] .inv-suggest {
 html[data-theme="dark"] .inv-suggest-row {
   background: transparent;
   color: var(--ink);
-  border-bottom-color: var(--line);
+  border-bottom-color: #353245;
 }
 html[data-theme="dark"] .inv-suggest-row:hover,
 html[data-theme="dark"] .inv-suggest-row.is-active {
@@ -2715,8 +2746,11 @@ html[data-theme="dark"] .inv-suggest-row.is-active {
   color: var(--ink);
 }
 html[data-theme="dark"] .inv-suggest-row.is-added {
-  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  background: transparent;
   color: var(--ink);
+}
+html[data-theme="dark"] .inv-suggest-row.is-on-invoice {
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
 }
 html[data-theme="dark"] .inv-freq-chip {
   background: var(--surface);
@@ -2732,6 +2766,10 @@ html[data-theme="dark"] .inv-freq-chip:focus-visible {
 html[data-theme="dark"] .inv-line {
   background: var(--soft-2);
   border-color: var(--line);
+}
+html[data-theme="dark"] tr.inv-line {
+  background: transparent;
+  border: none;
 }
 html[data-theme="dark"] .inv-qty {
   background: var(--surface);

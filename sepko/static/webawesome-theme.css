@@ -16,11 +16,31 @@ html.wa-theme-shoelace {
 
 /* Brand / accent → Sepko purple */
 html.wa-theme-shoelace {
-  --wa-color-brand-50: var(--accent);
-  --wa-color-brand-40: var(--accent);
-  --wa-color-brand-60: var(--cta);
+  --wa-color-brand-50: #ede7ff;
+  --wa-color-brand-40: #b9a0f5;
+  --wa-color-brand-60: var(--accent);
+  --wa-color-brand-70: var(--cta);
+  --wa-color-brand-80: var(--cta-hover);
   --wa-color-focus: var(--accent);
   --wa-color-text-link: var(--accent);
+}
+
+html.wa-theme-shoelace.wa-dark {
+  --wa-color-brand-50: rgba(103, 61, 230, 0.18);
+  --wa-color-brand-40: #b29af5;
+  --wa-color-brand-60: var(--accent);
+  --wa-color-brand-70: var(--cta);
+  --wa-color-brand-80: var(--cta-hover);
+}
+
+.inv-compose-form wa-button[variant="brand"]::part(base) {
+  background: var(--cta);
+  border-color: var(--cta);
+  color: #fff;
+}
+.inv-compose-form wa-button[variant="brand"]:hover::part(base) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
 }
 
 html.wa-theme-shoelace.wa-light,
@@ -141,6 +161,62 @@ wa-alert {
   color: var(--muted);
   min-height: auto;
   padding-inline: 0.55rem;
+}
+.inv-cash-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0 0 1.15rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  background: color-mix(in srgb, var(--warn) 14%, var(--surface));
+  color: var(--ink);
+}
+.inv-cash-banner-ico {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
+}
+.inv-cash-banner-ico svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+}
+.inv-cash-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.inv-cash-banner-body strong {
+  font-weight: 700;
+}
+.inv-cash-banner-body span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.inv-cash-banner-btn {
+  flex-shrink: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .inv-cash-banner {
+    flex-wrap: wrap;
+  }
+  .inv-cash-banner-btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 .inv-cash-alert {
   margin-bottom: 1.25rem;

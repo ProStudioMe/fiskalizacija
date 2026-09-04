@@ -149,3 +149,74 @@ html[data-theme="dark"] .fb-table thead {
 html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
   color: #b29af5;
 }
+
+/* Invoice lines */
+.fb-table--lines {
+  table-layout: fixed;
+}
+.fb-table--lines thead th.num,
+.fb-table--lines td.inv-line-disc-cell,
+.fb-table--lines td.inv-line-qty-cell {
+  width: 7rem;
+}
+.fb-table--lines td.inv-line-total {
+  width: 5.5rem;
+  font-weight: 600;
+  color: #b29af5;
+  font-size: 0.95rem;
+}
+.fb-table--lines thead th.inv-line-actions-h,
+.fb-table--lines td.inv-line-actions {
+  width: 2.75rem;
+  padding-left: 0.25rem;
+  padding-right: 0.5rem;
+  text-align: center;
+}
+.fb-table--lines td.inv-line-art {
+  color: var(--ink);
+}
+.fb-table--lines td.inv-line-disc-cell,
+.fb-table--lines td.inv-line-qty-cell {
+  text-align: right;
+}
+.fb-table--lines td.inv-line-disc-cell .inv-line-disc,
+.fb-table--lines td.inv-line-qty-cell .inv-qty {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.fb-table--lines tr.inv-line.is-just-added td {
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+.fb-table--lines tr.inv-line-detail-row td {
+  padding-top: 0.15rem;
+  padding-bottom: 0.75rem;
+  background: color-mix(in srgb, var(--soft) 55%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.fb-table--lines tr.inv-line-detail-row[hidden] {
+  display: none;
+}
+.inv-lines-table-wrap {
+  margin-top: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.inv-lines-compose .inv-lines-table-wrap .fb-table thead {
+  background: color-mix(in srgb, var(--soft) 70%, transparent);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+html[data-theme="dark"] .fb-table--lines td.inv-line-total {
+  color: #b29af5;
+}
