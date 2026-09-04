@@ -10,7 +10,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sepko import __version__
 from sepko.config import get_settings
 from sepko.db import dispose_async_engine, init_db
-from sepko.routers import health, invoices
+from sepko.routers import bookkeeping, health, invoices
 from sepko.routers import settings as settings_router
 from sepko.security_middleware import (
     AuditBindMiddleware,
@@ -21,6 +21,10 @@ from sepko.security_middleware import (
 from sepko.web import router as web_router
 from sepko.web_admin import router as admin_router
 from sepko.web_finansije import router as finansije_router
+from sepko.web_izvjestaji import router as izvjestaji_router
+from sepko.web_pwa import router as pwa_router
+from sepko.web_troskovi import router as troskovi_router
+from sepko.web_ulazne import router as ulazne_router
 from sepko.web_auth import AdminAuthRequired, AuthRequired, TenantSuspended, logout_user
 from sepko.web_security import flash
 
@@ -70,10 +74,15 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.include_router(health.router)
 app.include_router(invoices.router)
+app.include_router(bookkeeping.router)
 app.include_router(settings_router.router)
 app.include_router(web_router)
 app.include_router(admin_router)
 app.include_router(finansije_router)
+app.include_router(ulazne_router)
+app.include_router(troskovi_router)
+app.include_router(pwa_router)
+app.include_router(izvjestaji_router)
 
 
 @app.get("/cron/raspored")

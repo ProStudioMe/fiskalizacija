@@ -25,6 +25,7 @@ from sepko.efi import (
     load_tenant_ui,
     normalize_ui_language,
     parse_display_inv_num,
+    display_inv_num,
     save_tenant_company,
     save_tenant_fiscal,
     save_tenant_ui,
@@ -50,9 +51,11 @@ from sepko.services import (
     fiscalize_invoice,
     fiscalize_invoices,
     fiscalize_saved_invoice,
+    invoice_is_editable,
     preview_inv_num,
     register_cash_deposit,
     save_draft_invoice,
+    update_draft_invoice,
 )
 from sepko.web_auth import (
     AuthRequired,
@@ -112,13 +115,16 @@ def _with_per_page_cookie(response, per_page: int, set_cookie: bool):
 
 
 def _parse_nonneg_money(raw: str) -> Decimal | None:
-    try:
-        value = Decimal(str(raw or "0").replace(",", ".").strip() or "0")
-    except Exception:
-        return None
-    if value < 0 or value > Decimal("10000000"):
-        return None
-    return value
+    from sepko.money import parse_nonneg_money
+
+    return parse_nonneg_money(raw)
+
+
+def _parse_discount_pct(raw: str) -> Decimal:
+    """Popust 0–100 %. Neispravan unos → 0."""
+    from sepko.money import parse_discount_pct
+
+    return parse_discount_pct(raw)
 
 
 def _paginate(query, page: int, per_page: int):
@@ -260,7 +266,8 @@ def _build_invoice_list(
         query = query.filter(or_(*search_clauses))
     if status_val and status_val != "all":
         if status_val == "pending":
-            query = query.filter(Invoice.status.in_(["pending", "draft"]))
+            # Nefiskalizovani: nacrti, u toku i neuspješni (sve što nije fiscalized)
+            query = query.filter(Invoice.status.in_(["pending", "draft", "failed"]))
         else:
             query = query.filter(Invoice.status == status_val)
     if client_val:
@@ -919,6 +926,7 @@ async def customers_create(
     tax_card_number: str = Form(""),
     contact: str = Form(""),
     notes: str = Form(""),
+    discount_pct: str = Form("0"),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -956,6 +964,7 @@ async def customers_create(
         contact=(contact.strip() or None),
         address=(", ".join(addr_parts) if addr_parts else None),
         notes=(notes.strip() or None),
+        discount_pct=_parse_discount_pct(discount_pct),
         active=True,
     )
     db.add(customer)
@@ -990,6 +999,7 @@ async def customers_update(
     tax_card_number: str = Form(""),
     contact: str = Form(""),
     notes: str = Form(""),
+    discount_pct: str = Form("0"),
     remove_logo: str = Form(""),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
@@ -1015,6 +1025,7 @@ async def customers_update(
     customer.tax_card_number = tax_card_number.strip() or None
     customer.contact = contact.strip() or None
     customer.notes = notes.strip() or None
+    customer.discount_pct = _parse_discount_pct(discount_pct)
     customer.address = customer.composed_address()
     customer.active = True
 
@@ -1128,12 +1139,11 @@ def cash_submit(
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/blagajna")
     try:
-        amt = Decimal(amount)
+        amt = _parse_nonneg_money(amount)
+        if amt is None:
+            raise ValueError("bad amount")
     except Exception:
         flash(request, "Neispravan iznos.", "error")
-        return redirect("/blagajna")
-    if amt < 0 or amt > Decimal("10000000"):
-        flash(request, "Iznos mora biti od 0 do 10.000.000.", "error")
         return redirect("/blagajna")
     result = register_cash_deposit(
         db,
@@ -1141,7 +1151,9 @@ def cash_submit(
         CashDepositRequest(operation=operation, amount=amt),
     )
     if result.status == "registered":
-        flash(request, f"{result.operation} {result.amount} € — registrovano.")
+        from sepko.money import format_amount
+
+        flash(request, f"{result.operation} {format_amount(result.amount)} € — registrovano.")
     else:
         flash(request, result.error_message or "Depozit nije uspio.", "error")
     return redirect("/blagajna")
@@ -1252,12 +1264,41 @@ def invoices_list(
     return _with_per_page_cookie(resp, size, set_cookie)
 
 
+def _safe_return_to(raw: str | None) -> str | None:
+    """Dozvoli samo interne putanje (npr. /racuni/raspored?new=1)."""
+    from urllib.parse import unquote
+
+    path = unquote((raw or "").strip())
+    if not path.startswith("/") or path.startswith("//") or "://" in path:
+        return None
+    return path[:200]
+
+
 def _schedule_templates(db: Session, tenant: Tenant) -> list[Invoice]:
+    """Šabloni za raspored: označeni is_template + već vezani na raspored."""
+    used_ids = {
+        r[0]
+        for r in db.query(InvoiceSchedule.template_invoice_id)
+        .filter(InvoiceSchedule.tenant_id == tenant.id)
+        .all()
+    }
+    q = db.query(Invoice).filter(Invoice.tenant_id == tenant.id)
+    if used_ids:
+        q = q.filter(or_(Invoice.is_template.is_(True), Invoice.id.in_(used_ids)))
+    else:
+        q = q.filter(Invoice.is_template.is_(True))
+    marked = q.order_by(Invoice.is_template.desc(), Invoice.id.desc()).limit(200).all()
+    if marked:
+        return marked
+    # Fallback: nacrti / nefiskalizovane (dok nema označenih šablona)
     return (
         db.query(Invoice)
-        .filter(Invoice.tenant_id == tenant.id)
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.status.in_(["draft", "pending", "failed"]),
+        )
         .order_by(Invoice.id.desc())
-        .limit(200)
+        .limit(50)
         .all()
     )
 
@@ -1266,6 +1307,7 @@ def _schedule_templates(db: Session, tenant: Tenant) -> list[Invoice]:
 def schedules_page(
     request: Request,
     edit: int | None = Query(None),
+    new: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1286,6 +1328,7 @@ def schedules_page(
             .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == edit)
             .first()
         )
+    show_form = bool(editing) or bool(new)
     return render(
         request,
         "schedules.html",
@@ -1294,7 +1337,8 @@ def schedules_page(
             "tenant": tenant,
             "schedules": schedules,
             "editing": editing,
-            "templates": _schedule_templates(db, tenant),
+            "show_form": show_form,
+            "templates": _schedule_templates(db, tenant) if show_form else [],
         },
     )
 
@@ -1306,6 +1350,8 @@ def schedules_create(
     name: str = Form(...),
     template_invoice_id: int = Form(...),
     days_of_month: str = Form("1"),
+    contract_number: str = Form(""),
+    period_mode: str = Form("previous"),
     email_to: str = Form(""),
     auto_fiscalize: str = Form(""),
     auto_email: str = Form(""),
@@ -1319,7 +1365,7 @@ def schedules_create(
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/racuni/raspored")
-    from sepko.schedules import format_days_of_month, parse_days_of_month
+    from sepko.schedules import format_days_of_month, normalize_period_mode, parse_days_of_month
 
     tmpl = (
         db.query(Invoice)
@@ -1339,13 +1385,17 @@ def schedules_create(
         if cust:
             customer_id = cust.id
     days = format_days_of_month(parse_days_of_month(days_of_month))
+    if not tmpl.is_template and tmpl.status != "fiscalized":
+        tmpl.is_template = True
     db.add(
         InvoiceSchedule(
             tenant_id=tenant.id,
-            name=name.strip() or f"Raspored {tmpl.id}",
+            name=name.strip() or f"Automatska {tmpl.id}",
             template_invoice_id=tmpl.id,
             customer_id=customer_id,
             days_of_month=days,
+            contract_number=(contract_number.strip() or None),
+            period_mode=normalize_period_mode(period_mode),
             email_to=(email_to.strip() or None),
             auto_fiscalize=auto_fiscalize in ("1", "on", "true"),
             auto_email=auto_email in ("1", "on", "true"),
@@ -1353,7 +1403,7 @@ def schedules_create(
         )
     )
     db.commit()
-    flash(request, "Raspored sačuvan.")
+    flash(request, "Automatska faktura sačuvana.")
     return redirect("/racuni/raspored")
 
 
@@ -1385,6 +1435,8 @@ def schedules_update(
     name: str = Form(...),
     template_invoice_id: int = Form(...),
     days_of_month: str = Form("1"),
+    contract_number: str = Form(""),
+    period_mode: str = Form("previous"),
     email_to: str = Form(""),
     auto_fiscalize: str = Form(""),
     auto_email: str = Form(""),
@@ -1398,7 +1450,7 @@ def schedules_update(
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/racuni/raspored")
-    from sepko.schedules import format_days_of_month, parse_days_of_month
+    from sepko.schedules import format_days_of_month, normalize_period_mode, parse_days_of_month
 
     sch = (
         db.query(InvoiceSchedule)
@@ -1406,7 +1458,7 @@ def schedules_update(
         .first()
     )
     if not sch:
-        flash(request, "Raspored nije pronađen.", "error")
+        flash(request, "Automatska faktura nije pronađena.", "error")
         return redirect("/racuni/raspored")
     tmpl = (
         db.query(Invoice)
@@ -1429,12 +1481,16 @@ def schedules_update(
     sch.template_invoice_id = tmpl.id
     sch.customer_id = customer_id
     sch.days_of_month = format_days_of_month(parse_days_of_month(days_of_month))
+    sch.contract_number = contract_number.strip() or None
+    sch.period_mode = normalize_period_mode(period_mode)
     sch.email_to = email_to.strip() or None
     sch.auto_fiscalize = auto_fiscalize in ("1", "on", "true")
     sch.auto_email = auto_email in ("1", "on", "true")
     sch.active = active in ("1", "on", "true")
+    if not tmpl.is_template and tmpl.status != "fiscalized":
+        tmpl.is_template = True
     db.commit()
-    flash(request, "Raspored ažuriran.")
+    flash(request, "Automatska faktura ažurirana.")
     return redirect("/racuni/raspored")
 
 
@@ -1460,7 +1516,7 @@ def schedules_run_one(
         .first()
     )
     if not sch:
-        flash(request, "Raspored nije pronađen.", "error")
+        flash(request, "Automatska faktura nije pronađena.", "error")
         return redirect("/racuni/raspored")
     result = run_schedule(db, tenant, sch, force=True)
     flash(request, result.get("message") or "Gotovo.", "ok" if result.get("ok") else "error")
@@ -1487,11 +1543,11 @@ def schedules_delete(
         .first()
     )
     if not sch:
-        flash(request, "Raspored nije pronađen.", "error")
+        flash(request, "Automatska faktura nije pronađena.", "error")
         return redirect("/racuni/raspored")
     sch.active = False
     db.commit()
-    flash(request, "Raspored deaktiviran.")
+    flash(request, "Automatska faktura deaktivirana.")
     return redirect("/racuni/raspored")
 
 
@@ -1533,148 +1589,182 @@ def invoices_copy(
     return redirect("/racuni?status=pending")
 
 
-@router.get("/racuni/novi", response_class=HTMLResponse)
-def invoice_new_page(request: Request, db: Session = Depends(get_db)):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    articles = (
-        db.query(Article)
-        .filter(Article.tenant_id == tenant.id, Article.active.is_(True))
-        .order_by(Article.code)
-        .all()
-    )
-    customers = (
-        db.query(Customer)
-        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
-        .order_by(Customer.name)
-        .all()
-    )
-    next_num, next_ord = preview_inv_num(db, tenant)
-    day = cash_day_summary(db, tenant)
-    due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
-    return render(
-        request,
-        "invoice_new.html",
-        {
-            "user": user,
-            "tenant": tenant,
-            "articles": articles,
-            "customers": customers,
-            "next_inv_num": next_num,
-            "next_ord": next_ord,
-            "next_display_num": f"1-1-{next_ord}/{datetime.now(timezone.utc).year}",
-            "day": day,
-            "due_date_default": due_default,
-        },
-    )
+def _parse_invoice_notes(notes: str | None) -> dict[str, str]:
+    """Iz notes blob-a izvuci rok, fiskalnu napomenu, opis, popust %, ugovor i period."""
+    due_date = ""
+    fiscal_note = ""
+    discount_pct = "0"
+    contract_number = ""
+    period = ""
+    desc_parts: list[str] = []
+    for line in (notes or "").splitlines():
+        raw = line.strip()
+        low = raw.lower()
+        if low.startswith("rok plaćanja:"):
+            due_date = raw.split(":", 1)[-1].strip()
+        elif low.startswith("napomena fiskalizacija:"):
+            fiscal_note = raw.split(":", 1)[-1].strip()
+        elif low.startswith("broj ugovora:"):
+            contract_number = raw.split(":", 1)[-1].strip()
+        elif low.startswith("period:"):
+            period = raw.split(":", 1)[-1].strip()
+        elif low.startswith("popust na račun:"):
+            raw_pct = raw.split(":", 1)[-1].strip().rstrip("%").strip()
+            try:
+                discount_pct = str(Decimal(raw_pct))
+            except Exception:
+                discount_pct = "0"
+        elif low.startswith("raspored:") or low.startswith("trajna faktura:") or low.startswith("automatska faktura:"):
+            continue
+        elif raw:
+            desc_parts.append(raw)
+    due_iso = due_date
+    due_display = due_date
+    if due_date and "T" not in due_date and len(due_date) == 10 and due_date[4] == "-":
+        try:
+            due_display = datetime.strptime(due_date, "%Y-%m-%d").strftime("%d.%m.%Y")
+            due_iso = due_date
+        except ValueError:
+            pass
+    elif due_date:
+        cleaned = due_date.replace(" ", "").rstrip(".")
+        try:
+            due_iso = datetime.strptime(cleaned, "%d.%m.%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return {
+        "due_date": due_display,
+        "due_date_iso": due_iso if len(due_iso) == 10 and due_iso[4:5] == "-" else "",
+        "fiscal_note": fiscal_note,
+        "desc_note": "\n".join(desc_parts),
+        "discount_pct": discount_pct,
+        "contract_number": contract_number,
+        "period": period,
+    }
 
 
-@router.post("/racuni/novi")
-def invoice_new_submit(
-    request: Request,
-    csrf_token: str = Form(""),
-    line_article_id: list[str] = Form(default=[]),
-    line_qty: list[str] = Form(default=[]),
-    line_price: list[str] = Form(default=[]),
-    line_discount: list[str] = Form(default=[]),
-    discount_pct: str = Form("0"),
-    payment_method: str = Form("BANKNOTE"),
-    customer_id: str = Form(""),
-    buyer_pib: str = Form(""),
-    buyer_name: str = Form(""),
-    due_date: str = Form(""),
-    fiscal_note: str = Form(""),
-    notes: str = Form(""),
-    action: str = Form("fiscalize"),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
+def _build_fiscalize_request_from_form(
+    db: Session,
+    tenant: Tenant,
+    *,
+    article_ids: list[str],
+    qtys: list[str],
+    prices: list[str],
+    line_discounts: list[str],
+    line_codes: list[str] | None = None,
+    line_names: list[str] | None = None,
+    line_vats: list[str] | None = None,
+    discount_pct: str = "0",
+    payment_method: str = "BANKNOTE",
+    customer_id: str = "",
+    buyer_pib: str = "",
+    buyer_name: str = "",
+    due_date: str = "",
+    fiscal_note: str = "",
+    notes: str = "",
+    external_id: str | None = None,
+) -> tuple[FiscalizeRequest | None, str | None]:
+    """Zajednički parser forme nove/izmjene fakture. Vraća (req, None) ili (None, error)."""
+    from sepko.money import parse_amount, parse_discount_pct, parse_nonneg_money
 
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/racuni/novi")
-
-    article_ids = line_article_id
-    qtys = line_qty
-    prices = line_price
-    line_discounts = line_discount
-
+    line_codes = line_codes or []
+    line_names = line_names or []
+    line_vats = line_vats or []
     lines: list[InvoiceLineIn] = []
     for i, aid in enumerate(article_ids):
-        if not aid:
-            continue
-        article = (
-            db.query(Article)
-            .filter(Article.tenant_id == tenant.id, Article.id == int(aid))
-            .first()
-        )
-        if not article:
-            continue
-        qty = Decimal(str(qtys[i] if i < len(qtys) and qtys[i] else "0"))
+        qty = parse_amount(qtys[i] if i < len(qtys) and qtys[i] else "0", quantize=None) or Decimal("0")
         if qty <= 0:
             continue
-        unit_gross = Decimal(
-            str(prices[i] if i < len(prices) and prices[i] else article.price_gross)
-        )
-        disc = Decimal(str(line_discounts[i] if i < len(line_discounts) and line_discounts[i] else "0"))
-        if disc < 0:
-            disc = Decimal("0")
-        if disc > 100:
-            disc = Decimal("100")
-        rate = article.vat_rate / Decimal("100")
-        gross = (unit_gross * qty * (Decimal("1") - disc / Decimal("100"))).quantize(
+        article = None
+        if aid and str(aid).lstrip("-").isdigit():
+            try:
+                article = (
+                    db.query(Article)
+                    .filter(Article.tenant_id == tenant.id, Article.id == int(aid))
+                    .first()
+                )
+            except (TypeError, ValueError):
+                article = None
+
+        disc = parse_discount_pct(line_discounts[i] if i < len(line_discounts) else "0")
+
+        if article:
+            unit_net = parse_nonneg_money(
+                prices[i] if i < len(prices) and prices[i] else article.price_gross,
+                quantize=None,
+            )
+            if unit_net is None:
+                unit_net = Decimal(str(article.price_gross))
+            vat_rate = article.vat_rate
+            code = article.code
+            name = article.name
+        else:
+            code = (line_codes[i] if i < len(line_codes) else "") or ""
+            name = (line_names[i] if i < len(line_names) else "") or ""
+            if not code and not name:
+                continue
+            unit_net = parse_nonneg_money(
+                prices[i] if i < len(prices) and prices[i] else "0",
+                quantize=None,
+            ) or Decimal("0")
+            vat_rate = parse_amount(
+                line_vats[i] if i < len(line_vats) and line_vats[i] else "21",
+                quantize="0.01",
+            ) or Decimal("21")
+
+        rate = vat_rate / Decimal("100")
+        line_net = (unit_net * qty * (Decimal("1") - disc / Decimal("100"))).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-        net_unit = (unit_gross / (Decimal("1") + rate)).quantize(
-            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        line_vat = (line_net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        gross = (line_net + line_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if disc > 0 and "(popust" not in name.lower():
+            name = f"{name} (popust {disc}%)"
+        eff_unit = (
+            (line_net / qty).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+            if qty
+            else unit_net
         )
-        name = article.name
-        if disc > 0:
-            name = f"{article.name} (popust {disc}%)"
         lines.append(
             InvoiceLineIn(
-                code=article.code,
-                name=name,
+                code=code or "STAVKA",
+                name=name or "Stavka",
                 quantity=qty,
-                unit_price_net=net_unit,
-                vat_rate=article.vat_rate,
+                unit_price_net=eff_unit,
+                vat_rate=vat_rate,
                 total_gross=gross,
             )
         )
 
     if not lines:
-        flash(request, "Dodajte barem jednu stavku.", "error")
-        return redirect("/racuni/novi")
+        return None, "Dodajte barem jednu stavku."
 
-    inv_discount = Decimal(str(discount_pct or "0"))
-    if inv_discount < 0:
-        inv_discount = Decimal("0")
-    if inv_discount > 100:
-        inv_discount = Decimal("100")
+    inv_discount = parse_discount_pct(discount_pct)
     if inv_discount > 0:
         factor = Decimal("1") - inv_discount / Decimal("100")
-        lines = [
-            ln.model_copy(
-                update={
-                    "total_gross": (ln.total_gross * factor).quantize(
-                        Decimal("0.01"), rounding=ROUND_HALF_UP
-                    )
-                }
+        adjusted: list[InvoiceLineIn] = []
+        for ln in lines:
+            line_net = (ln.unit_price_net * ln.quantity * factor).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
             )
-            for ln in lines
-        ]
+            rate = ln.vat_rate / Decimal("100")
+            line_vat = (line_net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            gross = (line_net + line_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            eff_unit = (
+                (line_net / ln.quantity).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+                if ln.quantity
+                else ln.unit_price_net
+            )
+            adjusted.append(
+                ln.model_copy(update={"unit_price_net": eff_unit, "total_gross": gross})
+            )
+        lines = adjusted
 
     total_gross = sum((ln.total_gross for ln in lines), Decimal("0"))
     total_net = Decimal("0")
     total_vat = Decimal("0")
     for ln in lines:
-        rate = ln.vat_rate / Decimal("100")
-        net = (ln.total_gross / (Decimal("1") + rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        net = (ln.unit_price_net * ln.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         vat = (ln.total_gross - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         total_net += net
         total_vat += vat
@@ -1685,8 +1775,7 @@ def invoice_new_submit(
     try:
         payment_method = normalize_pay_method(payment_method)
     except ValueError:
-        flash(request, "Nepoznat tip plaćanja.", "error")
-        return redirect("/racuni/novi")
+        return None, "Nepoznat tip plaćanja."
     invoice_type = "CASH" if payment_method in CASH_PAY_METHODS else "NONCASH"
 
     buyer = None
@@ -1718,10 +1807,9 @@ def invoice_new_submit(
         note_parts.append(desc)
     if inv_discount > 0:
         note_parts.append(f"Popust na račun: {inv_discount}%")
-    notes = "\n".join(note_parts) or None
 
     req = FiscalizeRequest(
-        external_id=None,
+        external_id=external_id,
         issue_datetime=datetime.now(timezone.utc),
         invoice_type=invoice_type,
         payment_method=payment_method,
@@ -1729,12 +1817,231 @@ def invoice_new_submit(
         buyer=buyer,
         lines=lines,
         totals=TotalsIn(net=total_net, vat=total_vat, gross=total_gross),
+        notes="\n".join(note_parts) or None,
+    )
+    return req, None
+
+
+def _invoice_editor_context(
+    request: Request,
+    db: Session,
+    user,
+    tenant: Tenant,
+    *,
+    invoice: Invoice | None = None,
+    return_to: str | None = None,
+    as_template: bool = False,
+):
+    articles = (
+        db.query(Article)
+        .filter(Article.tenant_id == tenant.id, Article.active.is_(True))
+        .order_by(Article.code)
+        .all()
+    )
+    customers = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
+        .order_by(Customer.name)
+        .all()
+    )
+    next_num, next_ord = preview_inv_num(db, tenant)
+    day = cash_day_summary(db, tenant)
+    due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
+
+    prefill: dict | None = None
+    if invoice is not None:
+        parsed = _parse_invoice_notes(invoice.notes)
+        articles_by_code = {a.code: a for a in articles}
+        seen_ids = {a.id for a in articles}
+        # i neaktivni artikli po šifri — da se stavke mogu urediti
+        extra_codes = {
+            ln.code for ln in invoice.lines if ln.code and ln.code not in articles_by_code
+        }
+        if extra_codes:
+            for a in (
+                db.query(Article)
+                .filter(Article.tenant_id == tenant.id, Article.code.in_(extra_codes))
+                .all()
+            ):
+                articles_by_code[a.code] = a
+                if a.id not in seen_ids:
+                    articles.append(a)
+                    seen_ids.add(a.id)
+
+        prefill_lines = []
+        for ln in invoice.lines:
+            art = articles_by_code.get(ln.code)
+            # skinuti "(popust X%)" iz imena za prikaz
+            name = ln.name or ""
+            if " (popust " in name:
+                name = name.split(" (popust ", 1)[0]
+            prefill_lines.append(
+                {
+                    "id": art.id if art else f"x-{ln.id}",
+                    "code": ln.code,
+                    "name": name or (art.name if art else ln.code),
+                    "unit": (art.unit if art else "kom"),
+                    "price": float(ln.unit_price_net),
+                    "vat": float(ln.vat_rate),
+                    "qty": float(ln.quantity),
+                    "discount": 0,
+                }
+            )
+
+        customer_id = ""
+        customer_label = ""
+        if invoice.buyer_pib:
+            cust = (
+                db.query(Customer)
+                .filter(
+                    Customer.tenant_id == tenant.id,
+                    Customer.pib == invoice.buyer_pib,
+                    Customer.active.is_(True),
+                )
+                .first()
+            )
+            if cust:
+                customer_id = str(cust.id)
+                customer_label = f"{cust.name} ({cust.pib})"
+            elif invoice.buyer_name:
+                customer_label = f"{invoice.buyer_name} ({invoice.buyer_pib})"
+        elif invoice.buyer_name:
+            customer_label = invoice.buyer_name
+
+        prefill = {
+            "customer_id": customer_id,
+            "customer_label": customer_label,
+            "buyer_pib": "" if customer_id else (invoice.buyer_pib or ""),
+            "buyer_name": "" if customer_id else (invoice.buyer_name or ""),
+            "manual_buyer": not customer_id and bool(invoice.buyer_pib or invoice.buyer_name),
+            "payment_method": invoice.payment_method or "ORDER",
+            "due_date": parsed["due_date_iso"] or due_default,
+            "fiscal_note": parsed["fiscal_note"],
+            "notes": parsed["desc_note"],
+            "discount_pct": float(parsed["discount_pct"] or 0),
+            "lines": prefill_lines,
+        }
+
+    return {
+        "user": user,
+        "tenant": tenant,
+        "articles": articles,
+        "customers": customers,
+        "next_inv_num": (
+            next_num if invoice is None else (invoice.inv_num or invoice.external_id or "—")
+        ),
+        "next_ord": next_ord,
+        "next_display_num": (
+            f"1-1-{next_ord}/{datetime.now(timezone.utc).year}"
+            if invoice is None
+            else display_inv_num(invoice)
+        ),
+        "day": day,
+        "due_date_default": (
+            due_default if invoice is None else (prefill or {}).get("due_date", due_default)
+        ),
+        "editing": invoice,
+        "form_action": f"/racuni/{invoice.id}" if invoice else "/racuni/novi",
+        "prefill": prefill,
+        "return_to": return_to or "",
+        "as_template": bool(as_template or (invoice.is_template if invoice else False)),
+    }
+
+
+@router.get("/racuni/novi", response_class=HTMLResponse)
+def invoice_new_page(
+    request: Request,
+    return_to: str | None = Query(None),
+    as_template: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    ctx = _invoice_editor_context(
+        request,
+        db,
+        user,
+        tenant,
+        return_to=_safe_return_to(return_to),
+        as_template=bool(as_template),
+    )
+    return render(request, "invoice_new.html", ctx)
+
+
+@router.post("/racuni/novi")
+def invoice_new_submit(
+    request: Request,
+    csrf_token: str = Form(""),
+    line_article_id: list[str] = Form(default=[]),
+    line_qty: list[str] = Form(default=[]),
+    line_price: list[str] = Form(default=[]),
+    line_discount: list[str] = Form(default=[]),
+    line_code: list[str] = Form(default=[]),
+    line_name: list[str] = Form(default=[]),
+    line_vat: list[str] = Form(default=[]),
+    discount_pct: str = Form("0"),
+    payment_method: str = Form("BANKNOTE"),
+    customer_id: str = Form(""),
+    buyer_pib: str = Form(""),
+    buyer_name: str = Form(""),
+    due_date: str = Form(""),
+    fiscal_note: str = Form(""),
+    notes: str = Form(""),
+    action: str = Form("fiscalize"),
+    return_to: str = Form(""),
+    as_template: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+
+    back = _safe_return_to(return_to) or "/racuni/novi"
+    mark_template = as_template in ("1", "on", "true")
+
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(back if back != "/racuni/novi" else "/racuni/novi")
+
+    req, err = _build_fiscalize_request_from_form(
+        db,
+        tenant,
+        article_ids=line_article_id,
+        qtys=line_qty,
+        prices=line_price,
+        line_discounts=line_discount,
+        line_codes=line_code,
+        line_names=line_name,
+        line_vats=line_vat,
+        discount_pct=discount_pct,
+        payment_method=payment_method,
+        customer_id=customer_id,
+        buyer_pib=buyer_pib,
+        buyer_name=buyer_name,
+        due_date=due_date,
+        fiscal_note=fiscal_note,
         notes=notes,
     )
+    if err or not req:
+        flash(request, err or "Neispravna forma.", "error")
+        q = []
+        if mark_template:
+            q.append("as_template=1")
+        rt = _safe_return_to(return_to)
+        if rt:
+            q.append(f"return_to={quote(rt)}")
+        return redirect("/racuni/novi" + (("?" + "&".join(q)) if q else ""))
 
     action = str(action or "fiscalize").strip().lower()
-    if action == "save":
-        inv = save_draft_invoice(db, tenant, req)
+    if action == "save" or mark_template:
+        # Šablon se uvijek čuva kao nacrt (bez fiskalizacije)
+        inv = save_draft_invoice(db, tenant, req, is_template=mark_template)
+        if mark_template:
+            flash(request, "Šablon sačuvan. Možeš ga vezati na automatsku fakturu.")
+            return redirect(_safe_return_to(return_to) or "/racuni/raspored")
         flash(request, "Faktura sačuvana kao nacrt (U pripremi).")
         return redirect(f"/racuni/{inv.id}")
 
@@ -1752,6 +2059,152 @@ def invoice_new_submit(
 
     flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
     return redirect("/racuni/novi")
+
+
+@router.get("/racuni/{invoice_id}/izmijeni", response_class=HTMLResponse)
+def invoice_edit_page(
+    request: Request,
+    invoice_id: int,
+    return_to: str | None = Query(None),
+    as_template: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    invoice = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.lines))
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    if not invoice_is_editable(invoice):
+        flash(request, "Fiskalizovani račun se ne može mijenjati. Napravi novi šablon ili kopiraj kao nacrt.", "error")
+        return redirect(_safe_return_to(return_to) or f"/racuni/{invoice_id}")
+    ctx = _invoice_editor_context(
+        request,
+        db,
+        user,
+        tenant,
+        invoice=invoice,
+        return_to=_safe_return_to(return_to),
+        as_template=bool(as_template) or bool(invoice.is_template),
+    )
+    return render(request, "invoice_new.html", ctx)
+
+
+@router.post("/racuni/{invoice_id}")
+def invoice_edit_submit(
+    request: Request,
+    invoice_id: int,
+    csrf_token: str = Form(""),
+    line_article_id: list[str] = Form(default=[]),
+    line_qty: list[str] = Form(default=[]),
+    line_price: list[str] = Form(default=[]),
+    line_discount: list[str] = Form(default=[]),
+    line_code: list[str] = Form(default=[]),
+    line_name: list[str] = Form(default=[]),
+    line_vat: list[str] = Form(default=[]),
+    discount_pct: str = Form("0"),
+    payment_method: str = Form("BANKNOTE"),
+    customer_id: str = Form(""),
+    buyer_pib: str = Form(""),
+    buyer_name: str = Form(""),
+    due_date: str = Form(""),
+    fiscal_note: str = Form(""),
+    notes: str = Form(""),
+    action: str = Form("save"),
+    return_to: str = Form(""),
+    as_template: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+
+    back = _safe_return_to(return_to)
+    mark_template = as_template in ("1", "on", "true")
+
+    invoice = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.lines))
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    if not invoice_is_editable(invoice):
+        flash(request, "Fiskalizovani račun se ne može mijenjati.", "error")
+        return redirect(back or f"/racuni/{invoice_id}")
+
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(f"/racuni/{invoice_id}/izmijeni")
+
+    req, err = _build_fiscalize_request_from_form(
+        db,
+        tenant,
+        article_ids=line_article_id,
+        qtys=line_qty,
+        prices=line_price,
+        line_discounts=line_discount,
+        line_codes=line_code,
+        line_names=line_name,
+        line_vats=line_vat,
+        discount_pct=discount_pct,
+        payment_method=payment_method,
+        customer_id=customer_id,
+        buyer_pib=buyer_pib,
+        buyer_name=buyer_name,
+        due_date=due_date,
+        fiscal_note=fiscal_note,
+        notes=notes,
+        external_id=invoice.external_id,
+    )
+    if err or not req:
+        flash(request, err or "Neispravna forma.", "error")
+        return redirect(f"/racuni/{invoice_id}/izmijeni")
+
+    try:
+        update_draft_invoice(
+            db,
+            tenant,
+            invoice,
+            req,
+            is_template=True if mark_template else None,
+        )
+    except ValueError as exc:
+        flash(request, str(exc), "error")
+        return redirect(back or f"/racuni/{invoice_id}")
+
+    action = str(action or "save").strip().lower()
+    if mark_template or action == "save":
+        if mark_template:
+            flash(request, "Šablon ažuriran.")
+            return redirect(back or "/racuni/raspored")
+        flash(request, "Izmjene sačuvane (U pripremi).")
+        return redirect(back or f"/racuni/{invoice_id}")
+
+    if action == "fiscalize":
+        try:
+            result = fiscalize_saved_invoice(db, tenant, invoice)
+        except Exception as exc:
+            flash(request, f"Greška: {exc}", "error")
+            return redirect(f"/racuni/{invoice_id}")
+        if result.status == "fiscalized":
+            flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        else:
+            flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
+        return redirect(f"/racuni/{invoice_id}")
+
+    flash(request, "Izmjene sačuvane (U pripremi).")
+    return redirect(back or f"/racuni/{invoice_id}")
 
 
 @router.post("/racuni/fiskalizuj-odabrane")
@@ -1849,26 +2302,13 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
         flash(request, "Račun nije pronađen.", "error")
         return redirect("/racuni")
 
-    readonly = invoice.status == "fiscalized"
-    notes = invoice.notes or ""
-    due_date = ""
-    fiscal_note = ""
-    desc_parts: list[str] = []
-    for line in notes.splitlines():
-        raw = line.strip()
-        if raw.lower().startswith("rok plaćanja:"):
-            due_date = raw.split(":", 1)[-1].strip()
-        elif raw.lower().startswith("napomena fiskalizacija:"):
-            fiscal_note = raw.split(":", 1)[-1].strip()
-        elif raw.lower().startswith("popust na račun:"):
-            continue
-        elif raw:
-            desc_parts.append(raw)
-    if due_date and "T" not in due_date and len(due_date) == 10 and due_date[4] == "-":
-        try:
-            due_date = datetime.strptime(due_date, "%Y-%m-%d").strftime("%d.%m.%Y")
-        except ValueError:
-            pass
+    readonly = not invoice_is_editable(invoice)
+    parsed = _parse_invoice_notes(invoice.notes)
+    due_date = parsed["due_date"]
+    fiscal_note = parsed["fiscal_note"]
+    desc_note = parsed["desc_note"]
+    contract_number = parsed.get("contract_number") or ""
+    period = parsed.get("period") or ""
 
     pay_labels = {
         "BANKNOTE": "Gotovina",
@@ -1889,7 +2329,9 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
             "readonly": readonly,
             "due_date": due_date,
             "fiscal_note": fiscal_note,
-            "desc_note": "\n".join(desc_parts),
+            "desc_note": desc_note,
+            "contract_number": contract_number,
+            "period": period,
             "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
         },
     )
@@ -2039,25 +2481,27 @@ def _invoice_print_context(request: Request, invoice_id: int, db: Session) -> di
         net_before += net_val
         if rate == 0:
             exempt_map["Oslobođeno PDV-a"] = exempt_map.get("Oslobođeno PDV-a", Decimal("0")) + net_val
-        qty_fmt = f"{int(qty)}" if ui.qty_no_decimals else f"{qty:.3f}".replace(".", ",")
+        from sepko.money import format_amount
+
+        qty_fmt = f"{int(qty)}" if ui.qty_no_decimals else format_amount(qty, 3)
         line_rows.append(
             {
                 "code": ln.code,
                 "name": ln.name,
                 "unit": (article_units.get(ln.code) or "kom").lower(),
                 "qty": qty_fmt,
-                "vp": f"{vp:.4f}".replace(".", ","),
-                "net": f"{net_val:.4f}".replace(".", ","),
+                "vp": format_amount(vp, 4),
+                "net": format_amount(net_val, 4),
                 "discount": "0%",
                 "vat_label": f"{rate:.0f}%" if rate else "0%",
-                "vat_amt": f"{vat_amt:.2f}".replace(".", ","),
-                "unit_gross": f"{unit_gross:.4f}".replace(".", ","),
-                "gross": f"{gross:.2f}".replace(".", ","),
+                "vat_amt": format_amount(vat_amt, 2),
+                "unit_gross": format_amount(unit_gross, 4),
+                "gross": format_amount(gross, 2),
             }
         )
 
     exempt_rows = [
-        {"label": label, "amount": f"{amt:.2f}".replace(".", ",")}
+        {"label": label, "amount": format_amount(amt, 2)}
         for label, amt in exempt_map.items()
     ]
 
@@ -2164,15 +2608,6 @@ def info_page(request: Request, db: Session = Depends(get_db)):
             "license_label": license_label(tenant.license_type),
         },
     )
-
-
-@router.get("/izvjestaji", response_class=HTMLResponse)
-def reports_page(request: Request, db: Session = Depends(get_db)):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    return render(request, "reports.html", {"user": user, "tenant": tenant})
 
 
 def _require_admin(request: Request, db: Session) -> tuple[User, Tenant] | None:

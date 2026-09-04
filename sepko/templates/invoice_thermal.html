@@ -58,8 +58,8 @@
       <div class="row"><span>{{ row.qty }} ×</span><span>{{ row.gross }}</span></div>
     {% endfor %}
     <hr>
-    <div class="row total"><span>UKUPNO</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
-    <div class="row"><span>{{ pay_label }}</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
+    <div class="row total"><span>UKUPNO</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
+    <div class="row"><span>{{ pay_label }}</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
     <hr>
     <div class="fiscal">IKOF: {{ invoice.ikof or '—' }}</div>
     <div class="fiscal">JIKR: {{ invoice.jikr or '—' }}</div>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.dobavljaci', 'Dobavljači') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('nav.dobavljaci', 'Dobavljači') }}{% endblock %}
+{% block content %}
+<div class="grid grid-2" style="gap:1rem;align-items:start">
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('btn.add', 'Novi') }}</h2>
+    <form method="post" action="/dobavljaci" class="wa-form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <wa-input name="pib" label="PIB" required></wa-input>
+      <wa-input name="name" label="Naziv" required></wa-input>
+      <wa-input name="street" label="Ulica"></wa-input>
+      <wa-input name="city" label="Mjesto"></wa-input>
+      <wa-input name="email" type="email" label="E-mail"></wa-input>
+      <wa-input name="phone" label="Telefon"></wa-input>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+      </div>
+    </form>
+  </div>
+  <div class="plan-card">
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <thead><tr><th>PIB</th><th>Naziv</th><th>Grad</th></tr></thead>
+        <tbody>
+        {% for s in suppliers %}
+          <tr><td>{{ s.pib }}</td><td>{{ s.name }}</td><td>{{ s.city or '—' }}</td></tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">Nema dobavljača</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

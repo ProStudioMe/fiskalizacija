@@ -1,12 +1,14 @@
 {% set has_filters = (status and status != 'all') or tip or client or date_from or date_to or q %}
 {% set status_labels = {
   'fiscalized': t('status.fiscalized', 'Fiskalizovan'),
-  'pending': t('status.pending', 'U pripremi'),
+  'pending': t('status.unfiscalized_plural', 'Nefiskalizovani'),
   'failed': t('status.failed', 'Greška'),
-  'draft': t('status.draft', 'U pripremi')
+  'draft': t('status.unfiscalized', 'Nefiskalizovan')
 } %}
 {% set date_label = (date_from ~ '–' ~ date_to) if (date_from and date_to) else (date_from or date_to or '') %}
 {% set lbl_fisc_selected = t('btn.fiscalize_selected', 'Fiskalizuj odabrane') %}
+{% set lbl_select_all = t('btn.select_all', 'Odaberi sve') %}
+{% set lbl_deselect_all = t('btn.deselect_all', 'Poništi odabir') %}
 {% set lbl_no_buyer = t('inv.no_buyer', 'Bez kupca') %}
 
 <form method="get" action="{{ list_path }}" class="inv-filter-toolbar" id="inv-filter-form">
@@ -17,7 +19,7 @@
 
   <div class="inv-filter-field inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
     <span class="inv-filter-ico" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M7 3v2M17 3v2M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <i data-lucide="calendar"></i>
     </span>
     <div class="inv-filter-body">
       <label class="inv-filter-label" for="date_from">{{ t('inv.date_range', 'Izaberite datumski opseg') }}</label>
@@ -34,7 +36,7 @@
 
   <div class="inv-filter-field inv-filter-number {% if q %}has-value{% endif %}">
     <span class="inv-filter-ico" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V8h3.5L14 4.5z" fill="currentColor"/></svg>
+      <i data-lucide="file-text"></i>
     </span>
     <div class="inv-filter-body">
       <label class="inv-filter-label" for="inv-q">{{ t('inv.number', 'Broj fakture') }}</label>
@@ -47,21 +49,29 @@
 
   <div class="inv-filter-field inv-filter-status">
     <div class="inv-filter-body">
-      <label class="inv-filter-label" for="inv-status">{{ t('nav.fakture', 'Fakture') }}</label>
-      <select id="inv-status" name="status" onchange="this.form.submit()">
-        <option value="all" {% if status == 'all' %}selected{% endif %}>{{ t('inv.all', 'Sve fakture') }}</option>
-        <option value="fiscalized" {% if status == 'fiscalized' %}selected{% endif %}>{{ t('status.fiscalized', 'Fiskalizovane') }}</option>
-        <option value="pending" {% if status == 'pending' %}selected{% endif %}>{{ t('status.pending', 'U pripremi') }}</option>
-        <option value="failed" {% if status == 'failed' %}selected{% endif %}>{{ t('status.failed', 'Greške') }}</option>
-      </select>
+      <wa-select id="inv-status" name="status" label="{{ t('nav.fakture', 'Fakture') }}" value="{{ status or 'all' }}" size="small">
+        <wa-option value="all" {% if status == 'all' %}selected{% endif %}>{{ t('inv.all', 'Sve fakture') }}</wa-option>
+        <wa-option value="fiscalized" {% if status == 'fiscalized' %}selected{% endif %}>{{ t('status.fiscalized', 'Fiskalizovane') }}</wa-option>
+        <wa-option value="pending" {% if status == 'pending' %}selected{% endif %}>{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</wa-option>
+        <wa-option value="failed" {% if status == 'failed' %}selected{% endif %}>{{ t('status.failed', 'Greške') }}</wa-option>
+      </wa-select>
     </div>
   </div>
 
   <div class="inv-filter-actions">
     {% include "_per_page.html" %}
-    <button type="submit" class="btn secondary">{{ t('btn.apply', 'Primijeni') }}</button>
+    <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
   </div>
 </form>
+<script>
+(function () {
+  var sel = document.getElementById('inv-status');
+  if (!sel) return;
+  function go() { sel.closest('form') && sel.closest('form').submit(); }
+  sel.addEventListener('change', go);
+  sel.addEventListener('wa-change', go);
+})();
+</script>
 
 {% if has_filters %}
 <div class="active-filters-bar">
@@ -94,17 +104,20 @@
     </div>
     <div class="plan-head-actions">
       <form method="post" id="bulk-actions-form" class="bulk-copy-form"
-            data-msg-fisc="{{ t('inv.confirm_fiscalize', 'Fiskalizovati %n odabranih faktura?') }}"
+            data-msg-fisc="{{ t('inv.confirm_fiscalize', 'Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.') }}"
             data-msg-copy="{{ t('inv.confirm_copy', 'Kopirati %n odabranih faktura kao nacrte?') }}"
-            data-msg-need-draft="{{ t('inv.need_draft', 'Označite nacrte / fakture koje još nisu fiskalizovane.') }}"
-            data-lbl-fisc="{{ lbl_fisc_selected }}">
+            data-msg-need-draft="{{ t('inv.need_draft', 'Označite fakture koje još nisu fiskalizovane.') }}"
+            data-lbl-fisc="{{ lbl_fisc_selected }}"
+            data-lbl-select="{{ lbl_select_all }}"
+            data-lbl-deselect="{{ lbl_deselect_all }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" formaction="/racuni/kopiraj" class="btn secondary" id="btn-bulk-copy" disabled>
+        <wa-button type="button" variant="neutral" appearance="outlined" id="btn-select-all">{{ lbl_select_all }}</wa-button>
+        <wa-button type="submit" formaction="/racuni/kopiraj" variant="neutral" appearance="outlined" id="btn-bulk-copy" disabled>
           {{ t('btn.copy', 'Kopiraj') }} (<span id="bulk-count">0</span>)
-        </button>
-        <button type="submit" formaction="/racuni/fiskalizuj-odabrane" class="btn" id="btn-bulk-fiscalize" disabled>
+        </wa-button>
+        <wa-button type="submit" formaction="/racuni/fiskalizuj-odabrane" variant="brand" id="btn-bulk-fiscalize" disabled>
           {{ lbl_fisc_selected }}
-        </button>
+        </wa-button>
       </form>
       <a class="btn" href="/racuni/novi">+ {{ t('btn.add_invoice', 'Dodaj fakturu') }}</a>
     </div>
@@ -135,7 +148,7 @@
                 <div class="th-filter-options">
                   <a href="{{ list_path }}?{{ qs(status='all') }}" class="{% if status == 'all' %}on{% endif %}" data-filter-item>{{ t('common.all', 'Svi') }}</a>
                   <a href="{{ list_path }}?{{ qs(status='fiscalized') }}" class="{% if status == 'fiscalized' %}on{% endif %}" data-filter-item>{{ t('status.fiscalized', 'Fiskalizovan') }}</a>
-                  <a href="{{ list_path }}?{{ qs(status='pending') }}" class="{% if status == 'pending' %}on{% endif %}" data-filter-item>{{ t('status.pending', 'U pripremi') }}</a>
+                  <a href="{{ list_path }}?{{ qs(status='pending') }}" class="{% if status == 'pending' %}on{% endif %}" data-filter-item>{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
                   <a href="{{ list_path }}?{{ qs(status='failed') }}" class="{% if status == 'failed' %}on{% endif %}" data-filter-item>{{ t('status.failed', 'Greška') }}</a>
                 </div>
               </div>
@@ -203,7 +216,7 @@
                   <input type="hidden" name="per_page" value="{{ per_page }}">
                   <label>{{ t('label.from', 'Od') }} <input type="date" name="date_from" value="{{ date_from }}"></label>
                   <label>{{ t('label.to', 'Do') }} <input type="date" name="date_to" value="{{ date_to }}"></label>
-                  <button type="submit" class="btn secondary">{{ t('btn.apply', 'Primijeni') }}</button>
+                  <wa-button type="submit" size="small" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
                   {% if date_from or date_to %}
                   <a class="btn secondary" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}">{{ t('btn.clear_filters', 'Obriši') }}</a>
                   {% endif %}
@@ -238,7 +251,7 @@
           {% elif inv.status == 'failed' %}
             <span class="pill-tag bad">{{ t('status.failed', 'Greška') }}</span>
           {% else %}
-            <span class="pill-tag warn">{{ t('status.pending', 'U pripremi') }}</span>
+            <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
           {% endif %}
         </td>
         <td>
@@ -254,9 +267,12 @@
           </div>
           <div class="cell-secondary">{{ inv.issue_datetime.strftime('%H:%M:%S') if inv.issue_datetime else '' }}</div>
         </td>
-        <td class="num"><strong>{{ "%.2f"|format(inv.total_gross) }} €</strong></td>
+        <td class="num"><strong>{{ inv.total_gross|money }} €</strong></td>
         <td class="cell-actions">
           <a class="btn secondary" href="/racuni/{{ inv.id }}">{{ t('page.pregled', 'Pregled') }}</a>
+          {% if inv.status != 'fiscalized' %}
+          <a class="btn secondary" href="/racuni/{{ inv.id }}/izmijeni">{{ t('btn.edit', 'Izmijeni') }}</a>
+          {% endif %}
           <a class="btn" href="/racuni/{{ inv.id }}/pdf">PDF</a>
         </td>
       </tr>
@@ -274,13 +290,19 @@
   var form = document.getElementById('bulk-actions-form');
   var btnCopy = document.getElementById('btn-bulk-copy');
   var btnFisc = document.getElementById('btn-bulk-fiscalize');
+  var btnSelectAll = document.getElementById('btn-select-all');
   var countEl = document.getElementById('bulk-count');
   var checkAll = document.getElementById('inv-check-all');
   var checks = Array.prototype.slice.call(document.querySelectorAll('.inv-check'));
+  var draftChecks = checks.filter(function (c) {
+    return c.getAttribute('data-status') !== 'fiscalized';
+  });
   var lblFisc = (form && form.getAttribute('data-lbl-fisc')) || 'Fiskalizuj odabrane';
-  var msgFisc = (form && form.getAttribute('data-msg-fisc')) || 'Fiskalizovati %n odabranih faktura?';
+  var lblSelect = (form && form.getAttribute('data-lbl-select')) || 'Odaberi sve';
+  var lblDeselect = (form && form.getAttribute('data-lbl-deselect')) || 'Poništi odabir';
+  var msgFisc = (form && form.getAttribute('data-msg-fisc')) || 'Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.';
   var msgCopy = (form && form.getAttribute('data-msg-copy')) || 'Kopirati %n odabranih faktura kao nacrte?';
-  var msgNeed = (form && form.getAttribute('data-msg-need-draft')) || 'Označite nacrte / fakture koje još nisu fiskalizovane.';
+  var msgNeed = (form && form.getAttribute('data-msg-need-draft')) || 'Označite fakture koje još nisu fiskalizovane.';
 
   function syncBulk() {
     var selected = checks.filter(function (c) { return c.checked; });
@@ -288,11 +310,17 @@
     var nDraft = selected.filter(function (c) {
       return c.getAttribute('data-status') !== 'fiscalized';
     }).length;
+    var allDraftSelected = draftChecks.length > 0 && draftChecks.every(function (c) { return c.checked; });
     if (countEl) countEl.textContent = String(n);
     if (btnCopy) btnCopy.disabled = n === 0;
     if (btnFisc) {
       btnFisc.disabled = nDraft === 0;
       btnFisc.textContent = nDraft ? (lblFisc + ' (' + nDraft + ')') : lblFisc;
+    }
+    if (btnSelectAll) {
+      btnSelectAll.disabled = draftChecks.length === 0;
+      btnSelectAll.textContent = allDraftSelected ? lblDeselect : lblSelect;
+      btnSelectAll.setAttribute('data-mode', allDraftSelected ? 'deselect' : 'select');
     }
     if (checkAll) {
       checkAll.checked = checks.length > 0 && n === checks.length;
@@ -306,6 +334,17 @@
   if (checkAll) {
     checkAll.addEventListener('change', function () {
       checks.forEach(function (c) { c.checked = checkAll.checked; });
+      syncBulk();
+    });
+  }
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', function () {
+      var deselect = btnSelectAll.getAttribute('data-mode') === 'deselect';
+      if (deselect) {
+        checks.forEach(function (c) { c.checked = false; });
+      } else {
+        draftChecks.forEach(function (c) { c.checked = true; });
+      }
       syncBulk();
     });
   }

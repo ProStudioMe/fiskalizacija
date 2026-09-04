@@ -13,9 +13,9 @@
       <div class="cell-secondary">PIB {{ customer.pib }}{% if customer.email %} · {{ customer.email }}{% endif %}</div>
     </div>
     <div class="totals-bar" style="margin:0;flex:1">
-      <div><span class="muted">{{ t('fin.invoiced', 'Fakturisano') }}</span><strong>{{ "%.2f"|format(summary.fakturisano) }} €</strong></div>
-      <div><span class="muted">{{ t('fin.paid', 'Uplaćeno') }}</span><strong>{{ "%.2f"|format(summary.uplaceno) }} €</strong></div>
-      <div><span class="muted">{{ t('fin.debt', 'Dug') }}</span><strong>{{ "%.2f"|format(summary.dug) }} €</strong></div>
+      <div><span class="muted">{{ t('fin.invoiced', 'Fakturisano') }}</span><strong>{{ summary.fakturisano|money }} €</strong></div>
+      <div><span class="muted">{{ t('fin.paid', 'Uplaćeno') }}</span><strong>{{ summary.uplaceno|money }} €</strong></div>
+      <div><span class="muted">{{ t('fin.debt', 'Dug') }}</span><strong>{{ summary.dug|money }} €</strong></div>
     </div>
   </div>
 </div>
@@ -48,9 +48,9 @@
             {% endif %}
           </td>
           <td>{{ r.Opis }}</td>
-          <td class="num">{% if r.Duguje %}{{ "%.2f"|format(r.Duguje) }}{% endif %}</td>
-          <td class="num">{% if r['Potražuje'] %}{{ "%.2f"|format(r['Potražuje']) }}{% endif %}</td>
-          <td class="num"><strong>{{ "%.2f"|format(r.Saldo) }}</strong></td>
+          <td class="num">{% if r.Duguje %}{{ r.Duguje|money }}{% endif %}</td>
+          <td class="num">{% if r['Potražuje'] %}{{ r['Potražuje']|money }}{% endif %}</td>
+          <td class="num"><strong>{{ r.Saldo|money }}</strong></td>
         </tr>
       {% else %}
         <tr><td colspan="7" class="muted" style="padding:1.25rem">Nema stavki na kartici.</td></tr>
@@ -63,65 +63,51 @@
 <div class="grid grid-2" style="gap:1rem;align-items:start">
   <div class="card">
     <h2>Evidentiraj uplatu</h2>
-    <form method="post" action="/finansije/kartica/{{ customer.id }}/uplata">
+    <form method="post" action="/finansije/kartica/{{ customer.id }}/uplata" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="row">
-        <div class="field"><label>Iznos €</label><input name="amount" type="number" step="0.01" min="0.01" required></div>
-        <div class="field"><label>Datum</label><input name="paid_at" type="date" value="{{ '' }}"></div>
+        <wa-input name="amount" label="Iznos €" inputmode="decimal" placeholder="0,00" required></wa-input>
+        <wa-input name="paid_at" type="date" label="Datum" value="{{ '' }}"></wa-input>
       </div>
-      <div class="field"><label>Napomena</label><input name="note" placeholder="npr. virman / izvod"></div>
-      <div class="field">
-        <label>Veži na fakturu (opciono)</label>
-        <select name="invoice_id">
-          <option value="">—</option>
-          {% for inv in invoices %}
-          <option value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ "%.2f"|format(inv.total_gross) }} €</option>
-          {% endfor %}
-        </select>
+      <wa-input name="note" label="Napomena" placeholder="npr. virman / izvod"></wa-input>
+      <wa-select name="invoice_id" label="Veži na fakturu (opciono)">
+        <wa-option value="">—</wa-option>
+        {% for inv in invoices %}
+        <wa-option value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ inv.total_gross|money }} €</wa-option>
+        {% endfor %}
+      </wa-select>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">Sačuvaj uplatu</wa-button>
       </div>
-      <button type="submit" class="btn">Sačuvaj uplatu</button>
     </form>
   </div>
 
   <div class="card">
     <h2>Pošalji karticu / fakture</h2>
-    <form method="post" action="/finansije/kartica/{{ customer.id }}/posalji">
+    <form method="post" action="/finansije/kartica/{{ customer.id }}/posalji" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field">
-        <label>Za (e-mail)</label>
-        <input name="to_email" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required>
-      </div>
-      <div class="field">
-        <label>Naslov</label>
-        <input name="subject" value="Finansijska kartica — {{ customer.name }}">
-      </div>
-      <div class="field">
-        <label>Poruka</label>
-        <textarea name="body" rows="4">Poštovani,
+      <wa-input name="to_email" type="email" label="Za (e-mail)" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required></wa-input>
+      <wa-input name="subject" label="Naslov" value="Finansijska kartica — {{ customer.name }}"></wa-input>
+      <wa-textarea name="body" label="Poruka" rows="4" value="Poštovani,
 
 u prilogu je finansijska kartica za {{ customer.name }}.
 
-Srdačan pozdrav</textarea>
-      </div>
-      <label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
-        <input type="checkbox" name="attach_kartica" value="1" checked style="width:auto">
-        Priloži finansijsku karticu (HTML)
-      </label>
+Srdačan pozdrav"></wa-textarea>
+      <wa-checkbox name="attach_kartica" value="1" checked>Priloži finansijsku karticu (HTML)</wa-checkbox>
       {% if invoices %}
-      <div class="field">
+      <div class="field" style="margin-bottom:0">
         <label>Priloži fakture</label>
-        <div style="max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:0.5rem">
+        <div style="max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:0.5rem;display:flex;flex-direction:column;gap:0.35rem">
           {% for inv in invoices %}
-          <label style="display:flex;align-items:center;gap:0.45rem;margin:0.25rem 0;font-size:0.88rem">
-            <input type="checkbox" name="invoice_ids" value="{{ inv.id }}" style="width:auto">
-            {{ inv|display_inv_num }} · {{ "%.2f"|format(inv.total_gross) }} €
-          </label>
+          <wa-checkbox name="invoice_ids" value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ inv.total_gross|money }} €</wa-checkbox>
           {% endfor %}
         </div>
       </div>
       {% endif %}
-      <button type="submit" class="btn">Pošalji mail</button>
-      <p class="cell-secondary" style="margin-top:0.65rem">SMTP iz Podešavanja → Mail ili `.env` (SMTP_* / IMAP_*).</p>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">Pošalji mail</wa-button>
+      </div>
+      <p class="cell-secondary" style="margin:0">SMTP iz Podešavanja → Mail ili `.env` (SMTP_* / IMAP_*).</p>
     </form>
   </div>
 </div>

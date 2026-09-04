@@ -1,66 +1,61 @@
 {% extends "base.html" %}
-{% block title %}{{ t('page.raspored', 'Raspored') }} — Sepko{% endblock %}
-{% block page_title %}{{ t('sched.title', 'Raspored') }}{% endblock %}
+{% block title %}{{ t('page.raspored', 'Automatske fakture') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('sched.title', 'Automatske fakture') }}{% endblock %}
 {% block page_actions %}
   <form method="post" action="/racuni/raspored/pokreni" style="margin:0;display:inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="btn secondary">{{ t('sched.run_due', 'Pokreni dospjele sada') }}</button>
+    <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('sched.run_due', 'Pokreni dospjele') }}</wa-button>
   </form>
+  {% if not show_form %}
+  <a class="btn" href="/racuni/raspored?new=1">+ {{ t('btn.add', 'Nova') }}</a>
+  {% endif %}
   <a class="btn secondary" href="/racuni">← {{ t('nav.fakture', 'Fakture') }}</a>
 {% endblock %}
 {% block content %}
 <p class="muted" style="margin-top:0">
-  Automatski kopira šablon fakture na odabrane dane u mjesecu (npr. 1 i 15),
-  po želji fiskalizuje i šalje na e-mail komitenta. Za produkciju podesi cron na
-  <code>/cron/raspored?token=…</code> (jednom dnevno).
+  Automatske (mjesečne) fakture fiksnog iznosa iz šablona (kupac + stavke), sa brojem ugovora i periodom.
+  Automatski se šalju e-mailom; za produkciju podesi cron na <code>/cron/raspored?token=…</code>.
 </p>
 
+{% if show_form %}
 <div class="grid grid-2" style="align-items:start;gap:1rem">
   <div class="card">
-    <h2>{% if editing %}{{ t('btn.edit', 'Izmijeni') }}{% else %}{{ t('btn.add', 'Novi') }}{% endif %}</h2>
-    <form method="post" action="{% if editing %}/racuni/raspored/{{ editing.id }}{% else %}/racuni/raspored{% endif %}">
+    <h2>{% if editing %}{{ t('btn.edit', 'Izmijeni') }}{% else %}{{ t('btn.add', 'Nova') }}{% endif %} automatska faktura</h2>
+    <form method="post" action="{% if editing %}/racuni/raspored/{{ editing.id }}{% else %}/racuni/raspored{% endif %}" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field">
-        <label>{{ t('col.name', 'Naziv') }}</label>
-        <input name="name" value="{{ editing.name if editing else '' }}" placeholder="npr. Hosting NIJZ" required>
-      </div>
-      <div class="field">
-        <label>{{ t('sched.template', 'Šablon fakture') }}</label>
-        <select name="template_invoice_id" required>
-          <option value="">— izaberi —</option>
+      <wa-input name="name" label="{{ t('col.name', 'Naziv') }}" value="{{ editing.name if editing else '' }}" placeholder="npr. Hosting — ugovor 12/2024" required></wa-input>
+      <div>
+        {% set tmpl_val = editing.template_invoice_id if editing else '' %}
+        <wa-select name="template_invoice_id" id="template_invoice_id" label="{{ t('sched.template', 'Šablon fakture') }}" value="{{ tmpl_val }}" required>
+          <wa-option value="">— izaberi —</wa-option>
           {% for inv in templates %}
-          <option value="{{ inv.id }}"
+          <wa-option value="{{ inv.id }}"
+            data-editable="{% if inv.status != 'fiscalized' %}1{% else %}0{% endif %}"
             {% if editing and editing.template_invoice_id == inv.id %}selected{% endif %}>
-            {{ inv|display_inv_num }} · {{ inv.buyer_name or 'bez kupca' }} · {{ "%.2f"|format(inv.total_gross) }} €
-          </option>
+            {% if inv.is_template %}★ {% endif %}{{ inv|display_inv_num }} · {{ inv.buyer_name or 'bez kupca' }} · {{ inv.total_gross|money }} €
+          </wa-option>
           {% endfor %}
-        </select>
-        <div class="cell-secondary" style="margin-top:0.35rem">Koristi postojeću fakturu kao šablon (stavke + kupac).</div>
+        </wa-select>
+        <div class="row" style="margin-top:0.5rem;gap:0.45rem;flex-wrap:wrap">
+          <a class="btn secondary" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}">+ Novi šablon</a>
+          <a class="btn secondary" id="btn-edit-template" href="#" hidden>{{ t('btn.edit', 'Izmijeni') }} šablon</a>
+        </div>
+        <div class="cell-secondary" style="margin-top:0.35rem">Fiksan mjesečni iznos = stavke šablona. ★ = šablon.</div>
       </div>
-      <div class="field">
-        <label>{{ t('sched.days', 'Dani u mjesecu') }}</label>
-        <input name="days_of_month" value="{{ editing.days_of_month if editing else '1' }}" placeholder="1,15" required>
-        <div class="cell-secondary" style="margin-top:0.35rem">Npr. <code>1</code> ili <code>1,15</code> ili <code>28</code></div>
-      </div>
-      <div class="field">
-        <label>E-mail (opciono)</label>
-        <input name="email_to" type="email" value="{{ editing.email_to if editing and editing.email_to else '' }}" placeholder="Ako prazno — e-mail komitenta">
-      </div>
-      <label class="toggle-row">
-        <span>Automatski fiskalizuj</span>
-        <input type="checkbox" name="auto_fiscalize" value="1" {% if editing and editing.auto_fiscalize %}checked{% elif not editing %}{% endif %}>
-      </label>
-      <label class="toggle-row">
-        <span>Pošalji e-mail</span>
-        <input type="checkbox" name="auto_email" value="1" {% if not editing or editing.auto_email %}checked{% endif %}>
-      </label>
-      <label class="toggle-row">
-        <span>{{ t('common.active', 'Aktivan') }}</span>
-        <input type="checkbox" name="active" value="1" {% if not editing or editing.active %}checked{% endif %}>
-      </label>
-      <div class="row" style="margin-top:1rem">
-        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
-        {% if editing %}<a class="btn secondary" href="/racuni/raspored">{{ t('btn.cancel', 'Poništi') }}</a>{% endif %}
+      <wa-input name="contract_number" label="Broj ugovora" value="{{ editing.contract_number if editing and editing.contract_number else '' }}" placeholder="npr. UG-12/2024"></wa-input>
+      {% set pmode = (editing.period_mode if editing else 'previous') or 'previous' %}
+      <wa-select name="period_mode" label="Period fakturisanja" value="{{ pmode }}">
+        <wa-option value="previous" {% if pmode == 'previous' %}selected{% endif %}>Prethodni mjesec (npr. 1.9. → avgust)</wa-option>
+        <wa-option value="current" {% if pmode == 'current' %}selected{% endif %}>Tekući mjesec (npr. 1.9. → septembar)</wa-option>
+      </wa-select>
+      <wa-input name="days_of_month" label="{{ t('sched.days', 'Dani u mjesecu') }}" value="{{ editing.days_of_month if editing else '1' }}" placeholder="1" required hint="Npr. 1 ili 1,15"></wa-input>
+      <wa-input name="email_to" type="email" label="E-mail (opciono)" value="{{ editing.email_to if editing and editing.email_to else '' }}" placeholder="Ako prazno — e-mail komitenta"></wa-input>
+      <wa-checkbox name="auto_fiscalize" value="1" {% if editing and editing.auto_fiscalize %}checked{% endif %}>Automatski fiskalizuj</wa-checkbox>
+      <wa-checkbox name="auto_email" value="1" {% if not editing or editing.auto_email %}checked{% endif %}>Pošalji e-mail</wa-checkbox>
+      <wa-checkbox name="active" value="1" {% if not editing or editing.active %}checked{% endif %}>{{ t('common.active', 'Aktivan') }}</wa-checkbox>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="/racuni/raspored">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
   </div>
@@ -68,65 +63,50 @@
   <div class="plan-card">
     <div class="plan-head">
       <div>
-        <h2>{{ t('sched.title', 'Aktivni rasporedi') }}</h2>
+        <h2>{{ t('sched.title', 'Automatske fakture') }}</h2>
         <div class="cell-secondary">{{ schedules|length }} ukupno</div>
       </div>
     </div>
-    <div class="plan-table-wrap">
-      <table class="soft-table">
-        <thead>
-          <tr>
-            <th>{{ t('col.name', 'Naziv') }}</th>
-            <th>{{ t('sched.days', 'Dani') }}</th>
-            <th>Šablon</th>
-            <th>Opcije</th>
-            <th>Zadnji put</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for s in schedules %}
-          <tr>
-            <td>
-              <div class="cell-primary">{{ s.name }}</div>
-              {% if not s.active %}<span class="pill-tag bad">off</span>{% endif %}
-              {% if s.last_error %}<div class="cell-secondary" style="color:var(--danger)">{{ s.last_error }}</div>{% endif %}
-            </td>
-            <td>{{ s.days_of_month }}</td>
-            <td>
-              {% if s.template_invoice %}
-              <a href="/racuni/{{ s.template_invoice_id }}">{{ s.template_invoice|display_inv_num }}</a>
-              <div class="cell-secondary">{{ s.template_invoice.buyer_name or '' }}</div>
-              {% else %}#{{ s.template_invoice_id }}{% endif %}
-            </td>
-            <td>
-              {% if s.auto_fiscalize %}<span class="pill-tag ok">fiskal</span>{% endif %}
-              {% if s.auto_email %}<span class="pill-tag">mail</span>{% endif %}
-            </td>
-            <td>
-              <div class="cell-secondary" style="margin:0">{{ s.last_run_key or '—' }}</div>
-              {% if s.last_invoice_id %}
-              <a href="/racuni/{{ s.last_invoice_id }}">#{{ s.last_invoice_id }}</a>
-              {% endif %}
-            </td>
-            <td class="cell-actions">
-              <a class="btn secondary" href="/racuni/raspored?edit={{ s.id }}">{{ t('btn.edit', 'Izmijeni') }}</a>
-              <form method="post" action="/racuni/raspored/{{ s.id }}/pokreni" style="display:inline;margin:0">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="btn secondary">Sada</button>
-              </form>
-              <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi" style="display:inline;margin:0" onsubmit="return confirm('Deaktivirati raspored?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="btn danger">Off</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted" style="padding:1.25rem">Nema rasporeda — dodaj šablon lijevo.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% include "_schedules_table.html" %}
   </div>
 </div>
+<script>
+(function () {
+  var sel = document.getElementById('template_invoice_id');
+  var btn = document.getElementById('btn-edit-template');
+  if (!sel || !btn) return;
+  function sync() {
+    var id = sel.value == null ? '' : String(sel.value);
+    var opt = id ? sel.querySelector('wa-option[value="' + id + '"]') : null;
+    var editable = opt && opt.getAttribute('data-editable') === '1';
+    if (id && editable) {
+      btn.hidden = false;
+      btn.href = '/racuni/' + id + '/izmijeni?as_template=1&return_to=' + encodeURIComponent('/racuni/raspored?new=1');
+    } else {
+      btn.hidden = true;
+      btn.href = '#';
+    }
+  }
+  sel.addEventListener('change', sync);
+  sel.addEventListener('wa-change', sync);
+  sync();
+})();
+</script>
+
+{% else %}
+
+<div class="plan-card">
+  <div class="plan-head">
+    <div>
+      <h2>{{ t('sched.title', 'Automatske fakture') }}</h2>
+      <div class="cell-secondary">{{ schedules|length }} ukupno</div>
+    </div>
+    <div class="plan-head-actions">
+      <a class="btn" href="/racuni/raspored?new=1">+ {{ t('btn.add', 'Nova') }}</a>
+    </div>
+  </div>
+  {% include "_schedules_table.html" %}
+</div>
+
+{% endif %}
 {% endblock %}

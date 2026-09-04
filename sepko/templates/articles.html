@@ -8,7 +8,7 @@
 {% block content %}
 <form method="get" action="/artikli" class="filter-bar">
   <div class="search-bar" style="margin:0;flex:1;min-width:200px">
-    <svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm8.7 13.3-3.8-3.8"/></svg>
+    <i data-lucide="search" aria-hidden="true"></i>
     <input name="q" value="{{ q }}" placeholder="Pretraga naziv / šifra / barkod…">
   </div>
   {% include "_per_page.html" %}
@@ -18,36 +18,30 @@
   <div class="card">
     {% if editing %}
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/artikli/{{ editing.id }}">
+    <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>Šifra artikla</label><input value="{{ editing.code }}" disabled></div>
-      <div class="field"><label>Naziv</label><input name="name" value="{{ editing.name }}" required maxlength="255"></div>
-      <div class="field"><label>Jedinica mjere</label><input name="unit" value="{{ editing.unit }}"></div>
+      <wa-input label="Šifra artikla" value="{{ editing.code }}" disabled></wa-input>
+      <wa-input name="name" label="Naziv" value="{{ editing.name }}" required maxlength="255"></wa-input>
+      <wa-input name="unit" label="Jedinica mjere" value="{{ editing.unit }}"></wa-input>
       <div class="row">
-        <div class="field"><label>Maloprodajna cijena</label><input name="price_retail" type="number" step="0.0001" min="0" value="{{ editing.price_retail or '' }}"></div>
-        <div class="field"><label>Veleprodajna cijena (VP)</label><input name="price_gross" type="number" step="0.0001" min="0" value="{{ editing.price_gross }}" required></div>
+        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="{% if editing.price_retail is not none %}{{ editing.price_retail|money(4) }}{% endif %}"></wa-input>
+        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="{{ editing.price_gross|money(4) }}" required></wa-input>
       </div>
-      <div class="field"><label>Količina na lageru</label><input name="stock_qty" type="number" step="0.0001" value="{{ editing.stock_qty or '' }}"></div>
-      <div class="field"><label>Barkod</label><input name="barcode" value="{{ editing.barcode or '' }}"></div>
-      <div class="field">
-        <label>Poreska stopa</label>
-        <select name="tax_rate_code">
-          {% for tax_rate in tax_rates %}
-          <option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field">
-        <label>Kategorija</label>
-        <select name="category_id">
-          <option value="">—</option>
-          {% for c in categories %}
-          <option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field"><label>Opis</label><textarea name="description" rows="3">{{ editing.description or '' }}</textarea></div>
-      <div class="field">
+      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" value="{% if editing.stock_qty is not none %}{{ editing.stock_qty|money(4) }}{% endif %}"></wa-input>
+      <wa-input name="barcode" label="Barkod" value="{{ editing.barcode or '' }}"></wa-input>
+      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
+        {% for tax_rate in tax_rates %}
+        <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <wa-select name="category_id" label="Kategorija" value="{{ editing.category_id or '' }}">
+        <wa-option value="">—</wa-option>
+        {% for c in categories %}
+        <wa-option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <wa-textarea name="description" label="Opis" rows="3" value="{{ editing.description or '' }}"></wa-textarea>
+      <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
           {% for col in colors %}
@@ -57,47 +51,41 @@
           {% endfor %}
         </div>
       </div>
-      <div class="row">
-        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="/artikli">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
     <form method="post" action="/artikli/{{ editing.id }}/obrisi" style="margin-top:0.75rem">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="danger" type="submit">{{ t('btn.delete', 'Obriši') }} (deaktiviraj)</button>
+      <wa-button type="submit" variant="danger">{{ t('btn.delete', 'Obriši') }} (deaktiviraj)</wa-button>
     </form>
     {% else %}
     <h2>{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/artikli">
+    <form method="post" action="/artikli" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>Šifra artikla</label><input name="code" required maxlength="64"></div>
-      <div class="field"><label>Naziv</label><input name="name" required maxlength="255"></div>
-      <div class="field"><label>Jedinica mjere</label><input name="unit" value="kom"></div>
+      <wa-input name="code" label="Šifra artikla" required maxlength="64"></wa-input>
+      <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
+      <wa-input name="unit" label="Jedinica mjere" value="kom"></wa-input>
       <div class="row">
-        <div class="field"><label>Maloprodajna cijena</label><input name="price_retail" type="number" step="0.0001" min="0" value="0"></div>
-        <div class="field"><label>Veleprodajna cijena (VP)</label><input name="price_gross" type="number" step="0.0001" min="0" value="1" required></div>
+        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="0,00"></wa-input>
+        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="1,00" required></wa-input>
       </div>
-      <div class="field"><label>Količina na lageru</label><input name="stock_qty" type="number" step="0.0001"></div>
-      <div class="field"><label>Barkod</label><input name="barcode"></div>
-      <div class="field">
-        <label>Poreska stopa</label>
-        <select name="tax_rate_code">
-          {% for tax_rate in tax_rates %}
-          <option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field">
-        <label>Kategorija</label>
-        <select name="category_id">
-          <option value="">—</option>
-          {% for c in categories %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field"><label>Opis</label><textarea name="description" rows="3"></textarea></div>
-      <div class="field">
+      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" placeholder="0"></wa-input>
+      <wa-input name="barcode" label="Barkod"></wa-input>
+      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
+        {% for tax_rate in tax_rates %}
+        <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <wa-select name="category_id" label="Kategorija" value="">
+        <wa-option value="" selected>—</wa-option>
+        {% for c in categories %}
+        <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <wa-textarea name="description" label="Opis" rows="3"></wa-textarea>
+      <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
           {% for col in colors %}
@@ -107,7 +95,9 @@
           {% endfor %}
         </div>
       </div>
-      <button type="submit">OK · {{ t('btn.add', 'Dodaj') }}</button>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
+      </div>
     </form>
     {% endif %}
   </div>
@@ -138,7 +128,7 @@
             </div>
             <div class="cell-secondary">Šifra {{ a.code }} · {{ a.unit }}</div>
           </td>
-          <td class="num"><strong>{{ "%.2f"|format(a.price_gross) }} €</strong></td>
+          <td class="num"><strong>{{ a.price_gross|money }} €</strong></td>
           <td><span class="pill-tag">{{ "%.0f"|format(a.vat_rate) }}%</span></td>
           <td class="cell-actions">
             {% set edit_href = '/artikli?edit=' ~ a.id %}

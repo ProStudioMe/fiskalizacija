@@ -5,43 +5,47 @@
   <a class="btn secondary" href="/admin/prevodi/export?lang={{ lang }}">Export JSON</a>
 {% endblock %}
 {% block content %}
-<form class="inv-filter-toolbar" method="get" action="/admin/prevodi" style="margin-bottom:1rem">
-  <select name="lang">
+<form class="inv-filter-toolbar wa-filter-bar" method="get" action="/admin/prevodi" style="margin-bottom:1rem">
+  <wa-select name="lang" value="{{ lang }}" style="min-width:10rem">
     {% for code, label in languages %}
-    <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ label }} ({{ code }})</option>
+    <wa-option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ label }} ({{ code }})</wa-option>
     {% endfor %}
-  </select>
-  <input type="search" name="q" value="{{ q }}" placeholder="Ključ, kategorija…">
-  <button type="submit" class="btn secondary">Prikaži</button>
+  </wa-select>
+  <wa-input type="search" name="q" value="{{ q }}" placeholder="Ključ, kategorija…" with-clear style="flex:1;min-width:12rem"></wa-input>
+  <wa-button type="submit" variant="neutral" appearance="outlined">Prikaži</wa-button>
 </form>
 
 <div class="grid grid-2" style="margin-bottom:1.25rem">
   <div class="card">
     <h2>Novi ključ</h2>
-    <form method="post" action="/admin/prevodi/kljuc">
+    <form method="post" action="/admin/prevodi/kljuc" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>Ključ</label><input name="key" placeholder="npr. nav.blagajna" required></div>
-      <div class="field"><label>Kategorija</label><input name="category" value="ui"></div>
-      <div class="field"><label>Opis</label><input name="description"></div>
-      <div class="field"><label>Crnogorski (cnr)</label><input name="cnr_value"></div>
-      <button type="submit">Dodaj ključ</button>
+      <wa-input name="key" label="Ključ" placeholder="npr. nav.blagajna" required></wa-input>
+      <wa-input name="category" label="Kategorija" value="ui"></wa-input>
+      <wa-input name="description" label="Opis"></wa-input>
+      <wa-input name="cnr_value" label="Crnogorski (cnr)"></wa-input>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">Dodaj ključ</wa-button>
+      </div>
     </form>
   </div>
   <div class="card">
     <h2>Import JSON</h2>
     <p class="muted">Format: <code>{"language":"en","translations":{"nav.pregled":"Overview"}}</code> ili ravni <code>{"nav.pregled":"Overview"}</code>.</p>
-    <form method="post" action="/admin/prevodi/import" enctype="multipart/form-data">
+    <form method="post" action="/admin/prevodi/import" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field">
-        <label>Jezik (ako JSON nema language)</label>
-        <select name="lang">
-          {% for code, label in languages %}
-          <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ code }}</option>
-          {% endfor %}
-        </select>
+      <wa-select name="lang" label="Jezik (ako JSON nema language)" value="{{ lang }}">
+        {% for code, label in languages %}
+        <wa-option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ code }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <div class="field" style="margin-bottom:0">
+        <label>Fajl</label>
+        <input type="file" name="file" accept="application/json,.json" required>
       </div>
-      <div class="field"><label>Fajl</label><input type="file" name="file" accept="application/json,.json" required></div>
-      <button type="submit">Uvezi</button>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">Uvezi</wa-button>
+      </div>
     </form>
   </div>
 </div>
@@ -50,8 +54,8 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="lang" value="{{ lang }}">
   <input type="hidden" name="q" value="{{ q }}">
-  <div class="row" style="margin-bottom:0.75rem">
-    <button type="submit">Sačuvaj {{ lang }}</button>
+  <div class="wa-form-actions" style="margin-bottom:0.75rem">
+    <wa-button type="submit" variant="brand">Sačuvaj {{ lang }}</wa-button>
     <span class="muted">{{ keys|length }} ključeva · lijevo cnr, desno {{ lang }}</span>
   </div>
   <table class="data-table i18n-table">
@@ -72,14 +76,14 @@
         <td class="i18n-ref">{{ cnr_values.get(k.key, '') }}</td>
         <td>
           <input type="hidden" name="keys" value="{{ k.key }}">
-          <textarea name="values" rows="2">{{ values.get(k.key, '') }}</textarea>
+          <wa-textarea name="values" rows="2" value="{{ values.get(k.key, '') }}"></wa-textarea>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <div class="row" style="margin-top:1rem">
-    <button type="submit">Sačuvaj {{ lang }}</button>
+  <div class="wa-form-actions" style="margin-top:1rem">
+    <wa-button type="submit" variant="brand">Sačuvaj {{ lang }}</wa-button>
   </div>
 </form>
 {% endblock %}

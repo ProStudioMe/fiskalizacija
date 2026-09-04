@@ -41,7 +41,7 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "nav.fakture",
         "category": "nav",
-        "description": "Meni Fakture",
+        "description": "Meni Fakture (legacy)",
         "values": {
             "cnr": "Fakture",
             "cnr-cyrl": "Фактуре",
@@ -53,6 +53,105 @@ STRINGS_SEED: list[dict] = [
             "uk": "Рахунки",
             "en": "Invoices",
         },
+    },
+    {
+        "key": "nav.racuni",
+        "category": "nav",
+        "description": "Meni sekcija Računi",
+        "values": {
+            "cnr": "Računi",
+            "cnr-cyrl": "Рачуни",
+            "sr": "Računi",
+            "sr-cyrl": "Рачуни",
+            "sq": "Faturat",
+            "tr": "Faturalar",
+            "ru": "Счета",
+            "uk": "Рахунки",
+            "en": "Invoices",
+        },
+    },
+    {
+        "key": "nav.izlazne",
+        "category": "nav",
+        "description": "Meni Izlazne fakture",
+        "values": {
+            "cnr": "Izlazne",
+            "cnr-cyrl": "Излазне",
+            "sr": "Izlazne",
+            "sr-cyrl": "Излазне",
+            "en": "Outgoing",
+        },
+    },
+    {
+        "key": "nav.ulazne",
+        "category": "nav",
+        "description": "Meni Ulazne fakture",
+        "values": {
+            "cnr": "Ulazne",
+            "cnr-cyrl": "Улазне",
+            "sr": "Ulazne",
+            "sr-cyrl": "Улазне",
+            "en": "Incoming",
+        },
+    },
+    {
+        "key": "nav.troskovi",
+        "category": "nav",
+        "description": "Meni Troškovnik",
+        "values": {
+            "cnr": "Troškovnik",
+            "cnr-cyrl": "Трошковник",
+            "sr": "Troškovnik",
+            "sr-cyrl": "Трошковник",
+            "en": "Expenses",
+        },
+    },
+    {
+        "key": "nav.dobavljaci",
+        "category": "nav",
+        "description": "Meni Dobavljači",
+        "values": {
+            "cnr": "Dobavljači",
+            "cnr-cyrl": "Добављачи",
+            "sr": "Dobavljači",
+            "en": "Suppliers",
+        },
+    },
+    {
+        "key": "nav.vise",
+        "category": "nav",
+        "description": "PWA Više",
+        "values": {"cnr": "Više", "en": "More"},
+    },
+    {
+        "key": "ulazne.scan_qr",
+        "category": "ulazne",
+        "description": "Skeniraj QR",
+        "values": {"cnr": "Skeniraj QR", "en": "Scan QR"},
+    },
+    {
+        "key": "ulazne.add",
+        "category": "ulazne",
+        "description": "Dodaj ulaznu",
+        "values": {"cnr": "Dodaj ulaznu", "en": "Add incoming"},
+    },
+    {
+        "key": "pwa.quick",
+        "category": "pwa",
+        "description": "Brza fiskalizacija",
+        "values": {"cnr": "Brza fiskalizacija", "en": "Quick fiscalize"},
+    },
+    {
+        "key": "reports.overview",
+        "category": "reports",
+        "description": "Pregled perioda",
+        "values": {"cnr": "Pregled perioda", "en": "Period overview"},
+    },
+    {
+        "key": "reports.vat",
+        "category": "reports",
+        "description": "PDV pregled",
+        "values": {"cnr": "PDV pregled", "en": "VAT overview"},
     },
     {
         "key": "nav.izdaj",
@@ -185,17 +284,17 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "nav.raspored",
         "category": "nav",
-        "description": "Meni Raspored",
+        "description": "Meni Automatske fakture",
         "values": {
-            "cnr": "Raspored",
-            "cnr-cyrl": "Распоред",
-            "sr": "Raspored",
-            "sr-cyrl": "Распоред",
-            "sq": "Orari",
-            "tr": "Zamanlama",
-            "ru": "Расписание",
-            "uk": "Розклад",
-            "en": "Schedule",
+            "cnr": "Automatske fakture",
+            "cnr-cyrl": "Аутоматске фактуре",
+            "sr": "Automatske fakture",
+            "sr-cyrl": "Аутоматске фактуре",
+            "sq": "Fatura automatike",
+            "tr": "Otomatik faturalar",
+            "ru": "Автоматические счета",
+            "uk": "Автоматичні рахунки",
+            "en": "Automatic invoices",
         },
     },
     {
@@ -538,17 +637,49 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "btn.fiscalize_selected",
         "category": "btn",
-        "description": "Fiskalizuj izabrano",
+        "description": "Fiskalizuj odabrane",
         "values": {
-            "cnr": "Fiskalizuj izabrano",
-            "cnr-cyrl": "Фискализуј изабрано",
-            "sr": "Fiskalizuj izabrano",
-            "sr-cyrl": "Фискализуј изабрано",
+            "cnr": "Fiskalizuj odabrane",
+            "cnr-cyrl": "Фискализуј одабране",
+            "sr": "Fiskalizuj odabrane",
+            "sr-cyrl": "Фискализуј одабране",
             "sq": "Fiskalizo të zgjedhurat",
             "tr": "Seçilenleri maliyeleştir",
             "ru": "Фискализировать выбранные",
             "uk": "Фіскалізувати вибрані",
             "en": "Fiscalize selected",
+        },
+    },
+    {
+        "key": "btn.select_all",
+        "category": "btn",
+        "description": "Odaberi sve",
+        "values": {
+            "cnr": "Odaberi sve",
+            "cnr-cyrl": "Одабери све",
+            "sr": "Odaberi sve",
+            "sr-cyrl": "Одабери све",
+            "sq": "Zgjidh të gjitha",
+            "tr": "Tümünü seç",
+            "ru": "Выбрать все",
+            "uk": "Вибрати все",
+            "en": "Select all",
+        },
+    },
+    {
+        "key": "btn.deselect_all",
+        "category": "btn",
+        "description": "Poništi odabir",
+        "values": {
+            "cnr": "Poništi odabir",
+            "cnr-cyrl": "Поништи одабир",
+            "sr": "Poništi odabir",
+            "sr-cyrl": "Поништи одабир",
+            "sq": "Hiq zgjedhjen",
+            "tr": "Seçimi kaldır",
+            "ru": "Снять выбор",
+            "uk": "Зняти вибір",
+            "en": "Clear selection",
         },
     },
     {
@@ -683,17 +814,17 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "page.raspored",
         "category": "page",
-        "description": "Stranica Raspored",
+        "description": "Stranica Automatske fakture",
         "values": {
-            "cnr": "Raspored",
-            "cnr-cyrl": "Распоред",
-            "sr": "Raspored",
-            "sr-cyrl": "Распоред",
-            "sq": "Orari",
-            "tr": "Zamanlama",
-            "ru": "Расписание",
-            "uk": "Розклад",
-            "en": "Schedule",
+            "cnr": "Automatske fakture",
+            "cnr-cyrl": "Аутоматске фактуре",
+            "sr": "Automatske fakture",
+            "sr-cyrl": "Аутоматске фактуре",
+            "sq": "Fatura automatike",
+            "tr": "Otomatik faturalar",
+            "ru": "Автоматические счета",
+            "uk": "Автоматичні рахунки",
+            "en": "Automatic invoices",
         },
     },
     {
@@ -1117,7 +1248,7 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "status.pending",
         "category": "status",
-        "description": "Status U pripremi",
+        "description": "Status U pripremi (detalj / nacrt)",
         "values": {
             "cnr": "U pripremi",
             "cnr-cyrl": "У припреми",
@@ -1128,6 +1259,38 @@ STRINGS_SEED: list[dict] = [
             "ru": "В подготовке",
             "uk": "У підготовці",
             "en": "Draft",
+        },
+    },
+    {
+        "key": "status.unfiscalized",
+        "category": "status",
+        "description": "Status Nefiskalizovan (lista / filter)",
+        "values": {
+            "cnr": "Nefiskalizovan",
+            "cnr-cyrl": "Нефискализован",
+            "sr": "Nefiskalizovan",
+            "sr-cyrl": "Нефискализован",
+            "sq": "E pafiskalizuar",
+            "tr": "Maliyeleştirilmedi",
+            "ru": "Не фискализирован",
+            "uk": "Не фіскалізовано",
+            "en": "Not fiscalized",
+        },
+    },
+    {
+        "key": "status.unfiscalized_plural",
+        "category": "status",
+        "description": "Filter Nefiskalizovani",
+        "values": {
+            "cnr": "Nefiskalizovani",
+            "cnr-cyrl": "Нефискализовани",
+            "sr": "Nefiskalizovani",
+            "sr-cyrl": "Нефискализовани",
+            "sq": "Të pafiskalizuara",
+            "tr": "Maliyeleştirilmeyenler",
+            "ru": "Не фискализированные",
+            "uk": "Не фіскалізовані",
+            "en": "Not fiscalized",
         },
     },
     {
@@ -1357,6 +1520,54 @@ STRINGS_SEED: list[dict] = [
         },
     },
     {
+        "key": "inv.confirm_fiscalize",
+        "category": "invoice",
+        "description": "Potvrda bulk fiskalizacije",
+        "values": {
+            "cnr": "Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.",
+            "cnr-cyrl": "Да ли сте сигурни? Фискализоваће се %n одабраних фактура.",
+            "sr": "Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.",
+            "sr-cyrl": "Да ли сте сигурни? Фискализоваће се %n одабраних фактура.",
+            "sq": "Jeni i sigurt? Do të fiskalizohen %n fatura të zgjedhura.",
+            "tr": "Emin misiniz? %n seçili fatura maliyeleştirilecek.",
+            "ru": "Вы уверены? Будет фискализировано %n выбранных счетов.",
+            "uk": "Ви впевнені? Буде фіскалізовано %n вибраних рахунків.",
+            "en": "Are you sure? %n selected invoices will be fiscalized.",
+        },
+    },
+    {
+        "key": "inv.need_draft",
+        "category": "invoice",
+        "description": "Nema nefiskalizovanih za bulk",
+        "values": {
+            "cnr": "Označite fakture koje još nisu fiskalizovane.",
+            "cnr-cyrl": "Означите фактуре које још нису фискализоване.",
+            "sr": "Označite fakture koje još nisu fiskalizovane.",
+            "sr-cyrl": "Означите фактуре које још нису фискализоване.",
+            "sq": "Shënoni faturat që nuk janë fiskalizuar ende.",
+            "tr": "Henüz maliyeleştirilmemiş faturaları işaretleyin.",
+            "ru": "Отметьте счета, которые ещё не фискализированы.",
+            "uk": "Позначте рахунки, які ще не фіскалізовані.",
+            "en": "Select invoices that are not yet fiscalized.",
+        },
+    },
+    {
+        "key": "inv.confirm_copy",
+        "category": "invoice",
+        "description": "Potvrda bulk kopiranja",
+        "values": {
+            "cnr": "Kopirati %n odabranih faktura kao nacrte?",
+            "cnr-cyrl": "Копирати %n одабраних фактура као нацрте?",
+            "sr": "Kopirati %n odabranih faktura kao nacrte?",
+            "sr-cyrl": "Копирати %n одабраних фактура као нацрте?",
+            "sq": "Të kopjohen %n fatura si draft?",
+            "tr": "%n seçili fatura taslak olarak kopyalansın mı?",
+            "ru": "Скопировать %n выбранных счетов как черновики?",
+            "uk": "Скопіювати %n вибраних рахунків як чернетки?",
+            "en": "Copy %n selected invoices as drafts?",
+        },
+    },
+    {
         "key": "inv.save_draft",
         "category": "invoice",
         "description": "Sačuvaj nacrt",
@@ -1518,6 +1729,54 @@ STRINGS_SEED: list[dict] = [
     },
     # --- dash ---
     {
+        "key": "dash.izdaj_hint",
+        "category": "dash",
+        "description": "Podnaslov za Izdaj račun na pregledu",
+        "values": {
+            "cnr": "Novi račun ili faktura",
+            "cnr-cyrl": "Нови рачун или фактура",
+            "sr": "Novi račun ili faktura",
+            "sr-cyrl": "Нови рачун или фактура",
+            "sq": "Faturë ose llogari e re",
+            "tr": "Yeni fatura veya fiş",
+            "ru": "Новый счёт или фактура",
+            "uk": "Новий рахунок або фактура",
+            "en": "New receipt or invoice",
+        },
+    },
+    {
+        "key": "dash.izlazne_hint",
+        "category": "dash",
+        "description": "Podnaslov za Izlazne na pregledu",
+        "values": {
+            "cnr": "Pregled i fiskalizacija",
+            "cnr-cyrl": "Преглед и фискализација",
+            "sr": "Pregled i fiskalizacija",
+            "sr-cyrl": "Преглед и фискализација",
+            "sq": "Shqyrtim dhe fiskalizim",
+            "tr": "Görüntüle ve malileştir",
+            "ru": "Просмотр и фискализация",
+            "uk": "Перегляд і фіскалізація",
+            "en": "Review and fiscalize",
+        },
+    },
+    {
+        "key": "dash.quick_actions",
+        "category": "dash",
+        "description": "Ostale akcije na pregledu",
+        "values": {
+            "cnr": "Ostale akcije",
+            "cnr-cyrl": "Остале акције",
+            "sr": "Ostale akcije",
+            "sr-cyrl": "Остале акције",
+            "sq": "Veprime të tjera",
+            "tr": "Diğer işlemler",
+            "ru": "Другие действия",
+            "uk": "Інші дії",
+            "en": "Other actions",
+        },
+    },
+    {
         "key": "dash.today_count",
         "category": "dash",
         "description": "Broj računa danas",
@@ -1666,17 +1925,17 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "sched.title",
         "category": "sched",
-        "description": "Raspored",
+        "description": "Automatske fakture",
         "values": {
-            "cnr": "Raspored",
-            "cnr-cyrl": "Распоред",
-            "sr": "Raspored",
-            "sr-cyrl": "Распоред",
-            "sq": "Orari",
-            "tr": "Zamanlama",
-            "ru": "Расписание",
-            "uk": "Розклад",
-            "en": "Schedule",
+            "cnr": "Automatske fakture",
+            "cnr-cyrl": "Аутоматске фактуре",
+            "sr": "Automatske fakture",
+            "sr-cyrl": "Аутоматске фактуре",
+            "sq": "Fatura automatike",
+            "tr": "Otomatik faturalar",
+            "ru": "Автоматические счета",
+            "uk": "Автоматичні рахунки",
+            "en": "Automatic invoices",
         },
     },
     {
@@ -2008,6 +2267,10 @@ def ensure_languages(db: Session) -> list[Language]:
     return rows
 
 
+# Ključevi koje seed uvijek usklađuje (npr. rename Trajne → Automatske fakture).
+_FORCE_SEED_KEYS = frozenset({"nav.raspored", "page.raspored", "sched.title"})
+
+
 def ensure_translations(db: Session) -> int:
     """Upisuje / ažurira seed ključeve i prevode. Vraća broj upsertovanih prevoda."""
     ensure_languages(db)
@@ -2026,6 +2289,7 @@ def ensure_translations(db: Session) -> int:
             key_row.category = item.get("category") or key_row.category
             key_row.description = item.get("description") or key_row.description
 
+        force = item["key"] in _FORCE_SEED_KEYS
         for lang_code, value in (item.get("values") or {}).items():
             if not db.get(Language, lang_code):
                 continue
@@ -2035,7 +2299,10 @@ def ensure_translations(db: Session) -> int:
                 .first()
             )
             if existing:
-                # Ne prepisuj ručne izmjene iz /admin/prevodi
+                if force and existing.value != value:
+                    existing.value = value
+                    count += 1
+                # Inače ne prepisuj ručne izmjene iz /admin/prevodi
                 continue
             db.add(Translation(key=item["key"], language_code=lang_code, value=value))
             count += 1

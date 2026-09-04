@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.troskovi', 'Troškovnik') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('nav.troskovi', 'Troškovnik') }}{% endblock %}
+{% block content %}
+<p class="muted">{{ year }}-{{ "%02d"|format(month) }} · Ukupno <strong>{{ total|money }} €</strong></p>
+
+<div class="grid grid-2" style="gap:1rem;align-items:start">
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('troskovi.add', 'Novi trošak') }}</h2>
+    <form method="post" action="/troskovi" class="wa-form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <wa-input name="amount" label="{{ t('col.amount', 'Iznos') }} €" inputmode="decimal" required placeholder="0,00"></wa-input>
+      <wa-input name="expense_date" type="date" label="{{ t('col.date', 'Datum') }}" value="{{ year }}-{{ "%02d"|format(month) }}-01"></wa-input>
+      <wa-select name="category_id" label="{{ t('col.category', 'Kategorija') }}">
+        <wa-option value="">—</wa-option>
+        {% for c in categories %}
+        <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
+        {% endfor %}
+      </wa-select>
+      <wa-input name="description" label="{{ t('col.description', 'Opis') }}"></wa-input>
+      <wa-textarea name="notes" label="{{ t('col.notes', 'Napomena') }}" rows="2"></wa-textarea>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    {% if summary %}
+    <div class="card" style="margin-bottom:1rem">
+      <h2 style="margin-top:0;font-size:1rem">{{ t('troskovi.by_category', 'Po kategorijama') }}</h2>
+      <ul style="margin:0;padding-left:1.1rem">
+        {% for s in summary %}
+        <li>{{ s.category }} — <strong>{{ s.total|money }} €</strong></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="plan-card">
+      <div class="plan-table-wrap">
+        <table class="soft-table">
+          <thead>
+            <tr>
+              <th>{{ t('col.date', 'Datum') }}</th>
+              <th>{{ t('col.category', 'Kat.') }}</th>
+              <th>{{ t('col.description', 'Opis') }}</th>
+              <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for e in expenses %}
+            <tr>
+              <td>{{ e.expense_date or '—' }}</td>
+              <td>{{ e.category.name if e.category else '—' }}</td>
+              <td>{{ e.description or '—' }}</td>
+              <td class="num"><strong>{{ (e.amount or 0)|money }} €</strong></td>
+              <td class="cell-actions">
+                <form method="post" action="/troskovi/{{ e.id }}/obrisi" onsubmit="return confirm('Obrisati?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">×</wa-button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="muted" style="padding:1.25rem">{{ t('troskovi.empty', 'Nema troškova ovog mjeseca.') }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

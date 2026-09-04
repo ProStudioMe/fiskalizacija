@@ -5,27 +5,47 @@
   <div class="tabs" style="margin:0">
     <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
     <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">{{ t('status.fiscalized', 'Fiskalizovane') }}</a>
-    <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">{{ t('status.pending', 'U pripremi') }}</a>
+    <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</a>
   </div>
-  <a class="btn" href="/racuni/novi">+ {{ t('nav.izdaj', 'Izdaj račun') }}</a>
+  <a class="btn btn-lg" href="/racuni/novi">+ {{ t('nav.izdaj', 'Izdaj račun') }}</a>
 {% endblock %}
 {% block content %}
-<div class="grid grid-3">
+<section class="dash-primary" aria-label="{{ t('dash.quick_actions', 'Brze akcije') }}">
+  <a class="dash-primary-cta" href="/racuni/novi">
+    <span class="dash-primary-icon" aria-hidden="true">
+      <i data-lucide="plus"></i>
+    </span>
+    <span class="dash-primary-copy">
+      <strong>{{ t('nav.izdaj', 'Izdaj račun') }}</strong>
+      <small>{{ t('dash.izdaj_hint', 'Novi račun ili faktura') }}</small>
+    </span>
+  </a>
+  <a class="dash-primary-link" href="/racuni">
+    <span class="dash-primary-icon secondary" aria-hidden="true">
+      <i data-lucide="file-text"></i>
+    </span>
+    <span class="dash-primary-copy">
+      <strong>{{ t('nav.izlazne', 'Izlazne') }}</strong>
+      <small>{{ t('dash.izlazne_hint', 'Pregled i fiskalizacija') }}</small>
+    </span>
+  </a>
+</section>
+
+<div class="grid grid-3" style="margin-top:1rem">
   <div class="card">
     <div class="stat">{{ stats.count_today }}<small>{{ t('dash.today_count', 'Računa danas') }}</small></div>
   </div>
   <div class="card">
-    <div class="stat">{{ "%.2f"|format(stats.gross_today) }} €<small>{{ t('dash.today_gross', 'Promet danas') }}</small></div>
+    <div class="stat">{{ stats.gross_today|money }} €<small>{{ t('dash.today_gross', 'Promet danas') }}</small></div>
   </div>
   <div class="card">
-    <div class="stat">{{ "%.2f"|format(day.cash_in_drawer) }} €<small>{{ t('dash.cash_drawer', 'Gotovina u kasi') }}{% if not day.has_initial %} · nema INITIAL{% endif %}</small></div>
+    <div class="stat">{{ day.cash_in_drawer|money }} €<small>{{ t('dash.cash_drawer', 'Gotovina u kasi') }}{% if not day.has_initial %} · nema INITIAL{% endif %}</small></div>
   </div>
 </div>
 
 <div class="card" style="margin-top:1rem">
-  <h2>{{ t('dash.quick_actions', 'Brze akcije') }}</h2>
+  <h2>{{ t('dash.quick_actions', 'Ostale akcije') }}</h2>
   <div class="row" style="align-items:center">
-    <a class="btn" href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj račun') }}</a>
     <a class="btn secondary" href="/blagajna">{{ t('nav.blagajna', 'Blagajna') }}</a>
     <a class="btn secondary" href="/kupci">{{ t('nav.komitenti', 'Komitenti') }}</a>
     <a class="btn secondary" href="/artikli">{{ t('nav.artikli', 'Artikli') }}</a>

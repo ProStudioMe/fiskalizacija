@@ -8,7 +8,7 @@ import re
 import smtplib
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
@@ -139,6 +139,221 @@ def statement_day_from_subject(subject: str) -> str | None:
     return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
 
 
+_AMOUNT_RE = re.compile(
+    r"(?P<sign>[+-])?\s*(?P<amt>\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2})\s*(?:EUR|€)?",
+    re.I,
+)
+_LINE_RE = re.compile(
+    r"(?P<d>\d{2}[./]\d{2}[./]\d{2,4})\s+(?P<desc>.+?)\s+(?P<sign>[+-])?\s*(?P<amt>\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2})",
+    re.I,
+)
+
+
+def _parse_amount_token(raw: str) -> Decimal | None:
+    from sepko.money import parse_amount
+
+    return parse_amount(raw, quantize="0.01")
+
+
+def parse_tx_lines_from_text(text: str, *, default_day: str | None = None) -> list[dict[str, Any]]:
+    """Parse bank statement lines from plain text (EML body / PDF extract / pasted)."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if len(line) < 8:
+            continue
+        m = _LINE_RE.search(line)
+        if not m:
+            continue
+        amt = _parse_amount_token(m.group("amt"))
+        if amt is None or amt == 0:
+            continue
+        sign = m.group("sign") or ""
+        # Heuristic: "duguje" / minus / WITHDRAW → debit
+        desc = (m.group("desc") or "").strip()
+        low = (desc + " " + line).lower()
+        is_debit = sign == "-" or "dug" in low or "isplata" in low or "trošak" in low or "trosak" in low
+        if sign == "+":
+            is_debit = False
+        if is_debit and amt > 0:
+            amt = -amt
+        elif not is_debit and amt < 0:
+            amt = abs(amt)
+        d_raw = m.group("d").replace("/", ".")
+        parts = d_raw.split(".")
+        tx_date = default_day
+        try:
+            if len(parts) == 3:
+                dd, mm, yy = parts
+                if len(yy) == 2:
+                    yy = "20" + yy
+                tx_date = f"{yy}-{mm}-{dd}"
+        except Exception:
+            pass
+        key = f"{tx_date}|{amt}|{desc[:40]}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            {
+                "tx_date": tx_date,
+                "amount": amt,
+                "description": desc[:500],
+                "tx_type": "debit" if amt < 0 else "credit",
+                "raw": line[:2000],
+            }
+        )
+    return out
+
+
+def extract_text_from_pdf(data: bytes) -> str:
+    """Best-effort PDF text — raw latin extract without heavy deps."""
+    if not data or not data.startswith(b"%PDF"):
+        return ""
+    # Pull readable strings between stream markers (rough Hipotekarna text PDFs)
+    chunks: list[str] = []
+    try:
+        text = data.decode("latin-1", errors="ignore")
+        for m in re.finditer(r"\((?:\\.|[^\\)]){3,}\)", text):
+            s = m.group(0)[1:-1]
+            s = s.replace("\\n", "\n").replace("\\r", "").replace("\\t", " ")
+            s = re.sub(r"\\[0-9]{3}", " ", s)
+            if any(c.isalpha() for c in s):
+                chunks.append(s)
+        # Also naked lines with amounts
+        for line in text.splitlines():
+            if re.search(r"\d+[.,]\d{2}", line) and len(line) < 300:
+                chunks.append(line)
+    except Exception:
+        return ""
+    return "\n".join(chunks)
+
+
+def parse_statement_transactions(
+    *,
+    subject: str = "",
+    eml_bytes: bytes | None = None,
+    pdf_bytes: bytes | None = None,
+    default_day: str | None = None,
+) -> list[dict[str, Any]]:
+    """Combine subject + EML body + PDF text into transaction candidates."""
+    parts: list[str] = [subject or ""]
+    if eml_bytes:
+        try:
+            import email
+            from email import policy
+
+            msg = email.message_from_bytes(eml_bytes, policy=policy.default)
+            if msg.is_multipart():
+                for part in msg.walk():
+                    ctype = part.get_content_type() or ""
+                    if ctype in ("text/plain", "text/html"):
+                        payload = part.get_payload(decode=True) or b""
+                        parts.append(payload.decode("utf-8", errors="ignore"))
+            else:
+                payload = msg.get_payload(decode=True) or b""
+                parts.append(payload.decode("utf-8", errors="ignore"))
+        except Exception:
+            parts.append(eml_bytes.decode("utf-8", errors="ignore"))
+    if pdf_bytes:
+        parts.append(extract_text_from_pdf(pdf_bytes))
+
+    blob = "\n".join(parts)
+    txs = parse_tx_lines_from_text(blob, default_day=default_day)
+    if txs:
+        return txs
+    # Fallback: amounts mentioned in subject (rare)
+    for m in _AMOUNT_RE.finditer(subject or ""):
+        amt = _parse_amount_token(m.group("amt"))
+        if amt and amt != 0:
+            sign = m.group("sign") or "+"
+            if sign == "-":
+                amt = -abs(amt)
+            txs.append(
+                {
+                    "tx_date": default_day,
+                    "amount": amt,
+                    "description": (subject or "Izvod")[:500],
+                    "tx_type": "debit" if amt < 0 else "credit",
+                    "raw": subject,
+                }
+            )
+    return txs
+
+
+def match_bank_tx_to_incoming(
+    db: Session,
+    tenant: Tenant,
+    tx: BankTransaction,
+    incoming_id: int,
+) -> BankTransaction:
+    from sepko.models import IncomingInvoice, IncomingInvoiceStatus
+    from sepko.audit import write_audit
+
+    inv = (
+        db.query(IncomingInvoice)
+        .filter(IncomingInvoice.tenant_id == tenant.id, IncomingInvoice.id == incoming_id)
+        .first()
+    )
+    if not inv:
+        raise ValueError("Ulazna faktura nije pronađena")
+    tx.incoming_invoice_id = inv.id
+    tx.status = "matched"
+    if inv.status == IncomingInvoiceStatus.recorded.value:
+        inv.status = IncomingInvoiceStatus.paid.value
+    write_audit(
+        db,
+        "bank_tx.match_incoming",
+        tenant_id=tenant.id,
+        entity_type="bank_tx",
+        entity_id=tx.id,
+        detail=f"incoming #{inv.id}",
+    )
+    return tx
+
+
+def match_bank_tx_to_expense(
+    db: Session,
+    tenant: Tenant,
+    tx: BankTransaction,
+    *,
+    category_id: int | None = None,
+    description: str | None = None,
+) -> tuple[BankTransaction, Any]:
+    from sepko.models import Expense
+    from sepko.audit import write_audit
+    from sepko.ulazne import ensure_expense_categories
+
+    ensure_expense_categories(db, tenant)
+    amt = abs(tx.amount or Decimal("0"))
+    exp = Expense(
+        tenant_id=tenant.id,
+        category_id=category_id,
+        bank_tx_id=tx.id,
+        amount=amt,
+        expense_date=None,
+        description=description or tx.description or f"Banka #{tx.id}",
+    )
+    if tx.tx_date:
+        try:
+            exp.expense_date = datetime.strptime(tx.tx_date[:10], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    db.add(exp)
+    db.flush()
+    tx.status = "matched"
+    write_audit(
+        db,
+        "bank_tx.match_expense",
+        tenant_id=tenant.id,
+        entity_type="bank_tx",
+        entity_id=tx.id,
+        detail=f"expense #{exp.id}",
+    )
+    return tx, exp
+
+
 # —— Finansijska kartica ——
 
 def customer_ledger(db: Session, tenant: Tenant, customer: Customer) -> list[dict[str, Any]]:
@@ -242,15 +457,17 @@ def build_kartica_html(
     ledger: list[dict[str, Any]],
     auto_print: bool = False,
 ) -> str:
+    from sepko.money import format_amount
+
     rows = []
     for r in ledger:
-        dug = f'{r["Duguje"]:.2f}' if r.get("Duguje") else ""
-        pot = f'{r["Potražuje"]:.2f}' if r.get("Potražuje") else ""
+        dug = format_amount(r["Duguje"]) if r.get("Duguje") else ""
+        pot = format_amount(r["Potražuje"]) if r.get("Potražuje") else ""
         rows.append(
             f"<tr><td>{r.get('Datum') or ''}</td><td>{r.get('Vrsta') or ''}</td>"
             f"<td>{r.get('Dokument') or ''}</td><td>{r.get('Opis') or ''}</td>"
             f"<td class='num'>{dug}</td><td class='num'>{pot}</td>"
-            f"<td class='num'><strong>{r.get('Saldo', 0):.2f}</strong></td></tr>"
+            f"<td class='num'><strong>{format_amount(r.get('Saldo', 0))}</strong></td></tr>"
         )
     print_js = "window.onload=function(){window.print();};" if auto_print else ""
     return f"""<!DOCTYPE html>
@@ -269,8 +486,8 @@ th{{font-size:.72rem;text-transform:uppercase;color:#666}}
 </style></head><body>
 <h1>Finansijska kartica</h1>
 <div class="meta"><strong>{naziv}</strong> · PIB {pib}<br>
-Fakturisano {summary.get('fakturisano',0):.2f} € · Uplaćeno {summary.get('uplaceno',0):.2f} € ·
-<strong>Dug {summary.get('dug',0):.2f} €</strong></div>
+Fakturisano {format_amount(summary.get('fakturisano',0))} € · Uplaćeno {format_amount(summary.get('uplaceno',0))} € ·
+<strong>Dug {format_amount(summary.get('dug',0))} €</strong></div>
 <table><thead><tr>
 <th>Datum</th><th>Vrsta</th><th>Dokument</th><th>Opis</th>
 <th class="num">Duguje</th><th class="num">Potražuje</th><th class="num">Saldo</th>
@@ -445,9 +662,11 @@ def fetch_izvodi_from_imap(
 
             pdfs = _extract_pdfs(raw_b)
             path: Path | None = None
+            pdf_bytes: bytes | None = None
             if pdfs:
                 path = IZVODI_DIR / f"izvod_{tenant.id}_{day}.pdf"
-                path.write_bytes(pdfs[0][1])
+                pdf_bytes = pdfs[0][1]
+                path.write_bytes(pdf_bytes)
             else:
                 path = IZVODI_DIR / f"izvod_{tenant.id}_{day}.eml"
                 path.write_bytes(raw_b)
@@ -463,22 +682,50 @@ def fetch_izvodi_from_imap(
             )
             db.add(stmt)
             db.flush()
-            # Jednostavna stavka-placeholder (puni parse kasnije / ručno)
-            db.add(
-                BankTransaction(
-                    tenant_id=tenant.id,
-                    statement_id=stmt.id,
-                    tx_date=day,
-                    amount=Decimal("0"),
-                    description=f"Izvod {day} — pregledaj PDF / uvezi detalje",
-                    tx_type="other",
-                    status="needs_review",
-                    raw_text=subject,
-                )
+
+            parsed = parse_statement_transactions(
+                subject=subject,
+                eml_bytes=raw_b if not pdf_bytes else None,
+                pdf_bytes=pdf_bytes,
+                default_day=day,
             )
-            stmt.tx_count = 1
+            if not parsed:
+                db.add(
+                    BankTransaction(
+                        tenant_id=tenant.id,
+                        statement_id=stmt.id,
+                        tx_date=day,
+                        amount=Decimal("0"),
+                        description=f"Izvod {day} — pregledaj PDF / uvezi detalje",
+                        tx_type="other",
+                        status="needs_review",
+                        raw_text=subject,
+                    )
+                )
+                stmt.tx_count = 1
+            else:
+                for p in parsed:
+                    db.add(
+                        BankTransaction(
+                            tenant_id=tenant.id,
+                            statement_id=stmt.id,
+                            tx_date=p.get("tx_date") or day,
+                            amount=Decimal(str(p["amount"])),
+                            description=(p.get("description") or "")[:500],
+                            tx_type=p.get("tx_type") or "other",
+                            status="needs_review",
+                            raw_text=(p.get("raw") or "")[:2000],
+                        )
+                    )
+                stmt.tx_count = len(parsed)
+                # Aggregate totals
+                deb = sum(Decimal(str(p["amount"])) for p in parsed if p.get("tx_type") == "debit")
+                cred = sum(Decimal(str(p["amount"])) for p in parsed if p.get("tx_type") == "credit")
+                stmt.debit_total = abs(deb) if deb else None
+                stmt.credit_total = cred if cred else None
+
             db.add(InvoiceMailSeen(tenant_id=tenant.id, message_id=mid, kind="izvod", matched=day))
-            imported.append({"day": day, "subject": subject, "path": path.name if path else None})
+            imported.append({"day": day, "subject": subject, "path": path.name if path else None, "tx": stmt.tx_count})
             seen.add(mid)
         db.commit()
     except Exception as exc:

@@ -78,9 +78,12 @@ def build_receipt(
         out += _txt(_line(f"  {qty} x", gross, opt.width)) + b"\n"
     out += b"-" * opt.width + b"\n"
     out += ESC + b"E" + b"\x01"
-    out += _txt(_line("UKUPNO", f"{total_gross:.2f} EUR", opt.width)) + b"\n"
+    from sepko.money import format_amount
+
+    total_s = f"{format_amount(total_gross)} EUR"
+    out += _txt(_line("UKUPNO", total_s, opt.width)) + b"\n"
     out += ESC + b"E" + b"\x00"
-    out += _txt(_line(pay_label, f"{total_gross:.2f} EUR", opt.width)) + b"\n"
+    out += _txt(_line(pay_label, total_s, opt.width)) + b"\n"
     if ikof:
         out += _txt(f"IKOF: {ikof}") + b"\n"
     if jikr:

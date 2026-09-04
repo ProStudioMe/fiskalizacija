@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ulazne.add', 'Nova ulazna') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('ulazne.add', 'Nova ulazna faktura') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/ulazne">← {{ t('nav.ulazne', 'Ulazne') }}</a>
+{% endblock %}
+{% block content %}
+<form method="post" action="/ulazne" class="card wa-form-stack" style="max-width:640px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="row">
+    <wa-input name="number" label="{{ t('col.number', 'Broj') }}" value="{{ prefill.number or '' }}"></wa-input>
+    <wa-input name="issue_date" type="date" label="{{ t('col.date', 'Datum') }}" value="{{ prefill.issue_date or '' }}"></wa-input>
+  </div>
+  <wa-select name="supplier_id" label="{{ t('col.supplier', 'Dobavljač') }}">
+    <wa-option value="">— ručni PIB —</wa-option>
+    {% for s in suppliers %}
+    <wa-option value="{{ s.id }}">{{ s.name }} ({{ s.pib }})</wa-option>
+    {% endfor %}
+  </wa-select>
+  <div class="row">
+    <wa-input name="supplier_pib" label="PIB" value="{{ prefill.supplier_pib or '' }}"></wa-input>
+    <wa-input name="supplier_name" label="Naziv" value="{{ prefill.supplier_name or '' }}"></wa-input>
+  </div>
+  <div class="row">
+    <wa-input name="total_net" label="Neto" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_net or '0' }}"></wa-input>
+    <wa-input name="total_vat" label="PDV" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_vat or '0' }}"></wa-input>
+    <wa-input name="total_gross" label="Bruto" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_gross or '0' }}"></wa-input>
+  </div>
+  <h3 style="margin:0;font-size:.95rem">{{ t('ulazne.line', 'Stavka (opciono)') }}</h3>
+  <wa-input name="line_name" label="Naziv stavke"></wa-input>
+  <div class="row">
+    <wa-input name="line_qty" label="Kol." inputmode="decimal" value="1"></wa-input>
+    <wa-input name="line_price" label="Cijena neto" inputmode="decimal" placeholder="0,00" value="0"></wa-input>
+    <wa-input name="line_vat" label="PDV %" inputmode="decimal" value="21"></wa-input>
+  </div>
+  <wa-select name="status" label="Status" value="recorded">
+    <wa-option value="recorded" selected>recorded</wa-option>
+    <wa-option value="draft">draft</wa-option>
+    <wa-option value="paid">paid</wa-option>
+  </wa-select>
+  <wa-textarea name="notes" label="{{ t('col.notes', 'Napomena') }}" rows="2"></wa-textarea>
+  <div class="wa-form-actions">
+    <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+  </div>
+</form>
+{% endblock %}

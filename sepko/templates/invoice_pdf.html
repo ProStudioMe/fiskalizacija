@@ -265,12 +265,12 @@
         {% if desc_note %}<div class="notes">{{ desc_note }}</div>{% endif %}
       </div>
       <div class="totals">
-        <div class="row"><span>Vrijednost bez PDV-a i popusta:</span><span>{{ "%.2f"|format(totals.net_before) }} {{ currency }}</span></div>
-        <div class="row"><span>Vrijednost popusta:</span><span>{{ "%.2f"|format(totals.discount) }} {{ currency }}</span></div>
-        <div class="row"><span>Osnovica:</span><span>{{ "%.2f"|format(invoice.total_net) }} {{ currency }}</span></div>
-        <div class="row"><span>PDV ukupno:</span><span>{{ "%.2f"|format(invoice.total_vat) }} {{ currency }}</span></div>
-        <div class="row strong"><span>Za uplatu:</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
-        <div class="row"><span>{{ pay_label }}:</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
+        <div class="row"><span>Vrijednost bez PDV-a i popusta:</span><span>{{ totals.net_before|money }} {{ currency }}</span></div>
+        <div class="row"><span>Vrijednost popusta:</span><span>{{ totals.discount|money }} {{ currency }}</span></div>
+        <div class="row"><span>Osnovica:</span><span>{{ invoice.total_net|money }} {{ currency }}</span></div>
+        <div class="row"><span>PDV ukupno:</span><span>{{ invoice.total_vat|money }} {{ currency }}</span></div>
+        <div class="row strong"><span>Za uplatu:</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
+        <div class="row"><span>{{ pay_label }}:</span><span>{{ invoice.total_gross|money }} {{ currency }}</span></div>
       </div>
     </div>
 

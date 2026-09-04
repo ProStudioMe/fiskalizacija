@@ -7,20 +7,24 @@
   <a class="tab {% if source == 'tenant' %}active{% endif %}" href="/admin/audit?source=tenant{% if tenant_id %}&tenant_id={{ tenant_id }}{% endif %}">Aktivnost tenanata</a>
 </div>
 
-<form method="get" action="/admin/audit" class="inv-filter-toolbar" style="margin-bottom:1rem">
+<form method="get" action="/admin/audit" class="inv-filter-toolbar wa-filter-bar" style="margin-bottom:1rem">
   <input type="hidden" name="source" value="{{ source }}">
-  <div class="inv-filter-field">
-    <div class="inv-filter-body">
-      <label class="inv-filter-label" for="audit-tenant">Tenant</label>
-      <select id="audit-tenant" name="tenant_id" onchange="this.form.submit()">
-        <option value="">Svi tenanti</option>
-        {% for t in tenants_all %}
-        <option value="{{ t.id }}" {% if tenant_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.pib }})</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
+  <wa-select id="audit-tenant" name="tenant_id" label="Tenant" value="{{ tenant_id or '' }}" style="min-width:16rem">
+    <wa-option value="" {% if not tenant_id %}selected{% endif %}>Svi tenanti</wa-option>
+    {% for t in tenants_all %}
+    <wa-option value="{{ t.id }}" {% if tenant_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.pib }})</wa-option>
+    {% endfor %}
+  </wa-select>
 </form>
+<script>
+(function () {
+  var sel = document.getElementById('audit-tenant');
+  if (!sel) return;
+  function submit() { sel.closest('form') && sel.closest('form').submit(); }
+  sel.addEventListener('change', submit);
+  sel.addEventListener('wa-change', submit);
+})();
+</script>
 
 <p class="muted" style="margin-top:0">
   {% if source == 'tenant' %}

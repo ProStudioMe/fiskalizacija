@@ -45,7 +45,8 @@ flowchart TB
 | Fiskal | Navira | mock → HTTP adapter |
 
 Interni ugovor = **EFI v5** ([docs/efi/](efi/README.md)). SOAP/XAdES radi Navira.
-`SEPKO_PARTNER_MODE=mock` ostaje default.
+`SEPKO_PARTNER_MODE=mock` ostaje default. Za sandbox: `navira` + `SEPKO_NAVIRA_BASE_URL` + `SEPKO_NAVIRA_API_KEY`.
+Endpointi: `/v1/register-invoice`, `/v1/register-cash-deposit` (EFI-shaped JSON).
 
 **Multi-tenant pravilo:** svaki upit filtriran `tenant_id`. Platform admin je uloga `superadmin` (nije tenant user). Cilj: **~1000 tenanata**.
 
@@ -61,6 +62,21 @@ Interni ugovor = **EFI v5** ([docs/efi/](efi/README.md)). SOAP/XAdES radi Navira
 8. Automatski InvNum `{PJ}/{rbr}/{godina}/{ENU}`
 9. Blagajna: INITIAL / WITHDRAW + pregled gotovine
 10. Šifarnik kupaca + izbor na računu
+
+## Faza 1c — Mini knjigovodstvo + PWA (CG, 2026)
+
+Paralelno sa Navira wire:
+
+1. **Navira `HttpPartnerAdapter`** — `POST {base}/v1/register-invoice` i `/v1/register-cash-deposit`, Bearer/X-Api-Key, retry 5xx; mock ostaje default (`SEPKO_PARTNER_MODE=mock`)
+2. **Ulazne fakture** — `Supplier`, `IncomingInvoice` (+ stavke); UI `/ulazne`, `/ulazne/qr`, `/dobavljaci`
+3. **QR import** — parse `tax.gov.me` / `efitest` / `mapr` verify URL → predpopuna; kamera (`BarcodeDetector` + jsQR)
+4. **Troškovnik** — kategorije + `/troskovi`; kreiranje troška iz ulazne
+5. **PWA** — `manifest.webmanifest`, `/sw.js`, `/app` shell, brza fiskalizacija `/app/brzo`
+6. **REST** — `/v1/incoming-invoices`, `/from-qr`, `/v1/expenses`, `/v1/dashboard/summary`
+7. **Bank match** — parse izvoda (tekst/PDF rough) + UI uparivanje na ulaznu/trošak
+8. **Izvještaji** — `/izvjestaji/pregled` (izlaz/ulaz/trošak/PDV saldo indikativno)
+
+Namjerno nije u ovom ciklusu: regionalni e-račun (SEF/Peppol), offline fiskalizacija queue, puni lager/plate.
 
 ## Faza 1b — Platform admin (sljedeće, za 1000 klijenata)
 

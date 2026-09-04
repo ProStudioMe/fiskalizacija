@@ -1,0 +1,169 @@
+/* Sepko ↔ Web Awesome (Shoelace theme) bridge */
+
+/* Avoid FOUC: hide dialogs until custom element upgrades */
+wa-dialog:not(:defined) {
+  display: none !important;
+}
+
+:root,
+html.wa-theme-shoelace {
+  --wa-font-family-body: var(--font);
+  --wa-font-family-heading: var(--font);
+  --wa-border-radius-m: var(--radius-sm);
+  --wa-border-radius-l: var(--radius);
+  --wa-form-control-border-radius: var(--radius-sm);
+}
+
+/* Brand / accent → Sepko purple */
+html.wa-theme-shoelace {
+  --wa-color-brand-50: var(--accent);
+  --wa-color-brand-40: var(--accent);
+  --wa-color-brand-60: var(--cta);
+  --wa-color-focus: var(--accent);
+  --wa-color-text-link: var(--accent);
+}
+
+html.wa-theme-shoelace.wa-light,
+html.wa-theme-shoelace:not(.wa-dark) {
+  --wa-color-surface-default: var(--surface);
+  --wa-color-surface-raised: var(--surface);
+  --wa-color-surface-lowered: var(--soft);
+  --wa-color-surface-border: var(--line);
+  --wa-color-text-normal: var(--ink);
+  --wa-color-text-quiet: var(--muted);
+}
+
+html.wa-theme-shoelace.wa-dark {
+  --wa-color-surface-default: var(--surface);
+  --wa-color-surface-raised: var(--surface);
+  --wa-color-surface-lowered: var(--soft);
+  --wa-color-surface-border: var(--line);
+  --wa-color-text-normal: var(--ink);
+  --wa-color-text-quiet: var(--muted);
+}
+
+/* Stack WA form controls like Sepko .field */
+.wa-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.wa-form-stack .row {
+  align-items: stretch;
+}
+
+.wa-form-stack wa-input,
+.wa-form-stack wa-textarea,
+.wa-form-stack wa-select,
+.wa-form-stack wa-checkbox,
+.wa-form-stack wa-switch {
+  width: 100%;
+}
+
+.wa-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+/* Dialog list patterns (invoice pickers) */
+wa-dialog .modal-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+wa-dialog .modal-search wa-input {
+  flex: 1;
+  min-width: 0;
+}
+
+wa-dialog .modal-list {
+  max-height: min(50vh, 420px);
+  overflow: auto;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
+}
+
+/* Filter toolbars */
+.wa-filter-bar,
+.filter-bar.wa-filter-bar,
+.inv-filter-toolbar.wa-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.wa-filter-bar wa-input,
+.wa-filter-bar wa-select {
+  min-width: 0;
+}
+
+.per-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.per-page-select {
+  width: 5.5rem;
+}
+
+/* Checkbox stacks in forms */
+.wa-form-stack wa-checkbox {
+  margin: 0.15rem 0;
+}
+
+wa-alert {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* Invoice compose + WA */
+.inv-compose-form .inv-art-input,
+.inv-compose-form .inv-cust-input {
+  width: 100%;
+}
+.inv-compose-form .inv-meta-body.wa-form-stack {
+  gap: 0.75rem;
+}
+.inv-compose-form .inv-dock {
+  gap: 0.65rem;
+}
+.inv-compose-form .inv-dock-quiet::part(base) {
+  color: var(--muted);
+  min-height: auto;
+  padding-inline: 0.55rem;
+}
+.inv-cash-alert {
+  margin-bottom: 1.25rem;
+}
+wa-alert.inv-cash-alert {
+  display: block;
+  margin-bottom: 1.25rem;
+}
+.inv-cash-alert a {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+wa-alert.inv-cash-alert::part(base) {
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+  color: var(--ink);
+  padding: 0.85rem 1rem;
+  align-items: flex-start;
+}
+wa-alert.inv-cash-alert::part(message) {
+  font-size: 0.92rem;
+  line-height: 1.45;
+}

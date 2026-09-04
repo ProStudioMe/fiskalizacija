@@ -11,17 +11,34 @@
         if (t !== 'dark' && t !== 'light') {
           t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
-        document.documentElement.setAttribute('data-theme', t);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', t);
+        root.classList.add('wa-theme-shoelace', 'wa-palette-shoelace', t === 'dark' ? 'wa-dark' : 'wa-light');
       } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'light');
+        var r = document.documentElement;
+        r.setAttribute('data-theme', 'light');
+        r.classList.add('wa-theme-shoelace', 'wa-palette-shoelace', 'wa-light');
       }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=40">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
+  <link rel="stylesheet" href="/static/style.css?v=64">
+  <link rel="stylesheet" href="/static/fb-table.css?v=1">
+  <link rel="stylesheet" href="/static/webawesome-theme.css?v=6">
+  <link rel="stylesheet" href="/static/pwa.css?v=1">
   <link rel="icon" href="/static/img/sepko-mark.svg?v=4" type="image/svg+xml">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#5b21b6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SEPKO">
+  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=4">
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/webawesome.loader.js"></script>
+  <script src="/static/webawesome-init.js?v=1"></script>
+  <script src="/static/money.js?v=1"></script>
 </head>
 <body>
   {% if user %}
@@ -33,7 +50,7 @@
     <header class="topbar">
       <div class="topbar-left">
         <button type="button" class="nav-toggle" id="nav-toggle" aria-label="{{ t('nav.meni', 'Meni') }}" aria-expanded="false" aria-controls="sidebar">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+          <i data-lucide="menu" aria-hidden="true"></i>
         </button>
         <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="SEPKO">
           <img class="brand-logo" src="/static/img/sepko-logo.svg?v=4" alt="SEPKO" width="140" height="36">
@@ -41,8 +58,8 @@
       </div>
       <div class="topbar-right">
         <button type="button" class="theme-toggle" id="theme-toggle" title="Svijetla / tamna tema" aria-label="Promijeni temu">
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.1 2a9.9 9.9 0 0 0-1.1.06 8.5 8.5 0 1 0 10.94 10.94A9.95 9.95 0 0 1 12.1 2z"/></svg>
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0-5h1.2v3.2H12V2zm0 16.8H13.2V22H12v-3.2zM2 12h3.2v1.2H2V12zm16.8 0H22v1.2h-3.2V12zM4.9 4.9l2.3 2.3-.85.85-2.3-2.3.85-.85zm12.05 12.05 2.3 2.3-.85.85-2.3-2.3.85-.85zM19.1 4.9l.85.85-2.3 2.3-.85-.85 2.3-2.3zM6.95 16.95l.85.85-2.3 2.3-.85-.85 2.3-2.3z"/></svg>
+          <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+          <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
         </button>
         <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
         <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
@@ -59,74 +76,89 @@
       <aside class="sidebar" id="sidebar" aria-label="Navigacija">
         <div class="sidebar-mobile-head">
           <strong>{{ t('nav.meni', 'Meni') }}</strong>
-          <button type="button" class="nav-close" id="nav-close" aria-label="{{ t('nav.meni', 'Meni') }}">×</button>
+          <button type="button" class="nav-close" id="nav-close" aria-label="{{ t('nav.meni', 'Meni') }}"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="nav-group">
           {% if is_admin_portal %}
           <div class="nav-label">Platforma</div>
           <a href="/admin/tenanti" class="nav-item {% if path.startswith('/admin/tenanti') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12 4 7.5"/></svg>
+            <i data-lucide="building-2" aria-hidden="true"></i>
             Tenanti
           </a>
           <a href="/admin/prevodi" class="nav-item {% if path.startswith('/admin/prevodi') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z"/></svg>
+            <i data-lucide="languages" aria-hidden="true"></i>
             Prevodi
           </a>
           <a href="/admin/audit" class="nav-item {% if path.startswith('/admin/audit') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V8h3.5L14 4.5zM8 11h8v1.5H8V11zm0 3.5h8V16H8v-1.5z"/></svg>
+            <i data-lucide="scroll-text" aria-hidden="true"></i>
             Audit / dnevnik
           </a>
         </div>
           {% else %}
-          <div class="nav-label">{{ t('nav.fiskalizacija', 'Fiskalizacija') }}</div>
-          <a href="/" class="nav-item {% if path == '/' %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>
-            {{ t('nav.pregled', 'Pregled') }}
-          </a>
-          <a href="/racuni" class="nav-item {% if path.startswith('/racuni') and '/novi' not in path and '/raspored' not in path %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V8h3.5L14 4.5zM8 11h8v1.5H8V11zm0 3.5h8V16H8v-1.5zm0 3.5h5V19H8v-1z"/></svg>
-            {{ t('nav.fakture', 'Fakture') }}
-          </a>
-          <a href="/racuni/raspored" class="nav-item {% if path.startswith('/racuni/raspored') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M7 4h10v2H7V4zm-2 4h14v12H5V8zm2 2v8h10v-8H7z" fill="currentColor"/></svg>
-            {{ t('nav.raspored', 'Raspored') }}
-          </a>
-          <a href="/racuni/novi" class="nav-item {% if path.startswith('/racuni/novi') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z"/></svg>
+          <div class="nav-label">{{ t('nav.racuni', 'Računi') }}</div>
+          <a href="/racuni/novi" class="nav-cta {% if path.startswith('/racuni/novi') %}active{% endif %}">
+            <i data-lucide="plus" aria-hidden="true"></i>
             {{ t('nav.izdaj', 'Izdaj račun') }}
           </a>
+          <a href="/racuni" class="nav-item {% if path.startswith('/racuni') and '/novi' not in path and '/raspored' not in path %}active{% endif %}">
+            <i data-lucide="file-text" aria-hidden="true"></i>
+            {{ t('nav.izlazne', 'Izlazne') }}
+          </a>
+          <a href="/racuni/raspored" class="nav-item {% if path.startswith('/racuni/raspored') %}active{% endif %}">
+            <i data-lucide="calendar-clock" aria-hidden="true"></i>
+            {{ t('nav.raspored', 'Automatske fakture') }}
+          </a>
           <a href="/blagajna" class="nav-item {% if path.startswith('/blagajna') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 7h16v12H4V7zm2 0V5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5V7M8 12h8M8 15h5"/></svg>
+            <i data-lucide="wallet" aria-hidden="true"></i>
             {{ t('nav.blagajna', 'Blagajna') }}
           </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-label">{{ t('nav.fiskalizacija', 'Fiskalizacija') }}</div>
+          <a href="/" class="nav-item {% if path == '/' %}active{% endif %}">
+            <i data-lucide="home" aria-hidden="true"></i>
+            {{ t('nav.pregled', 'Pregled') }}
+          </a>
+          <a href="/ulazne" class="nav-item {% if path.startswith('/ulazne') %}active{% endif %}">
+            <i data-lucide="inbox" aria-hidden="true"></i>
+            {{ t('nav.ulazne', 'Ulazne') }}
+          </a>
+          <a href="/troskovi" class="nav-item {% if path.startswith('/troskovi') %}active{% endif %}">
+            <i data-lucide="receipt" aria-hidden="true"></i>
+            {{ t('nav.troskovi', 'Troškovnik') }}
+          </a>
           <a href="/izvjestaji" class="nav-item {% if path.startswith('/izvjestaji') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M5 19h3V9H5v10zm5.5 0h3V5h-3v14zM16 19h3v-7h-3v7z"/></svg>
+            <i data-lucide="bar-chart-3" aria-hidden="true"></i>
             {{ t('nav.izvjestaji', 'Izvještaji') }}
           </a>
           <a href="/finansije" class="nav-item {% if path.startswith('/finansije') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z" fill="currentColor"/></svg>
+            <i data-lucide="landmark" aria-hidden="true"></i>
             {{ t('nav.finansije', 'Finansije') }}
           </a>
         </div>
         <div class="nav-group">
           <div class="nav-label">{{ t('nav.sifrarnici', 'Šifrarnici') }}</div>
           <a href="/artikli" class="nav-item {% if path.startswith('/artikli') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12 4 7.5"/></svg>
+            <i data-lucide="package" aria-hidden="true"></i>
             {{ t('nav.artikli', 'Artikli') }}
           </a>
           <a href="/kupci" class="nav-item {% if path.startswith('/kupci') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-7 9a7 7 0 0 1 14 0"/></svg>
+            <i data-lucide="users" aria-hidden="true"></i>
             {{ t('nav.komitenti', 'Komitenti') }}
+          </a>
+          <a href="/dobavljaci" class="nav-item {% if path.startswith('/dobavljaci') %}active{% endif %}">
+            <i data-lucide="truck" aria-hidden="true"></i>
+            {{ t('nav.dobavljaci', 'Dobavljači') }}
           </a>
         </div>
         <div class="nav-group nav-bottom">
           <div class="nav-label">{{ t('nav.sistem', 'Sistem') }}</div>
           <a href="/podesavanja" class="nav-item {% if path.startswith('/podesavanja') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm8.2 2.2-1.6-.3a6.7 6.7 0 0 0-.6-1.4l.9-1.4-1.8-1.8-1.4.9a6.7 6.7 0 0 0-1.4-.6l-.3-1.6h-2.6l-.3 1.6a6.7 6.7 0 0 0-1.4.6l-1.4-.9-1.8 1.8.9 1.4a6.7 6.7 0 0 0-.6 1.4l-1.6.3v2.6l1.6.3c.1.5.3 1 .6 1.4l-.9 1.4 1.8 1.8 1.4-.9c.4.3.9.5 1.4.6l.3 1.6h2.6l.3-1.6c.5-.1 1-.3 1.4-.6l1.4.9 1.8-1.8-.9-1.4c.3-.4.5-.9.6-1.4l1.6-.3v-2.6z"/></svg>
+            <i data-lucide="settings" aria-hidden="true"></i>
             {{ t('nav.podesavanja', 'Podešavanja') }}
           </a>
           <a href="/informacije" class="nav-item {% if path.startswith('/informacije') %}active{% endif %}">
-            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>
+            <i data-lucide="info" aria-hidden="true"></i>
             {{ t('nav.info', 'Informacije') }}
           </a>
         </div>
@@ -171,7 +203,7 @@
     toggle.addEventListener('click', toggleNav);
     if (closeBtn) closeBtn.addEventListener('click', closeNav);
     if (backdrop) backdrop.addEventListener('click', closeNav);
-    sidebar.querySelectorAll('a.nav-item').forEach(function (a) {
+    sidebar.querySelectorAll('a.nav-item, a.nav-cta').forEach(function (a) {
       a.addEventListener('click', closeNav);
     });
     window.addEventListener('keydown', function (e) {
@@ -192,8 +224,27 @@
   })();
   </script>
   <script src="/static/table-sort.js?v=1" defer></script>
+  <script src="/static/lucide.min.js?v=0.544.0"></script>
+  <script src="/static/lucide-init.js?v=1"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+  </script>
+  {% if user and not is_admin_portal %}
+  <nav class="pwa-bottom-nav" aria-label="Mobilna navigacija">
+    <a href="/" class="{% if path == '/' %}active{% endif %}">{{ t('nav.pregled', 'Pregled') }}</a>
+    <a href="/racuni/novi" class="{% if path.startswith('/racuni/novi') %}active{% endif %}">{{ t('nav.izdaj', 'Izlaz') }}</a>
+    <a href="/ulazne/qr" class="{% if path.startswith('/ulazne') %}active{% endif %}">{{ t('nav.ulazne', 'Ulaz') }}</a>
+    <a href="/app" class="{% if path.startswith('/app') %}active{% endif %}">{{ t('nav.vise', 'Više') }}</a>
+  </nav>
+  {% endif %}
   {% else %}
     {% block auth %}{% endblock %}
+    <script src="/static/lucide.min.js?v=0.544.0"></script>
+    <script src="/static/lucide-init.js?v=1"></script>
     <script>
     (function () {
       /* tema i na login stranici */
@@ -204,9 +255,10 @@
       btn.id = 'theme-toggle-login';
       btn.title = 'Svijetla / tamna tema';
       btn.setAttribute('aria-label', 'Promijeni temu');
-      btn.innerHTML = '<svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.1 2a9.9 9.9 0 0 0-1.1.06 8.5 8.5 0 1 0 10.94 10.94A9.95 9.95 0 0 1 12.1 2z"/></svg><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0-5h1.2v3.2H12V2zm0 16.8H13.2V22H12v-3.2zM2 12h3.2v1.2H2V12zm16.8 0H22v1.2h-3.2V12zM4.9 4.9l2.3 2.3-.85.85-2.3-2.3.85-.85zm12.05 12.05 2.3 2.3-.85.85-2.3-2.3.85-.85zM19.1 4.9l.85.85-2.3 2.3-.85-.85 2.3-2.3zM6.95 16.95l.85.85-2.3 2.3-.85-.85 2.3-2.3z"/></svg>';
+      btn.innerHTML = '<i data-lucide="moon" class="icon-moon" aria-hidden="true"></i><i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>';
       btn.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:20';
       document.body.appendChild(btn);
+      if (window.sepkoIcons) window.sepkoIcons();
       btn.addEventListener('click', function () {
         var cur = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         var next = cur === 'dark' ? 'light' : 'dark';

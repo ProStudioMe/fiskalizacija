@@ -1,6 +1,10 @@
 """Web UI — finansijske kartice, izvodi, mail."""
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
@@ -14,14 +18,22 @@ from sepko.finansije import (
     customer_summary,
     fetch_izvodi_from_imap,
     load_mail_settings,
+    match_bank_tx_to_expense,
+    match_bank_tx_to_incoming,
     safe_filename,
     save_mail_settings,
     send_firm_mail,
 )
-from sepko.models import BankStatement, Customer, CustomerPayment, Invoice
-from decimal import Decimal
-from datetime import datetime
-from pathlib import Path
+from sepko.models import (
+    BankStatement,
+    BankTransaction,
+    Customer,
+    CustomerPayment,
+    ExpenseCategory,
+    IncomingInvoice,
+    Invoice,
+)
+from sepko.ulazne import ensure_expense_categories
 from sepko.web_auth import AuthRequired
 from sepko.web_security import flash, redirect, validate_csrf
 from sepko.web_templates import render
@@ -51,6 +63,34 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
         .limit(30)
         .all()
     )
+    pending_tx = (
+        db.query(BankTransaction)
+        .filter(
+            BankTransaction.tenant_id == tenant.id,
+            BankTransaction.status == "needs_review",
+        )
+        .order_by(BankTransaction.id.desc())
+        .limit(40)
+        .all()
+    )
+    incoming = (
+        db.query(IncomingInvoice)
+        .filter(
+            IncomingInvoice.tenant_id == tenant.id,
+            IncomingInvoice.status.in_(["draft", "recorded"]),
+        )
+        .order_by(IncomingInvoice.id.desc())
+        .limit(50)
+        .all()
+    )
+    ensure_expense_categories(db, tenant)
+    db.commit()
+    categories = (
+        db.query(ExpenseCategory)
+        .filter(ExpenseCategory.tenant_id == tenant.id, ExpenseCategory.active.is_(True))
+        .order_by(ExpenseCategory.name)
+        .all()
+    )
     mail = load_mail_settings(tenant)
     return render(
         request,
@@ -60,6 +100,9 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
             "tenant": tenant,
             "cards": cards,
             "statements": statements,
+            "pending_tx": pending_tx,
+            "incoming_options": incoming,
+            "categories": categories,
             "mail_enabled": mail.enabled,
         },
     )
@@ -159,7 +202,11 @@ def kartica_add_payment(
         flash(request, "Komitent nije pronađen.", "error")
         return redirect("/finansije")
     try:
-        amt = Decimal(str(amount).replace(",", "."))
+        from sepko.money import parse_nonneg_money
+
+        amt = parse_nonneg_money(amount, quantize="0.01")
+        if amt is None:
+            raise ValueError("bad amount")
     except Exception:
         flash(request, "Neispravan iznos.", "error")
         return redirect(f"/finansije/kartica/{customer_id}")
@@ -387,3 +434,97 @@ def settings_mail_save(
     db.commit()
     flash(request, "Mail podešavanja sačuvana.")
     return redirect("/podesavanja/mail")
+
+
+@router.post("/finansije/tx/{tx_id}/match-ulazna")
+def finansije_match_incoming(
+    request: Request,
+    tx_id: int,
+    csrf_token: str = Form(""),
+    incoming_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/finansije")
+    tx = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.tenant_id == tenant.id, BankTransaction.id == tx_id)
+        .first()
+    )
+    if not tx:
+        flash(request, "Stavka nije pronađena.", "error")
+        return redirect("/finansije")
+    try:
+        iid = int(incoming_id)
+        match_bank_tx_to_incoming(db, tenant, tx, iid)
+        db.commit()
+        flash(request, f"Stavka #{tx_id} povezana sa ulaznom #{iid}.")
+    except Exception as exc:
+        db.rollback()
+        flash(request, str(exc), "error")
+    return redirect("/finansije")
+
+
+@router.post("/finansije/tx/{tx_id}/match-trosak")
+def finansije_match_expense(
+    request: Request,
+    tx_id: int,
+    csrf_token: str = Form(""),
+    category_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/finansije")
+    tx = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.tenant_id == tenant.id, BankTransaction.id == tx_id)
+        .first()
+    )
+    if not tx:
+        flash(request, "Stavka nije pronađena.", "error")
+        return redirect("/finansije")
+    try:
+        cid = int(category_id) if category_id.strip().isdigit() else None
+        _tx, exp = match_bank_tx_to_expense(db, tenant, tx, category_id=cid)
+        db.commit()
+        flash(request, f"Trošak #{exp.id} kreiran iz bankovne stavke.")
+    except Exception as exc:
+        db.rollback()
+        flash(request, str(exc), "error")
+    return redirect("/finansije")
+
+
+@router.post("/finansije/tx/{tx_id}/ignore")
+def finansije_ignore_tx(
+    request: Request,
+    tx_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/finansije")
+    tx = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.tenant_id == tenant.id, BankTransaction.id == tx_id)
+        .first()
+    )
+    if tx:
+        tx.status = "ignored"
+        db.commit()
+        flash(request, "Stavka ignorisana.")
+    return redirect("/finansije")

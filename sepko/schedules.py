@@ -10,8 +10,25 @@ from sqlalchemy.orm import Session, joinedload
 from sepko.efi import display_inv_num
 from sepko.finansije import load_mail_settings, safe_filename, send_firm_mail
 from sepko.models import Customer, Invoice, InvoiceSchedule, InvoiceStatus, Tenant
+from sepko.money import format_amount
 from sepko.partner import utcnow
 from sepko.services import copy_invoices, fiscalize_saved_invoice
+
+
+MONTH_NAMES_CNR = (
+    "januar",
+    "februar",
+    "mart",
+    "april",
+    "maj",
+    "jun",
+    "jul",
+    "avgust",
+    "septembar",
+    "oktobar",
+    "novembar",
+    "decembar",
+)
 
 
 def parse_days_of_month(raw: str | None) -> list[int]:
@@ -33,8 +50,36 @@ def format_days_of_month(days: list[int]) -> str:
     return ",".join(str(d) for d in sorted(set(days)) if 1 <= d <= 31) or "1"
 
 
+def normalize_period_mode(raw: str | None) -> str:
+    mode = (raw or "previous").strip().lower()
+    return "current" if mode == "current" else "previous"
+
+
 def _months_last_day(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
+
+
+def billing_period(today: date, period_mode: str | None = "previous") -> dict[str, Any]:
+    """Period fakturisanja: prethodni ili tekući mjesec."""
+    mode = normalize_period_mode(period_mode)
+    if mode == "current":
+        year, month = today.year, today.month
+    else:
+        if today.month == 1:
+            year, month = today.year - 1, 12
+        else:
+            year, month = today.year, today.month - 1
+    start = date(year, month, 1)
+    end = date(year, month, _months_last_day(year, month))
+    label = f"{MONTH_NAMES_CNR[month - 1]} {year}"
+    range_label = f"{start.strftime('%d.%m.%Y')} – {end.strftime('%d.%m.%Y')}"
+    return {
+        "mode": mode,
+        "start": start,
+        "end": end,
+        "label": label,
+        "range_label": range_label,
+    }
 
 
 def schedule_due_today(schedule: InvoiceSchedule, today: date | None = None) -> bool:
@@ -51,32 +96,67 @@ def schedule_due_today(schedule: InvoiceSchedule, today: date | None = None) -> 
     return schedule.last_run_key != run_key
 
 
-def _refresh_due_note(notes: str | None, due: date) -> str:
-    lines = []
+def _upsert_note_line(notes: str | None, prefix: str, value: str) -> str:
+    """Zamijeni ili dodaj liniju koja počinje sa prefix (case-insensitive)."""
+    prefix_l = prefix.lower()
+    lines: list[str] = []
     replaced = False
     for line in (notes or "").splitlines():
-        if line.strip().lower().startswith("rok plaćanja:"):
-            lines.append(f"Rok plaćanja: {due.isoformat()}")
+        if line.strip().lower().startswith(prefix_l):
+            lines.append(f"{prefix}{value}")
             replaced = True
         else:
             lines.append(line)
     if not replaced:
-        lines.insert(0, f"Rok plaćanja: {due.isoformat()}")
-    return "\n".join(lines)
+        lines.append(f"{prefix}{value}")
+    return "\n".join(lines).strip()
 
 
-def _invoice_email_html(invoice: Invoice) -> str:
+def _refresh_due_note(notes: str | None, due: date) -> str:
+    return _upsert_note_line(notes, "Rok plaćanja: ", due.isoformat())
+
+
+def _apply_schedule_meta(
+    notes: str | None,
+    *,
+    contract_number: str | None,
+    period: dict[str, Any],
+    schedule_name: str,
+    run_key: str,
+) -> str:
+    text = notes or ""
+    if contract_number:
+        text = _upsert_note_line(text, "Broj ugovora: ", contract_number)
+    text = _upsert_note_line(text, "Period: ", f"{period['label']} ({period['range_label']})")
+    tag = f"Automatska faktura: {schedule_name} ({run_key})"
+    if tag not in text:
+        text = (text.rstrip() + "\n" + tag) if text.strip() else tag
+    return text.strip()
+
+
+def _invoice_email_html(
+    invoice: Invoice,
+    *,
+    contract_number: str | None = None,
+    period_label: str | None = None,
+) -> str:
     when = (
         invoice.issue_datetime.strftime("%d.%m.%Y %H:%M")
         if invoice.issue_datetime
         else "—"
     )
+    extra = ""
+    if contract_number:
+        extra += f"<p>Ugovor: <strong>{contract_number}</strong></p>"
+    if period_label:
+        extra += f"<p>Period: <strong>{period_label}</strong></p>"
     return (
         "<!DOCTYPE html><html><body style='font-family:Segoe UI,sans-serif;color:#111'>"
         f"<h2>Faktura {display_inv_num(invoice)}</h2>"
         f"<p>{invoice.buyer_name or ''} · PIB {invoice.buyer_pib or '—'}</p>"
         f"<p>Datum: {when}</p>"
-        f"<p><strong>Za uplatu: {float(invoice.total_gross):.2f} {invoice.currency or 'EUR'}</strong></p>"
+        f"{extra}"
+        f"<p><strong>Za uplatu: {format_amount(invoice.total_gross)} {invoice.currency or 'EUR'}</strong></p>"
         f"<p>Status: {invoice.status}</p>"
         f"<p>IKOF: {invoice.ikof or '—'}<br>JIKR: {invoice.jikr or '—'}</p>"
         f"<p><a href='{invoice.qr_url or '#'}'>Verifikacija QR</a></p>"
@@ -94,9 +174,9 @@ def run_schedule(
 ) -> dict[str, Any]:
     today = today or utcnow().date()
     if not schedule.active and not force:
-        return {"ok": False, "skipped": True, "message": "Raspored nije aktivan."}
+        return {"ok": False, "skipped": True, "message": "Automatska faktura nije aktivna."}
     if not force and not schedule_due_today(schedule, today):
-        return {"ok": False, "skipped": True, "message": "Danas nije dan za ovaj raspored."}
+        return {"ok": False, "skipped": True, "message": "Danas nije dan za ovu automatsku fakturu."}
 
     run_key = today.isoformat()
     if not force and schedule.last_run_key == run_key:
@@ -121,14 +201,17 @@ def run_schedule(
 
     inv = created[0]
     due = today + timedelta(days=15)
+    period = billing_period(today, getattr(schedule, "period_mode", None) or "previous")
+    contract = (getattr(schedule, "contract_number", None) or "").strip() or None
+
     inv.notes = _refresh_due_note(inv.notes, due)
-    # Označi da je iz rasporeda
-    tag = f"Raspored: {schedule.name or schedule.id} ({run_key})"
-    if inv.notes:
-        if tag not in inv.notes:
-            inv.notes = inv.notes.rstrip() + "\n" + tag
-    else:
-        inv.notes = tag
+    inv.notes = _apply_schedule_meta(
+        inv.notes,
+        contract_number=contract,
+        period=period,
+        schedule_name=schedule.name or str(schedule.id),
+        run_key=run_key,
+    )
     db.commit()
     db.refresh(inv)
 
@@ -163,15 +246,27 @@ def run_schedule(
         to_raw = (schedule.email_to or (customer.email if customer else "") or "").strip()
         to_addrs = [x.strip() for x in to_raw.replace(";", ",").split(",") if x.strip()]
         mail = load_mail_settings(tenant)
-        subject = f"Faktura {display_inv_num(inv)} — {tenant.name}"
-        body = (
-            f"Poštovani,\n\n"
-            f"u prilogu je faktura {display_inv_num(inv)} "
-            f"za {inv.buyer_name or 'vas'} "
-            f"({float(inv.total_gross):.2f} {inv.currency or 'EUR'}).\n\n"
-            f"Srdačan pozdrav,\n{tenant.name}\n"
+        period_bit = period["label"]
+        subject_bits = [f"Faktura {display_inv_num(inv)}"]
+        if contract:
+            subject_bits.append(f"ugovor {contract}")
+        subject_bits.append(period_bit)
+        subject = f"{' — '.join(subject_bits)} — {tenant.name}"
+        body_lines = [
+            "Poštovani,",
+            "",
+            f"u prilogu je faktura {display_inv_num(inv)}",
+            f"za {inv.buyer_name or 'vas'}",
+            f"({format_amount(inv.total_gross)} {inv.currency or 'EUR'}).",
+        ]
+        if contract:
+            body_lines.append(f"Broj ugovora: {contract}")
+        body_lines.append(f"Period: {period_bit} ({period['range_label']})")
+        body_lines.extend(["", f"Srdačan pozdrav,", tenant.name, ""])
+        body = "\n".join(body_lines)
+        html = _invoice_email_html(
+            inv, contract_number=contract, period_label=f"{period_bit} ({period['range_label']})"
         )
-        html = _invoice_email_html(inv)
         fname = safe_filename(display_inv_num(inv)) + ".html"
         result = send_firm_mail(
             mail=mail,
@@ -194,6 +289,9 @@ def run_schedule(
     db.commit()
 
     parts = [f"Kreirana faktura #{inv.id} ({display_inv_num(inv)})"]
+    if contract:
+        parts.append(f"ugovor {contract}")
+    parts.append(f"period {period['label']}")
     if schedule.auto_fiscalize:
         parts.append("fiskalizovano" if fiscal_ok else "fiskalizacija nije uspjela")
     if schedule.auto_email:
@@ -204,6 +302,8 @@ def run_schedule(
         "message": "; ".join(parts),
         "fiscal_ok": fiscal_ok,
         "mail_ok": mail_ok,
+        "period": period["label"],
+        "contract_number": contract,
     }
 
 

@@ -49,4 +49,6 @@ Ostalo (samo EFI ime): `BUSINESSCARD`, `SVOUCHER`, `COMPANY`, `ADVANCE`, `ACCOUN
 
 ## Kasnije (nije Faza 1)
 
-`RegisterTCR`, `RegisterCashDeposit`, `CORRECTIVE` / `ADVANCE` / `SUMMARY` / `PERIODICAL` / `CREDIT_NOTE` / `ERROR_CORRECTIVE`.
+`RegisterTCR`, `CORRECTIVE` / `ADVANCE` / `SUMMARY` / `PERIODICAL` / `CREDIT_NOTE` / `ERROR_CORRECTIVE`.
+
+`RegisterCashDeposit` je wired u `HttpPartnerAdapter` (`POST /v1/register-cash-deposit`).

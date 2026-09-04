@@ -56,11 +56,15 @@ class Tenant(Base):
     categories: Mapped[list[Category]] = relationship(back_populates="tenant")
     tax_rates: Mapped[list[TaxRate]] = relationship(back_populates="tenant")
     customers: Mapped[list[Customer]] = relationship(back_populates="tenant")
+    suppliers: Mapped[list["Supplier"]] = relationship(back_populates="tenant")
     cash_deposits: Mapped[list[CashDeposit]] = relationship(back_populates="tenant")
     bank_statements: Mapped[list["BankStatement"]] = relationship(back_populates="tenant")
     bank_transactions: Mapped[list["BankTransaction"]] = relationship(back_populates="tenant")
     customer_payments: Mapped[list["CustomerPayment"]] = relationship(back_populates="tenant")
     invoice_schedules: Mapped[list["InvoiceSchedule"]] = relationship(back_populates="tenant")
+    incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="tenant")
+    expense_categories: Mapped[list["ExpenseCategory"]] = relationship(back_populates="tenant")
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="tenant")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="tenant")
 
 
@@ -121,7 +125,7 @@ class Article(Base):
     code: Mapped[str] = mapped_column(String(64))
     name: Mapped[str] = mapped_column(String(255))
     unit: Mapped[str] = mapped_column(String(16), default="KOM")
-    price_gross: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"))  # VP / veleprodajna
+    price_gross: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"))  # VP neto (bez PDV)
     price_retail: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)  # MP
     stock_qty: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
     barcode: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -155,6 +159,8 @@ class Customer(Base):
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)  # legacy / sastavljeno
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     logo_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Stalni popust na račun (%) — automatski se primjenjuje pri izboru komitenta
+    discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"))
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -232,6 +238,8 @@ class Invoice(Base):
     inv_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     fiscalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Šablon za mjesečni raspored (ne mora biti fiskalizovan)
+    is_template: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -346,12 +354,18 @@ class BankTransaction(Base):
     status: Mapped[str] = mapped_column(String(32), default="needs_review", index=True)
     # needs_review | matched | card | ignored
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
+    incoming_invoice_id: Mapped[int | None] = mapped_column(
+        ForeignKey("incoming_invoices.id"), nullable=True, index=True
+    )
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tenant: Mapped[Tenant] = relationship(back_populates="bank_transactions")
     statement: Mapped[BankStatement | None] = relationship(back_populates="transactions")
     payments: Mapped[list["CustomerPayment"]] = relationship(back_populates="bank_tx")
+    incoming_invoice: Mapped["IncomingInvoice | None"] = relationship(
+        foreign_keys=[incoming_invoice_id]
+    )
 
 
 class CustomerPayment(Base):
@@ -388,6 +402,139 @@ class InvoiceMailSeen(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class IncomingInvoiceStatus(str, Enum):
+    draft = "draft"
+    recorded = "recorded"
+    paid = "paid"
+    disputed = "disputed"
+
+
+class IncomingInvoiceSource(str, Enum):
+    manual = "manual"
+    qr = "qr"
+    mail = "mail"
+
+
+class Supplier(Base):
+    """Dobavljač (ulazne fakture / AP)."""
+
+    __tablename__ = "suppliers"
+    __table_args__ = (UniqueConstraint("tenant_id", "pib", name="uq_tenant_supplier_pib"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    pib: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(255))
+    street: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True, default="Crna Gora")
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tenant: Mapped[Tenant] = relationship(back_populates="suppliers")
+    incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="supplier")
+
+
+class IncomingInvoice(Base):
+    """Ulazna faktura (AP) — ručni unos, QR sa tax.gov.me, ili mail."""
+
+    __tablename__ = "incoming_invoices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("suppliers.id"), nullable=True, index=True)
+    number: Mapped[str] = mapped_column(String(64), default="")
+    issue_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    supplier_pib: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    supplier_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default=IncomingInvoiceStatus.draft.value, index=True)
+    source: Mapped[str] = mapped_column(String(16), default=IncomingInvoiceSource.manual.value)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR")
+    total_net: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    total_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    ikof: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    jikr: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    qr_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachment_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="incoming_invoices")
+    supplier: Mapped[Supplier | None] = relationship(back_populates="incoming_invoices")
+    lines: Mapped[list["IncomingInvoiceLine"]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan"
+    )
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="incoming_invoice")
+
+
+class IncomingInvoiceLine(Base):
+    __tablename__ = "incoming_invoice_lines"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("incoming_invoices.id"), index=True)
+    code: Mapped[str] = mapped_column(String(64), default="")
+    name: Mapped[str] = mapped_column(String(255))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("1"))
+    unit_price_net: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"))
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=Decimal("21"))
+    total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+
+    invoice: Mapped[IncomingInvoice] = relationship(back_populates="lines")
+
+
+class ExpenseCategory(Base):
+    __tablename__ = "expense_categories"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_tenant_expense_cat"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    color: Mapped[str] = mapped_column(String(16), default="#6366f1")
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tenant: Mapped[Tenant] = relationship(back_populates="expense_categories")
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="category")
+
+
+class Expense(Base):
+    """Trošak — ručni unos ili iz ulazne fakture / bankovne stavke."""
+
+    __tablename__ = "expenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("expense_categories.id"), nullable=True, index=True)
+    incoming_invoice_id: Mapped[int | None] = mapped_column(
+        ForeignKey("incoming_invoices.id"), nullable=True, index=True
+    )
+    bank_tx_id: Mapped[int | None] = mapped_column(ForeignKey("bank_transactions.id"), nullable=True, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    expense_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachment_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tenant: Mapped[Tenant] = relationship(back_populates="expenses")
+    category: Mapped[ExpenseCategory | None] = relationship(back_populates="expenses")
+    incoming_invoice: Mapped[IncomingInvoice | None] = relationship(
+        back_populates="expenses", foreign_keys=[incoming_invoice_id]
+    )
+    bank_tx: Mapped[BankTransaction | None] = relationship(
+        foreign_keys=[bank_tx_id],
+        primaryjoin="Expense.bank_tx_id==BankTransaction.id",
+        viewonly=True,
+    )
+
+
 class InvoiceSchedule(Base):
     """Mjesečni raspored: kopiraj šablon fakture na odabrane dane + opciono fiskalizuj/pošalji."""
 
@@ -400,6 +547,10 @@ class InvoiceSchedule(Base):
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
     # Dani u mjesecu, npr. "1,15" ili "28"
     days_of_month: Mapped[str] = mapped_column(String(64), default="1")
+    # Broj ugovora / ugovorne reference
+    contract_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # current = period je mjesec izdavanja; previous = prethodni mjesec
+    period_mode: Mapped[str] = mapped_column(String(16), default="previous")
     auto_fiscalize: Mapped[bool] = mapped_column(default=False)
     auto_email: Mapped[bool] = mapped_column(default=True)
     email_to: Mapped[str | None] = mapped_column(String(512), nullable=True)

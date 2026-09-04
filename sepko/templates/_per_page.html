@@ -1,8 +1,22 @@
 <label class="per-page">
   {{ t('label.per_page', 'Prikaži') }}
-  <select name="per_page" onchange="this.form.submit()">
+  <wa-select name="per_page" value="{{ per_page }}" size="small" class="per-page-select">
     {% for n in page_sizes %}
-    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
+    <wa-option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</wa-option>
     {% endfor %}
-  </select>
+  </wa-select>
 </label>
+<script>
+(function () {
+  document.querySelectorAll('wa-select.per-page-select').forEach(function (sel) {
+    if (sel.dataset.bound) return;
+    sel.dataset.bound = '1';
+    function go() {
+      var form = sel.closest('form');
+      if (form) form.submit();
+    }
+    sel.addEventListener('change', go);
+    sel.addEventListener('wa-change', go);
+  });
+})();
+</script>

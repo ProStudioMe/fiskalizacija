@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ t('reports.overview', 'Pregled perioda') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('reports.overview', 'Pregled') }} {{ year }}-{{ "%02d"|format(month) }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/izvjestaji">← Izvještaji</a>
+{% endblock %}
+{% block content %}
+<form method="get" action="/izvjestaji/pregled" class="wa-form-actions" style="margin-bottom:1rem;align-items:end">
+  <wa-input name="year" type="number" label="Godina" value="{{ year }}" style="width:7rem"></wa-input>
+  <wa-input name="month" type="number" label="Mjesec" min="1" max="12" value="{{ month }}" style="width:6rem"></wa-input>
+  <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
+</form>
+
+<div class="grid grid-2" style="gap:1rem">
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('nav.izlazne', 'Izlazne') }}</h2>
+    <p>{{ out_count }} računa</p>
+    <p>Neto {{ out_net|money }} €</p>
+    <p>PDV {{ out_vat|money }} €</p>
+    <p><strong>Bruto {{ out_gross|money }} €</strong></p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('nav.ulazne', 'Ulazne') }}</h2>
+    <p>{{ in_count }} faktura</p>
+    <p>PDV ulazni {{ in_vat|money }} €</p>
+    <p><strong>Bruto {{ in_gross|money }} €</strong></p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('nav.troskovi', 'Troškovi') }}</h2>
+    <p><strong>{{ exp_total|money }} €</strong></p>
+    <ul style="margin:.5rem 0 0;padding-left:1.1rem">
+      {% for s in exp_summary %}
+      <li>{{ s.category }} — {{ s.total|money }} €</li>
+      {% else %}
+      <li class="muted">—</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('reports.vat', 'PDV pregled') }}</h2>
+    <p>Izlazni PDV {{ out_vat|money }} €</p>
+    <p>Ulazni PDV {{ in_vat|money }} €</p>
+    <p><strong>Saldo {{ pdv_saldo|money }} €</strong></p>
+    <p class="muted" style="font-size:.85rem">Indikativno — nije poreska prijava.</p>
+  </div>
+</div>
+{% endblock %}

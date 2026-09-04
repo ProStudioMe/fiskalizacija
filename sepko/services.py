@@ -200,7 +200,13 @@ def fiscalize_invoice(
     return _to_response(invoice)
 
 
-def save_draft_invoice(db: Session, tenant: Tenant, request: FiscalizeRequest) -> Invoice:
+def save_draft_invoice(
+    db: Session,
+    tenant: Tenant,
+    request: FiscalizeRequest,
+    *,
+    is_template: bool = False,
+) -> Invoice:
     """Sačuvaj fakturu kao nacrt (bez poziva partnera / EFI)."""
     token = secrets.token_hex(8)
     external_id = (request.external_id or "").strip() or f"draft-{token}"
@@ -225,6 +231,7 @@ def save_draft_invoice(db: Session, tenant: Tenant, request: FiscalizeRequest) -
         inv_type=request.inv_type,
         inv_num=None,
         inv_ord_num=None,
+        is_template=bool(is_template),
     )
     for line in request.lines:
         invoice.lines.append(
@@ -243,6 +250,87 @@ def save_draft_invoice(db: Session, tenant: Tenant, request: FiscalizeRequest) -
     write_audit(
         db,
         "invoice.draft",
+        tenant_id=tenant.id,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        detail=invoice.external_id,
+    )
+    db.commit()
+    return invoice
+
+
+EDITABLE_INVOICE_STATUSES = frozenset(
+    {
+        InvoiceStatus.draft.value,
+        InvoiceStatus.pending.value,
+        InvoiceStatus.failed.value,
+    }
+)
+
+
+def invoice_is_editable(invoice: Invoice) -> bool:
+    return invoice.status in EDITABLE_INVOICE_STATUSES
+
+
+def update_draft_invoice(
+    db: Session,
+    tenant: Tenant,
+    invoice: Invoice,
+    request: FiscalizeRequest,
+    *,
+    is_template: bool | None = None,
+) -> Invoice:
+    """Ažuriraj nacrt / nefiskalizovanu fakturu. Fiskalizovane se ne smiju dirati."""
+    if invoice.tenant_id != tenant.id:
+        raise ValueError("Faktura ne pripada tenant-u.")
+    if not invoice_is_editable(invoice):
+        raise ValueError("Fiskalizovani račun se ne može mijenjati.")
+
+    now = request.issue_datetime or utcnow()
+    invoice.status = InvoiceStatus.draft.value
+    invoice.invoice_type = request.invoice_type
+    invoice.payment_method = request.payment_method
+    invoice.currency = request.currency or "EUR"
+    invoice.issue_datetime = now
+    invoice.buyer_pib = request.buyer.pib if request.buyer else None
+    invoice.buyer_name = request.buyer.name if request.buyer else None
+    invoice.buyer_address = request.buyer.address if request.buyer else None
+    invoice.notes = request.notes
+    invoice.total_net = request.totals.net
+    invoice.total_vat = request.totals.vat
+    invoice.total_gross = request.totals.gross
+    invoice.payload_json = request.model_dump_json()
+    invoice.type_of_inv = request.invoice_type
+    invoice.inv_type = request.inv_type
+    invoice.error_message = None
+    if is_template is not None:
+        invoice.is_template = bool(is_template)
+    # Nacrt nema fiskalne brojeve / identifikatore
+    invoice.ikof = None
+    invoice.jikr = None
+    invoice.qr_url = None
+    invoice.partner_ref = None
+    invoice.inv_num = None
+    invoice.inv_ord_num = None
+    invoice.fiscalized_at = None
+
+    invoice.lines.clear()
+    for line in request.lines:
+        invoice.lines.append(
+            InvoiceLine(
+                code=line.code,
+                name=line.name,
+                quantity=line.quantity,
+                unit_price_net=line.unit_price_net,
+                vat_rate=line.vat_rate,
+                total_gross=line.total_gross,
+            )
+        )
+    db.commit()
+    db.refresh(invoice)
+    write_audit(
+        db,
+        "invoice.update",
         tenant_id=tenant.id,
         entity_type="invoice",
         entity_id=invoice.id,
@@ -399,6 +487,7 @@ def copy_invoices(db: Session, tenant: Tenant, invoice_ids: list[int]) -> list[I
             partner_ref=None,
             fiscalized_at=None,
             error_message=None,
+            is_template=False,
         )
         for line in src.lines:
             copy.lines.append(

@@ -135,6 +135,7 @@ def init_db() -> None:
                 "inv_ord_num": "INTEGER",
                 "type_of_inv": "VARCHAR(16)",
                 "inv_type": "VARCHAR(32)",
+                "is_template": "BOOLEAN",
             }
             for name, coltype in extras.items():
                 if name not in existing:
@@ -151,6 +152,7 @@ def init_db() -> None:
                 "tax_card_number": "VARCHAR(64)",
                 "contact": "VARCHAR(255)",
                 "logo_filename": "VARCHAR(255)",
+                "discount_pct": "NUMERIC(5,2)",
             }
             for name, coltype in cust_extras.items():
                 if name not in existing:
@@ -179,6 +181,19 @@ def init_db() -> None:
             for name, coltype in tenant_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "tenants", name, coltype)
+        if "bank_transactions" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("bank_transactions")}
+            if "incoming_invoice_id" not in existing:
+                add_column_if_missing(conn, "bank_transactions", "incoming_invoice_id", "INTEGER")
+        if "invoice_schedules" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("invoice_schedules")}
+            sched_extras = {
+                "contract_number": "VARCHAR(128)",
+                "period_mode": "VARCHAR(16)",
+            }
+            for name, coltype in sched_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "invoice_schedules", name, coltype)
         if "users" in insp.get_table_names() and ddl_engine.dialect.name == "postgresql":
             conn.execute(text("ALTER TABLE users ALTER COLUMN tenant_id DROP NOT NULL"))
 

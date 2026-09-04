@@ -1,14 +1,14 @@
 <div class="row-icon-actions">
 {% if edit_href is defined and edit_href %}
   <a class="btn-icon" href="{{ edit_href }}" title="Izmijeni" aria-label="Izmijeni">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4.24-4.24L4 15.76V20zM14.5 6.5l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <i data-lucide="pencil" aria-hidden="true"></i>
   </a>
 {% endif %}
 {% if delete_url is defined and delete_url %}
   <form method="post" action="{{ delete_url }}" class="row-icon-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button class="btn-icon danger" type="submit" title="Ukloni" aria-label="Ukloni">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7m2 0v11.5A1.5 1.5 0 0 1 15.5 20h-7A1.5 1.5 0 0 1 7 18.5V7h10zM10 10v6M14 10v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <i data-lucide="trash-2" aria-hidden="true"></i>
     </button>
   </form>
 {% endif %}

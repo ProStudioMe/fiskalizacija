@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}SEPKO App{% endblock %}
+{% block page_title %}SEPKO{% endblock %}
+{% block content %}
+<div class="pwa-home">
+  <div class="pwa-stats">
+    <div class="stat"><strong>{{ inv_today }}</strong><span>Računi danas</span></div>
+    <div class="stat"><strong>{{ gross_today|money(0) }} €</strong><span>Promet danas</span></div>
+    <div class="stat"><strong>{{ expenses_month|money(0) }} €</strong><span>Troškovi mj.</span></div>
+  </div>
+
+  <div class="pwa-actions">
+    <a class="primary" href="/app/brzo">{{ t('pwa.quick', 'Brza fiskalizacija') }}</a>
+    <a href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
+    <a href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj račun') }}</a>
+    <a href="/troskovi">{{ t('nav.troskovi', 'Troškovnik') }}</a>
+  </div>
+
+  <div class="plan-card" style="margin-top:1rem">
+    <div class="plan-head"><h2>{{ t('pwa.recent_out', 'Zadnji izlazni') }}</h2></div>
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <tbody>
+        {% for inv in recent_out %}
+          <tr>
+            <td><a href="/racuni/{{ inv.id }}">{{ inv.inv_num or inv.external_id }}</a></td>
+            <td><span class="pill-tag">{{ inv.status }}</span></td>
+            <td class="num">{{ (inv.total_gross or 0)|money }} €</td>
+          </tr>
+        {% else %}
+          <tr><td class="muted">—</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="plan-card" style="margin-top:1rem">
+    <div class="plan-head"><h2>{{ t('pwa.recent_in', 'Zadnje ulazne') }}</h2></div>
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <tbody>
+        {% for inv in recent_in %}
+          <tr>
+            <td><a href="/ulazne/{{ inv.id }}">{{ inv.number or ('#' ~ inv.id) }}</a></td>
+            <td>{{ inv.supplier_name or '—' }}</td>
+            <td class="num">{{ (inv.total_gross or 0)|money }} €</td>
+          </tr>
+        {% else %}
+          <tr><td class="muted">—</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

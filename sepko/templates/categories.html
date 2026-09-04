@@ -9,11 +9,11 @@
   <div class="card">
     {% if editing %}
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/artikli/kategorije/{{ editing.id }}">
+    <form method="post" action="/artikli/kategorije/{{ editing.id }}" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>Naziv kategorije</label><input name="name" value="{{ editing.name }}" required></div>
-      <div class="field"><label>Pozicija</label><input name="position" type="number" value="{{ editing.position }}"></div>
-      <div class="field">
+      <wa-input name="name" label="Naziv kategorije" value="{{ editing.name }}" required></wa-input>
+      <wa-input name="position" type="number" label="Pozicija" value="{{ editing.position }}"></wa-input>
+      <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
           {% for col in colors %}
@@ -23,18 +23,18 @@
           {% endfor %}
         </div>
       </div>
-      <div class="row">
-        <button type="submit">{{ t('btn.ok', 'OK') }}</button>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">{{ t('btn.ok', 'OK') }}</wa-button>
         <a class="btn secondary" href="/artikli/kategorije">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
     {% else %}
     <h2>{{ t('btn.add', 'Nova') }}</h2>
-    <form method="post" action="/artikli/kategorije">
+    <form method="post" action="/artikli/kategorije" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>Naziv kategorije</label><input name="name" required></div>
-      <div class="field"><label>Pozicija</label><input name="position" type="number" value="1"></div>
-      <div class="field">
+      <wa-input name="name" label="Naziv kategorije" required></wa-input>
+      <wa-input name="position" type="number" label="Pozicija" value="1"></wa-input>
+      <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
           {% for col in colors %}
@@ -44,7 +44,9 @@
           {% endfor %}
         </div>
       </div>
-      <button type="submit">{{ t('btn.ok', 'OK') }}</button>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">{{ t('btn.ok', 'OK') }}</wa-button>
+      </div>
     </form>
     {% endif %}
   </div>

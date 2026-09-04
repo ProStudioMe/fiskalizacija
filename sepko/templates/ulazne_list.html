@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.ulazne', 'Ulazne') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('nav.ulazne', 'Ulazne fakture') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
+  <a class="btn" href="/ulazne/nova">+ {{ t('ulazne.add', 'Dodaj ulaznu') }}</a>
+{% endblock %}
+{% block content %}
+<form class="filter-bar wa-filter-bar" method="get" action="/ulazne" style="margin-bottom:1rem">
+  <wa-select name="status" label="{{ t('col.status', 'Status') }}" value="{{ filter_status or '' }}" style="min-width:10rem">
+    <wa-option value="" {% if not filter_status %}selected{% endif %}>{{ t('filter.all', 'Sve') }}</wa-option>
+    {% for s in ['draft','recorded','paid','disputed'] %}
+    <wa-option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</wa-option>
+    {% endfor %}
+  </wa-select>
+  <wa-input name="q" label="{{ t('btn.search', 'Pretraga') }}" value="{{ filter_q or '' }}" placeholder="Broj, PIB, naziv, IKOF" style="flex:1;min-width:160px"></wa-input>
+  <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
+</form>
+
+<div class="plan-card">
+  <div class="plan-table-wrap">
+    <table class="soft-table">
+      <thead>
+        <tr>
+          <th>{{ t('col.number', 'Broj') }}</th>
+          <th>{{ t('col.status', 'Status') }}</th>
+          <th>{{ t('col.supplier', 'Dobavljač') }}</th>
+          <th>{{ t('col.date', 'Datum') }}</th>
+          <th>{{ t('col.source', 'Izvor') }}</th>
+          <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for inv in invoices %}
+        <tr>
+          <td><a href="/ulazne/{{ inv.id }}"><strong>{{ inv.number or ('#' ~ inv.id) }}</strong></a></td>
+          <td><span class="pill-tag">{{ inv.status }}</span></td>
+          <td>
+            <div class="cell-client">{{ inv.supplier_name or '—' }}</div>
+            <div class="cell-secondary">{{ inv.supplier_pib or '' }}</div>
+          </td>
+          <td>{{ inv.issue_date or '—' }}</td>
+          <td>{{ inv.source }}</td>
+          <td class="num"><strong>{{ (inv.total_gross or 0)|money }} €</strong></td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="6" class="muted" style="padding:1.5rem">
+            {{ t('ulazne.empty', 'Nema ulaznih faktura.') }}
+            <a href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
+            ·
+            <a href="/ulazne/nova">{{ t('ulazne.add', 'Dodaj ručno') }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

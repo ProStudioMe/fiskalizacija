@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ulazne.scan_qr', 'Skeniraj QR') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('ulazne.scan_qr', 'Ulazna iz QR koda') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/ulazne">← {{ t('nav.ulazne', 'Ulazne') }}</a>
+{% endblock %}
+{% block content %}
+<p class="muted" style="max-width:560px">
+  Skeniraj ili nalijepi verify URL sa računa (tax.gov.me). Sepko izvlači IKOF, PIB, datum i iznos;
+  stavke dopuni ručno ako portal ne vrati detalje.
+</p>
+
+<div class="card" style="max-width:560px;margin-bottom:1rem">
+  <form method="post" action="/ulazne/qr" id="qr-form" class="wa-form-stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <wa-textarea name="qr_raw" id="qr-raw" label="QR URL / sadržaj" rows="3" required placeholder="https://mapr.tax.gov.me/ic/#/verify?iic=...&tin=...&prc=..."></wa-textarea>
+    <wa-checkbox name="fetch_portal" value="1" checked>Pokušaj povući podatke sa portala</wa-checkbox>
+    <div class="wa-form-actions">
+      <wa-button type="submit" variant="brand">{{ t('ulazne.import', 'Uvezi ulaznu') }}</wa-button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="max-width:560px" id="scanner-card">
+  <h2 style="margin-top:0;font-size:1rem">Kamera</h2>
+  <video id="qr-video" playsinline style="width:100%;max-height:280px;background:#111;border-radius:8px"></video>
+  <canvas id="qr-canvas" hidden></canvas>
+  <p class="muted" id="scan-status" style="margin:.5rem 0 0">Pokreni kameru da skeniraj QR sa papirnog računa.</p>
+  <div class="row" style="margin-top:.75rem">
+    <wa-button type="button" variant="neutral" appearance="outlined" id="btn-start-cam">Pokreni kameru</wa-button>
+    <wa-button type="button" variant="neutral" appearance="outlined" id="btn-stop-cam" hidden>Zaustavi</wa-button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="/static/qr-scan.js?v=1"></script>
+{% endblock %}

@@ -5,17 +5,17 @@
 <p class="muted" style="margin-top:0">EFI RegisterCashDeposit — INITIAL prije prvog CASH računa, WITHDRAW za podizanje gotovine.</p>
 <div class="grid grid-3" style="margin-top:0.5rem">
   <div class="card">
-    <div class="stat">{{ "%.2f"|format(day.initial) }} €<small>INITIAL depozit</small></div>
+    <div class="stat">{{ day.initial|money }} €<small>INITIAL depozit</small></div>
   </div>
   <div class="card">
-    <div class="stat">{{ "%.2f"|format(day.banknote_sales) }} €<small>BANKNOTE prodaja</small></div>
+    <div class="stat">{{ day.banknote_sales|money }} €<small>BANKNOTE prodaja</small></div>
   </div>
   <div class="card">
-    <div class="stat">{{ "%.2f"|format(day.cash_in_drawer) }} €<small>Gotovina u kasi</small></div>
+    <div class="stat">{{ day.cash_in_drawer|money }} €<small>Gotovina u kasi</small></div>
   </div>
 </div>
 <p class="muted" style="margin-top:0.75rem">
-  Podignuto (WITHDRAW): {{ "%.2f"|format(day.withdrawals) }} € ·
+  Podignuto (WITHDRAW): {{ day.withdrawals|money }} € ·
   Računa danas: {{ day.invoice_count }} ·
   ENU: <code>{{ fiscal.tcr_code or '—' }}</code>
 </p>
@@ -25,20 +25,16 @@
 <div class="grid grid-2" style="margin-top:1rem">
   <div class="card">
     <h2>Nova promjena</h2>
-    <form method="post" action="/blagajna">
+    <form method="post" action="/blagajna" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field">
-        <label>Operacija</label>
-        <select name="operation">
-          <option value="INITIAL">INITIAL — početni depozit</option>
-          <option value="WITHDRAW">WITHDRAW — podizanje gotovine</option>
-        </select>
+      <wa-select name="operation" label="Operacija" value="INITIAL">
+        <wa-option value="INITIAL" selected>INITIAL — početni depozit</wa-option>
+        <wa-option value="WITHDRAW">WITHDRAW — podizanje gotovine</wa-option>
+      </wa-select>
+      <wa-input name="amount" label="Iznos (€)" inputmode="decimal" placeholder="0,00" value="0,00" required></wa-input>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">Registruj</wa-button>
       </div>
-      <div class="field">
-        <label>Iznos (€)</label>
-        <input name="amount" type="number" step="0.01" min="0" value="0" required>
-      </div>
-      <button type="submit">Registruj</button>
     </form>
   </div>
   <div class="plan-card">
@@ -52,7 +48,7 @@
             <div class="cell-primary">{{ d.change_datetime.strftime('%H:%M') if d.change_datetime else '—' }}</div>
           </td>
           <td><span class="pill-tag">{{ d.operation }}</span></td>
-          <td class="num">{{ "%.2f"|format(d.amount) }} €</td>
+          <td class="num">{{ d.amount|money }} €</td>
           <td>
             {% if d.status == 'failed' %}
               <span class="pill-tag bad">{{ d.status }}</span>

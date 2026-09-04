@@ -11,76 +11,74 @@
   <div class="card">
     {% if editing %}
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data">
+    <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>PIB / JMBG broj</label><input value="{{ editing.pib }}" disabled></div>
-      <div class="field"><label>PDV broj</label><input name="pdv_number" value="{{ editing.pdv_number or '' }}"></div>
-      <div class="field"><label>Naziv komitenta</label><input name="name" value="{{ editing.name }}" required></div>
-      <div class="field logo-field">
+      <wa-input label="PIB / JMBG broj" value="{{ editing.pib }}" disabled></wa-input>
+      <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
+      <wa-input name="name" label="Naziv komitenta" value="{{ editing.name }}" required></wa-input>
+      <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
         {% set preview_src = ('/kupci/' ~ editing.id ~ '/logo') if editing.logo_filename else None %}
         {% set show_remove = true if editing.logo_filename else false %}
         {% set input_id = 'logo-edit' %}
         {% include "_logo_upload.html" %}
       </div>
-      <div class="field"><label>Ulica i broj</label><input name="street" value="{{ editing.street or '' }}"></div>
+      <wa-input name="street" label="Ulica i broj" value="{{ editing.street or '' }}"></wa-input>
       <div class="row">
-        <div class="field"><label>Mjesto</label><input name="city" value="{{ editing.city or '' }}"></div>
-        <div class="field">
-          <label>Država</label>
-          <select name="country">
-            {% set ctry = editing.country or 'Crna Gora' %}
-            {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
-            <option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-          </select>
-        </div>
+        <wa-input name="city" label="Mjesto" value="{{ editing.city or '' }}"></wa-input>
+        {% set ctry = editing.country or 'Crna Gora' %}
+        <wa-select name="country" label="Država" value="{{ ctry }}">
+          {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
+          <wa-option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</wa-option>
+          {% endfor %}
+        </wa-select>
       </div>
-      <div class="field"><label>E-mail</label><input name="email" type="email" value="{{ editing.email or '' }}"></div>
-      <div class="field"><label>Broj telefona</label><input name="phone" value="{{ editing.phone or '' }}" placeholder="+382 …"></div>
-      <div class="field"><label>Broj poreske identifikacione kartice</label><input name="tax_card_number" value="{{ editing.tax_card_number or '' }}"></div>
-      <div class="field"><label>Kontakt</label><input name="contact" value="{{ editing.contact or '' }}" placeholder="Ime kontakt osobe"></div>
-      <div class="field"><label>Napomena</label><textarea name="notes" rows="2">{{ editing.notes or '' }}</textarea></div>
-      <div class="row">
-        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+      <wa-input name="email" type="email" label="E-mail" value="{{ editing.email or '' }}"></wa-input>
+      <wa-input name="phone" label="Broj telefona" value="{{ editing.phone or '' }}" placeholder="+382 …"></wa-input>
+      <wa-input name="tax_card_number" label="Broj poreske identifikacione kartice" value="{{ editing.tax_card_number or '' }}"></wa-input>
+      <wa-input name="contact" label="Kontakt" value="{{ editing.contact or '' }}" placeholder="Ime kontakt osobe"></wa-input>
+      <wa-input name="discount_pct" label="Stalni popust (%)" inputmode="decimal" placeholder="0,00" value="{{ (editing.discount_pct or 0)|money }}" hint="Automatski se primjenjuje kao popust na račun pri izdavanju fakture."></wa-input>
+      <wa-textarea name="notes" label="Napomena" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="/kupci">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
     {% else %}
     <h2>{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/kupci" enctype="multipart/form-data">
+    <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="field"><label>PIB / JMBG broj</label><input name="pib" required></div>
-      <div class="field"><label>PDV broj</label><input name="pdv_number"></div>
-      <div class="field"><label>Naziv komitenta</label><input name="name" required></div>
-      <div class="field logo-field">
+      <wa-input name="pib" label="PIB / JMBG broj" required></wa-input>
+      <wa-input name="pdv_number" label="PDV broj"></wa-input>
+      <wa-input name="name" label="Naziv komitenta" required></wa-input>
+      <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
         {% set preview_src = None %}
         {% set show_remove = false %}
         {% set input_id = 'logo-new' %}
         {% include "_logo_upload.html" %}
       </div>
-      <div class="field"><label>Ulica i broj</label><input name="street"></div>
+      <wa-input name="street" label="Ulica i broj"></wa-input>
       <div class="row">
-        <div class="field"><label>Mjesto</label><input name="city"></div>
-        <div class="field">
-          <label>Država</label>
-          <select name="country">
-            <option value="Crna Gora" selected>Crna Gora</option>
-            <option value="Srbija">Srbija</option>
-            <option value="Bosna i Hercegovina">Bosna i Hercegovina</option>
-            <option value="Hrvatska">Hrvatska</option>
-            <option value="Slovenija">Slovenija</option>
-            <option value="Ostalo">Ostalo</option>
-          </select>
-        </div>
+        <wa-input name="city" label="Mjesto"></wa-input>
+        <wa-select name="country" label="Država" value="Crna Gora">
+          <wa-option value="Crna Gora" selected>Crna Gora</wa-option>
+          <wa-option value="Srbija">Srbija</wa-option>
+          <wa-option value="Bosna i Hercegovina">Bosna i Hercegovina</wa-option>
+          <wa-option value="Hrvatska">Hrvatska</wa-option>
+          <wa-option value="Slovenija">Slovenija</wa-option>
+          <wa-option value="Ostalo">Ostalo</wa-option>
+        </wa-select>
       </div>
-      <div class="field"><label>E-mail</label><input name="email" type="email"></div>
-      <div class="field"><label>Broj telefona</label><input name="phone" placeholder="+382 …"></div>
-      <div class="field"><label>Broj poreske identifikacione kartice</label><input name="tax_card_number"></div>
-      <div class="field"><label>Kontakt</label><input name="contact" placeholder="Ime kontakt osobe"></div>
-      <div class="field"><label>Napomena</label><textarea name="notes" rows="2"></textarea></div>
-      <button type="submit">OK · {{ t('btn.add', 'Dodaj') }}</button>
+      <wa-input name="email" type="email" label="E-mail"></wa-input>
+      <wa-input name="phone" label="Broj telefona" placeholder="+382 …"></wa-input>
+      <wa-input name="tax_card_number" label="Broj poreske identifikacione kartice"></wa-input>
+      <wa-input name="contact" label="Kontakt" placeholder="Ime kontakt osobe"></wa-input>
+      <wa-input name="discount_pct" label="Stalni popust (%)" inputmode="decimal" placeholder="0,00" value="0,00" hint="Automatski se primjenjuje kao popust na račun pri izdavanju fakture."></wa-input>
+      <wa-textarea name="notes" label="Napomena" rows="2"></wa-textarea>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
+      </div>
     </form>
     {% endif %}
   </div>
@@ -88,7 +86,7 @@
   <div>
     <form method="get" action="/kupci" class="filter-bar">
       <div class="search-bar" style="margin:0;flex:1;min-width:180px">
-        <svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm8.7 13.3-3.8-3.8"/></svg>
+        <i data-lucide="search" aria-hidden="true"></i>
         <input name="q" value="{{ q or '' }}" placeholder="Pretraga naziv / PIB / mjesto…">
       </div>
       {% include "_per_page.html" %}
@@ -107,6 +105,7 @@
             <th>Komitent</th>
             <th>Lokacija</th>
             <th>Kontakt</th>
+            <th class="num">Popust</th>
             <th></th>
           </tr>
         </thead>
@@ -135,6 +134,13 @@
               <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ c.email or '—' }}</div>
               <div class="cell-secondary">{{ c.phone or '' }}{% if c.contact %} · {{ c.contact }}{% endif %}</div>
             </td>
+            <td class="num">
+              {% if c.discount_pct and c.discount_pct > 0 %}
+              <strong>{{ c.discount_pct|money }}%</strong>
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
             <td class="cell-actions">
               {% set edit_href = '/kupci?edit=' ~ c.id %}
               {% set delete_url = ('/kupci/' ~ c.id ~ '/obrisi') if c.active else none %}
@@ -142,7 +148,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="5" class="muted">Nema komitenata.</td></tr>
+          <tr><td colspan="6" class="muted">Nema komitenata.</td></tr>
         {% endfor %}
         </tbody>
       </table>

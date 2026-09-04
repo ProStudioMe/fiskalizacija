@@ -1,0 +1,151 @@
+/**
+ * Sepko standard table — Flowbite-inspired
+ * Koristi: .fb-table-wrap > table.fb-table
+ * Varijante: .fb-table--compact | .fb-table--totals | .fb-table--hover
+ */
+.fb-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fb-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--muted);
+  background: transparent;
+}
+
+.fb-table thead {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--soft) 80%, transparent);
+}
+
+.fb-table thead th {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.fb-table tbody tr {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+
+.fb-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.fb-table th[scope="row"],
+.fb-table td {
+  padding: 0.85rem 1rem;
+  vertical-align: middle;
+}
+
+.fb-table th[scope="row"] {
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.fb-table td {
+  color: var(--muted);
+}
+
+.fb-table .num,
+.fb-table td.num,
+.fb-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Hover (liste) */
+.fb-table--hover tbody tr:hover {
+  background: var(--row-hover);
+}
+
+/* Kompaktnija gustina */
+.fb-table--compact thead th,
+.fb-table--compact th[scope="row"],
+.fb-table--compact td {
+  padding: 0.55rem 0.85rem;
+}
+
+.fb-table--compact {
+  font-size: 0.84rem;
+}
+
+/* Totals / summary — label lijevo, iznos desno */
+.fb-table--totals {
+  font-size: 0.9rem;
+}
+
+.fb-table--totals th[scope="row"],
+.fb-table--totals td {
+  padding: 0.55rem 0.95rem;
+}
+
+.fb-table--totals th[scope="row"] {
+  font-weight: 400;
+  color: var(--muted);
+  width: 100%;
+}
+
+.fb-table--totals td.num {
+  width: 1%;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.fb-table--totals tr.is-total th[scope="row"] {
+  font-weight: 500;
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.fb-table--totals tr.is-total td.num {
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #b29af5;
+}
+
+.fb-table--totals .totals-cur {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.15rem;
+}
+
+.fb-table--totals .linkish,
+.fb-table--totals .linkish strong {
+  font-weight: 400;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kartica oko tabele */
+.card.fb-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+html[data-theme="dark"] .fb-table thead {
+  background: color-mix(in srgb, var(--soft) 55%, transparent);
+}
+
+html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
+  color: #b29af5;
+}

@@ -1,0 +1,58 @@
+/* SEPKO PWA service worker — shell + recent lists; no offline fiscalize */
+const CACHE = "sepko-shell-v2";
+const PRECACHE = [
+  "/app",
+  "/static/style.css?v=43",
+  "/static/manifest.webmanifest",
+  "/static/img/sepko-mark.svg?v=4",
+  "/static/img/sepko-logo.svg?v=4",
+  "/static/qr-scan.js?v=1",
+  "/static/pwa.css?v=1",
+  "/static/lucide.min.js?v=0.544.0",
+  "/static/lucide-init.js?v=1",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Network-first for HTML / API; cache-first for static
+  if (url.pathname.startsWith("/static/") || url.pathname === "/sw.js") {
+    event.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+        return res;
+      }))
+    );
+    return;
+  }
+
+  if (url.pathname === "/app" || url.pathname.startsWith("/ulazne") || url.pathname === "/" || url.pathname.startsWith("/racuni")) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("/app")))
+    );
+  }
+});

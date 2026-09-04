@@ -5,15 +5,15 @@
   <a class="btn" href="/admin/tenanti/novi">+ Novi tenant</a>
 {% endblock %}
 {% block content %}
-<form class="inv-filter-toolbar" method="get" action="/admin/tenanti" style="margin-bottom:1rem">
-  <input type="search" name="q" value="{{ q }}" placeholder="PIB, naziv ili slug…">
-  <select name="status">
-    <option value="">Svi statusi</option>
-    <option value="trial" {% if status == 'trial' %}selected{% endif %}>Proba</option>
-    <option value="active" {% if status == 'active' %}selected{% endif %}>Aktivan</option>
-    <option value="suspended" {% if status == 'suspended' %}selected{% endif %}>Suspendovan</option>
-  </select>
-  <button type="submit" class="btn secondary">Traži</button>
+<form class="inv-filter-toolbar wa-filter-bar" method="get" action="/admin/tenanti" style="margin-bottom:1rem">
+  <wa-input type="search" name="q" value="{{ q }}" placeholder="PIB, naziv ili slug…" with-clear style="flex:1;min-width:12rem"></wa-input>
+  <wa-select name="status" value="{{ status or '' }}" style="min-width:10rem">
+    <wa-option value="" {% if not status %}selected{% endif %}>Svi statusi</wa-option>
+    <wa-option value="trial" {% if status == 'trial' %}selected{% endif %}>Proba</wa-option>
+    <wa-option value="active" {% if status == 'active' %}selected{% endif %}>Aktivan</wa-option>
+    <wa-option value="suspended" {% if status == 'suspended' %}selected{% endif %}>Suspendovan</wa-option>
+  </wa-select>
+  <wa-button type="submit" variant="neutral" appearance="outlined">Traži</wa-button>
 </form>
 
 {% if not rows %}
