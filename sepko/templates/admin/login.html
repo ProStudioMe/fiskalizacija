@@ -8,7 +8,7 @@
     </div>
     <p class="muted">Prijava u platformu</p>
     {% if flash %}
-      <div class="flash {% if flash_type == 'error' %}error{% endif %}">{{ flash }}</div>
+      <div class="flash {% if flash_type == 'error' %}error{% endif %}" role="status">{{ flash }}</div>
     {% endif %}
     <form method="post" action="/admin/login" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

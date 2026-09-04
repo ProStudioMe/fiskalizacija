@@ -48,6 +48,8 @@ from sepko.schemas import BuyerIn, CashDepositRequest, FiscalizeRequest, Invoice
 from sepko.services import (
     cash_day_summary,
     copy_invoices,
+    delete_draft_invoice,
+    delete_draft_invoices,
     fiscalize_invoice,
     fiscalize_invoices,
     fiscalize_saved_invoice,
@@ -1427,7 +1429,7 @@ def schedules_run_due(request: Request, csrf_token: str = Form(""), db: Session 
     return redirect("/racuni/raspored")
 
 
-@router.post("/racuni/raspored/{schedule_id}")
+@router.post("/racuni/raspored/{schedule_id:int}")
 def schedules_update(
     request: Request,
     schedule_id: int,
@@ -1494,7 +1496,7 @@ def schedules_update(
     return redirect("/racuni/raspored")
 
 
-@router.post("/racuni/raspored/{schedule_id}/pokreni")
+@router.post("/racuni/raspored/{schedule_id:int}/pokreni")
 def schedules_run_one(
     request: Request,
     schedule_id: int,
@@ -1523,7 +1525,7 @@ def schedules_run_one(
     return redirect("/racuni/raspored")
 
 
-@router.post("/racuni/raspored/{schedule_id}/obrisi")
+@router.post("/racuni/raspored/{schedule_id:int}/obrisi")
 def schedules_delete(
     request: Request,
     schedule_id: int,
@@ -1549,6 +1551,16 @@ def schedules_delete(
     db.commit()
     flash(request, "Automatska faktura deaktivirana.")
     return redirect("/racuni/raspored")
+
+
+@router.get("/racuni/kopiraj")
+@router.get("/racuni/bulk-obrisi")
+@router.get("/racuni/obrisi-odabrane")
+@router.get("/racuni/bulk-fiskalizuj")
+@router.get("/racuni/fiskalizuj-odabrane")
+def invoices_bulk_get_redirect():
+    """GET na POST-only bulk URL (refresh / pogrešan method) → lista, ne /racuni/{id}."""
+    return redirect("/racuni")
 
 
 @router.post("/racuni/kopiraj")
@@ -1587,6 +1599,122 @@ def invoices_copy(
         return redirect("/racuni")
     flash(request, f"Kopirano {len(created)} faktura kao nacrti (U pripremi).")
     return redirect("/racuni?status=pending")
+
+
+@router.post("/racuni/bulk-obrisi")
+@router.post("/racuni/obrisi-odabrane")  # alias (stari URL)
+def invoices_bulk_delete(
+    request: Request,
+    csrf_token: str = Form(""),
+    invoice_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni")
+    seen: set[int] = set()
+    ids: list[int] = []
+    for raw in invoice_ids:
+        try:
+            iid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if iid not in seen:
+            seen.add(iid)
+            ids.append(iid)
+    if not ids:
+        flash(request, "Označite barem jednu fakturu.", "error")
+        return redirect("/racuni")
+    if len(ids) > 50:
+        flash(request, "Najviše 50 faktura odjednom.", "error")
+        return redirect("/racuni")
+    result = delete_draft_invoices(db, tenant, ids)
+    msg = f"Obrisano {result['ok']} nacrta."
+    err_list = result.get("errors") or []
+    if err_list:
+        msg += " " + "; ".join(err_list[:5])
+    flash(request, msg, "error" if result["ok"] == 0 else "ok")
+    return redirect("/racuni")
+
+
+@router.post("/racuni/bulk-fiskalizuj")
+@router.post("/racuni/fiskalizuj-odabrane")  # alias
+def invoices_bulk_fiscalize(
+    request: Request,
+    csrf_token: str = Form(""),
+    invoice_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni")
+    seen: set[int] = set()
+    ids: list[int] = []
+    for raw in invoice_ids:
+        try:
+            iid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if iid not in seen:
+            seen.add(iid)
+            ids.append(iid)
+    if not ids:
+        flash(request, "Označite barem jednu fakturu.", "error")
+        return redirect("/racuni")
+    if len(ids) > 50:
+        flash(request, "Najviše 50 faktura odjednom.", "error")
+        return redirect("/racuni")
+    result = fiscalize_invoices(db, tenant, ids)
+    msg = (
+        f"Fiskalizovano: {result['ok']}. "
+        f"Preskočeno: {result['skipped']}. "
+        f"Neuspješno: {result['failed']}."
+    )
+    err_list = result.get("errors") or []
+    if err_list:
+        msg += " " + "; ".join(err_list[:5])
+    flash(request, msg, "error" if result["failed"] and not result["ok"] else "ok")
+    return redirect("/racuni")
+
+
+@router.post("/racuni/{invoice_id:int}/obrisi")
+def invoice_delete(
+    request: Request,
+    invoice_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(f"/racuni/{invoice_id}")
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    try:
+        delete_draft_invoice(db, tenant, invoice)
+        db.commit()
+    except ValueError as exc:
+        flash(request, str(exc), "error")
+        return redirect(f"/racuni/{invoice_id}")
+    flash(request, "Nacrt fakture je obrisan.")
+    return redirect("/racuni")
 
 
 def _parse_invoice_notes(notes: str | None) -> dict[str, str]:
@@ -2061,7 +2189,7 @@ def invoice_new_submit(
     return redirect("/racuni/novi")
 
 
-@router.get("/racuni/{invoice_id}/izmijeni", response_class=HTMLResponse)
+@router.get("/racuni/{invoice_id:int}/izmijeni", response_class=HTMLResponse)
 def invoice_edit_page(
     request: Request,
     invoice_id: int,
@@ -2097,7 +2225,7 @@ def invoice_edit_page(
     return render(request, "invoice_new.html", ctx)
 
 
-@router.post("/racuni/{invoice_id}")
+@router.post("/racuni/{invoice_id:int}")
 def invoice_edit_submit(
     request: Request,
     invoice_id: int,
@@ -2207,50 +2335,7 @@ def invoice_edit_submit(
     return redirect(back or f"/racuni/{invoice_id}")
 
 
-@router.post("/racuni/fiskalizuj-odabrane")
-def invoices_bulk_fiscalize(
-    request: Request,
-    csrf_token: str = Form(""),
-    invoice_ids: list[str] = Form(default=[]),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/racuni")
-    seen: set[int] = set()
-    ids: list[int] = []
-    for raw in invoice_ids:
-        try:
-            iid = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if iid not in seen:
-            seen.add(iid)
-            ids.append(iid)
-    if not ids:
-        flash(request, "Označite barem jednu fakturu.", "error")
-        return redirect("/racuni")
-    if len(ids) > 50:
-        flash(request, "Najviše 50 faktura odjednom.", "error")
-        return redirect("/racuni")
-    result = fiscalize_invoices(db, tenant, ids)
-    msg = (
-        f"Fiskalizovano: {result['ok']}. "
-        f"Preskočeno: {result['skipped']}. "
-        f"Neuspješno: {result['failed']}."
-    )
-    err_list = result.get("errors") or []
-    if err_list:
-        msg += " " + "; ".join(err_list[:5])
-    flash(request, msg, "error" if result["failed"] and not result["ok"] else "ok")
-    return redirect("/racuni")
-
-
-@router.post("/racuni/{invoice_id}/fiskalizuj")
+@router.post("/racuni/{invoice_id:int}/fiskalizuj")
 def invoice_fiscalize_one(
     request: Request,
     invoice_id: int,
@@ -2287,7 +2372,7 @@ def invoice_fiscalize_one(
     return redirect(f"/racuni/{invoice_id}")
 
 
-@router.get("/racuni/{invoice_id}", response_class=HTMLResponse)
+@router.get("/racuni/{invoice_id:int}", response_class=HTMLResponse)
 def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db)):
     try:
         user, tenant = _auth(request, db)
@@ -2319,7 +2404,7 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
         "OTHER": "Drugo bezgotovinsko",
         "ACCOUNT": "Na račun",
     }
-    buyer_customer = None
+    buyer_customer: Customer | None = None
     if invoice.buyer_pib:
         buyer_customer = (
             db.query(Customer)
@@ -2348,12 +2433,12 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
     )
 
 
-@router.get("/racuni/{invoice_id}/pdf", response_class=HTMLResponse)
+@router.get("/racuni/{invoice_id:int}/pdf", response_class=HTMLResponse)
 def invoice_pdf(request: Request, invoice_id: int, db: Session = Depends(get_db)):
     return _render_invoice_print(request, invoice_id, db, force="a4")
 
 
-@router.get("/racuni/{invoice_id}/stampa", response_class=HTMLResponse)
+@router.get("/racuni/{invoice_id:int}/stampa", response_class=HTMLResponse)
 def invoice_print(
     request: Request,
     invoice_id: int,
@@ -2363,7 +2448,7 @@ def invoice_print(
     return _render_invoice_print(request, invoice_id, db, force=fmt)
 
 
-@router.get("/racuni/{invoice_id}/escpos")
+@router.get("/racuni/{invoice_id:int}/escpos")
 def invoice_escpos(request: Request, invoice_id: int, db: Session = Depends(get_db)):
     ctx = _invoice_print_context(request, invoice_id, db)
     if ctx is None:

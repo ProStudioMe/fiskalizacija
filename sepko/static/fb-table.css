@@ -157,7 +157,33 @@ html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
 .fb-table--lines thead th.num,
 .fb-table--lines td.inv-line-disc-cell,
 .fb-table--lines td.inv-line-qty-cell {
-  width: 7rem;
+  width: 6.5rem;
+}
+.fb-table--lines td.inv-line-price-cell {
+  width: 6.25rem;
+}
+.fb-table--lines td.inv-line-vat-cell {
+  width: 6.75rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.fb-table--lines .inv-price-input {
+  width: 100%;
+  max-width: 5.75rem;
+  margin-left: auto;
+  text-align: right;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--input-line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.fb-table--lines .inv-line-vat {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 .fb-table--lines td.inv-line-total {
   width: 5.5rem;
@@ -175,8 +201,17 @@ html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
 .fb-table--lines td.inv-line-art {
   color: var(--ink);
 }
+.fb-table--lines td.inv-line-art .inv-line-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.15rem 0;
+}
 .fb-table--lines td.inv-line-disc-cell,
-.fb-table--lines td.inv-line-qty-cell {
+.fb-table--lines td.inv-line-qty-cell,
+.fb-table--lines td.inv-line-price-cell,
+.fb-table--lines td.inv-line-vat-cell {
   text-align: right;
 }
 .fb-table--lines td.inv-line-disc-cell .inv-line-disc,
@@ -187,20 +222,14 @@ html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
 .fb-table--lines tr.inv-line.is-just-added td {
   background: color-mix(in srgb, var(--ok) 10%, transparent);
 }
-.fb-table--lines tr.inv-line-detail-row td {
-  padding-top: 0.15rem;
-  padding-bottom: 0.75rem;
-  background: color-mix(in srgb, var(--soft) 55%, transparent);
-  border-bottom: 1px solid var(--line);
-}
-.fb-table--lines tr.inv-line-detail-row[hidden] {
-  display: none;
-}
 .inv-lines-table-wrap {
-  margin-top: 0.65rem;
+  margin: 0 0 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  overflow: hidden;
+  overflow: auto;
+}
+.inv-lines-table-wrap[hidden] {
+  display: none !important;
 }
 .inv-lines-compose .inv-lines-table-wrap .fb-table thead {
   background: color-mix(in srgb, var(--soft) 70%, transparent);
@@ -219,4 +248,9 @@ html[data-theme="dark"] .fb-table--totals tr.is-total td.num {
 
 html[data-theme="dark"] .fb-table--lines td.inv-line-total {
   color: #b29af5;
+}
+html[data-theme="dark"] .fb-table--lines .inv-price-input {
+  background: var(--soft-2);
+  border-color: var(--input-line);
+  color: var(--ink);
 }

@@ -30,6 +30,16 @@
         <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
           <i data-lucide="pencil" aria-hidden="true"></i>
         </a>
+        <form method="post" action="/racuni/{{ invoice.id }}/obrisi" class="inv-actions-delete"
+              data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
+              data-confirm-title="{{ t('inv.delete_draft', 'Brisanje nacrta') }}"
+              data-confirm-tone="danger"
+              data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn secondary inv-actions-icon" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+            <i data-lucide="trash-2" aria-hidden="true"></i>
+          </button>
+        </form>
       {% endif %}
     </div>
   </div>
@@ -171,6 +181,14 @@
         <i data-lucide="badge-check" aria-hidden="true"></i>
         <span>{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
       </button>
+    </form>
+    <form method="post" action="/racuni/{{ invoice.id }}/obrisi" class="inv-delete-form"
+          data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
+          data-confirm-title="{{ t('inv.delete_draft', 'Brisanje nacrta') }}"
+          data-confirm-tone="danger"
+          data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn danger" style="width:100%">{{ t('btn.delete', 'Obriši nacrt') }}</button>
     </form>
     {% endif %}
     <div class="card inv-fiscal-card {% if invoice.status == 'fiscalized' %}is-ok{% elif invoice.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">

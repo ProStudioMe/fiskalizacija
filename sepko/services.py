@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session, joinedload
 
 from sepko.audit import write_audit
 from sepko.efi import CASH_PAY_METHODS, build_inv_num, load_tenant_fiscal
-from sepko.models import CashDeposit, Invoice, InvoiceLine, InvoiceStatus, Tenant
+from sepko.models import (
+    CashDeposit,
+    CustomerPayment,
+    Invoice,
+    InvoiceLine,
+    InvoiceSchedule,
+    InvoiceStatus,
+    Tenant,
+)
 from sepko.partner import PartnerAdapter, get_partner_adapter, utcnow
 from sepko.schemas import (
     BuyerIn,
@@ -270,6 +278,71 @@ EDITABLE_INVOICE_STATUSES = frozenset(
 
 def invoice_is_editable(invoice: Invoice) -> bool:
     return invoice.status in EDITABLE_INVOICE_STATUSES
+
+
+def delete_draft_invoice(db: Session, tenant: Tenant, invoice: Invoice) -> None:
+    """Trajno obriši nacrt / nefiskalizovanu fakturu. Fiskalizovane se ne smiju brisati."""
+    if invoice.tenant_id != tenant.id:
+        raise ValueError("Faktura ne pripada tenant-u.")
+    if not invoice_is_editable(invoice):
+        raise ValueError("Fiskalizovani račun se ne može obrisati.")
+
+    as_template = (
+        db.query(InvoiceSchedule.id)
+        .filter(InvoiceSchedule.template_invoice_id == invoice.id)
+        .first()
+    )
+    if as_template:
+        raise ValueError(
+            "Faktura je šablon za automatsku fakturu — prvo obriši ili zamijeni raspored."
+        )
+
+    db.query(InvoiceSchedule).filter(InvoiceSchedule.last_invoice_id == invoice.id).update(
+        {InvoiceSchedule.last_invoice_id: None},
+        synchronize_session=False,
+    )
+    db.query(CustomerPayment).filter(CustomerPayment.invoice_id == invoice.id).update(
+        {CustomerPayment.invoice_id: None},
+        synchronize_session=False,
+    )
+
+    label = invoice.inv_num or invoice.external_id or str(invoice.id)
+    write_audit(
+        db,
+        "invoice.delete",
+        tenant_id=tenant.id,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        detail=f"obrisan nacrt {label} ({invoice.status})",
+    )
+    db.delete(invoice)
+
+
+def delete_draft_invoices(db: Session, tenant: Tenant, invoice_ids: list[int]) -> dict:
+    """Obriši više nacrta. Vraća broj obrisanih i listu grešaka."""
+    ok = 0
+    skipped = 0
+    errors: list[str] = []
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id.in_(invoice_ids))
+        .all()
+    )
+    by_id = {inv.id: inv for inv in invoices}
+    for iid in invoice_ids:
+        inv = by_id.get(iid)
+        if not inv:
+            skipped += 1
+            continue
+        try:
+            delete_draft_invoice(db, tenant, inv)
+            ok += 1
+        except ValueError as exc:
+            errors.append(f"#{iid}: {exc}")
+            skipped += 1
+    if ok:
+        db.commit()
+    return {"ok": ok, "skipped": skipped, "errors": errors}
 
 
 def update_draft_invoice(

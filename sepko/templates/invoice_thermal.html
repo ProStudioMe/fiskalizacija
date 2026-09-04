@@ -49,7 +49,7 @@
       <div>FISKALNI RAČUN</div>
     </div>
     <hr>
-    <div>Broj: {{ invoice.inv_num or invoice|display_inv_num }}</div>
+    <div>Broj: {{ invoice|display_inv_num }}</div>
     <div>Vrijeme: {{ issue_dt or '—' }}</div>
     {% if invoice.buyer_name %}<div>Kupac: {{ invoice.buyer_name }}</div>{% endif %}
     <hr>

@@ -57,7 +57,11 @@
               <td>{{ e.description or '—' }}</td>
               <td class="num"><strong>{{ (e.amount or 0)|money }} €</strong></td>
               <td class="cell-actions">
-                <form method="post" action="/troskovi/{{ e.id }}/obrisi" onsubmit="return confirm('Obrisati?')">
+                <form method="post" action="/troskovi/{{ e.id }}/obrisi"
+                      data-confirm="{{ t('troskovi.confirm_delete', 'Obrisati ovaj trošak?') }}"
+                      data-confirm-title="{{ t('btn.delete', 'Obriši') }}"
+                      data-confirm-tone="danger"
+                      data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <wa-button type="submit" variant="neutral" appearance="outlined" size="small">×</wa-button>
                 </form>

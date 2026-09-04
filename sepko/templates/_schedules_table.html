@@ -49,7 +49,11 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <wa-button type="submit" size="small" variant="neutral" appearance="outlined">Sada</wa-button>
           </form>
-          <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi" style="display:inline;margin:0" onsubmit="return confirm('Deaktivirati automatsku fakturu?')">
+          <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi" style="display:inline;margin:0"
+                data-confirm="Deaktivirati automatsku fakturu?"
+                data-confirm-title="Automatske fakture"
+                data-confirm-tone="danger"
+                data-confirm-ok="Deaktiviraj">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <wa-button type="submit" size="small" variant="danger">Off</wa-button>
           </form>

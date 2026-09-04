@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=92">
+  <link rel="stylesheet" href="/static/style.css?v=93">
   <link rel="stylesheet" href="/static/fb-table.css?v=2">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=9">
   <link rel="stylesheet" href="/static/pwa.css?v=1">
@@ -41,6 +41,21 @@
   <script src="/static/money.js?v=1"></script>
 </head>
 <body>
+  <div class="confirm-backdrop" id="sepko-dialog" hidden
+       data-lbl-cancel="{{ t('btn.cancel', 'Odustani') }}"
+       data-lbl-ok="{{ t('btn.ok', 'U redu') }}">
+    <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="sepko-dialog-title" aria-describedby="sepko-dialog-msg">
+      <div class="confirm-icon" data-tone="warn" aria-hidden="true">!</div>
+      <div class="confirm-body">
+        <strong id="sepko-dialog-title">Obavještenje</strong>
+        <p id="sepko-dialog-msg"></p>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn secondary" id="sepko-dialog-cancel">{{ t('btn.cancel', 'Odustani') }}</button>
+        <button type="button" class="btn" id="sepko-dialog-ok">{{ t('btn.ok', 'U redu') }}</button>
+      </div>
+    </div>
+  </div>
   {% if user %}
   {% set _name = user.full_name or user.email %}
   {% set _parts = _name.split() %}
@@ -172,7 +187,7 @@
         </div>
         <main class="panel-body">
           {% if flash %}
-            <div class="flash {% if flash_type == 'error' %}error{% elif flash_type == 'warn' %}warn{% endif %}">{{ flash }}</div>
+            <div class="flash {% if flash_type == 'error' %}error{% elif flash_type == 'warn' %}warn{% else %}ok{% endif %}" role="status">{{ flash }}</div>
           {% endif %}
           {% block content %}{% endblock %}
         </main>
@@ -214,7 +229,10 @@
     var btn = document.getElementById('theme-toggle');
     if (!btn) return;
     function apply(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
+      var root = document.documentElement;
+      root.setAttribute('data-theme', theme);
+      root.classList.remove('wa-dark', 'wa-light');
+      root.classList.add(theme === 'dark' ? 'wa-dark' : 'wa-light');
       try { localStorage.setItem('sepko-theme', theme); } catch (e) {}
     }
     btn.addEventListener('click', function () {
@@ -263,6 +281,8 @@
         var cur = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         var next = cur === 'dark' ? 'light' : 'dark';
         root.setAttribute('data-theme', next);
+        root.classList.remove('wa-dark', 'wa-light');
+        root.classList.add(next === 'dark' ? 'wa-dark' : 'wa-light');
         try { localStorage.setItem('sepko-theme', next); } catch (e) {}
         var logo = document.querySelector('.login-card .brand-logo');
         if (logo) {
@@ -278,5 +298,6 @@
     })();
     </script>
   {% endif %}
+  <script src="/static/dialog.js?v=1"></script>
 </body>
 </html>

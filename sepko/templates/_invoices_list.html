@@ -154,9 +154,10 @@
       <div class="cell-secondary">PIB {{ tenant.pib }} · {{ invoices|length }} / {{ total }}</div>
     </div>
     <div class="bulk-bar" id="bulk-bar" hidden>
-      <form method="post" id="bulk-actions-form" class="bulk-copy-form"
+      <form method="post" action="/racuni/kopiraj" id="bulk-actions-form" class="bulk-copy-form"
             data-msg-fisc="{{ t('inv.confirm_fiscalize', 'Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.') }}"
             data-msg-copy="{{ t('inv.confirm_copy', 'Kopirati %n odabranih faktura kao nacrte?') }}"
+            data-msg-delete="{{ t('inv.confirm_delete', 'Trajno obrisati %n nefiskalizovanih nacrta? Ovo se ne može poništiti.') }}"
             data-msg-need-draft="{{ t('inv.need_draft', 'Označite fakture koje još nisu fiskalizovane.') }}"
             data-lbl-fisc="{{ lbl_fisc_selected }}"
             data-lbl-select="{{ lbl_select_all }}"
@@ -164,16 +165,20 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <span class="bulk-bar-count"><strong id="bulk-count">0</strong> {{ t('inv.selected', 'odabrano') }}</span>
         <wa-button type="button" variant="neutral" appearance="outlined" size="small" id="btn-select-all">{{ lbl_select_all }}</wa-button>
-        <wa-button type="submit" formaction="/racuni/kopiraj" variant="neutral" appearance="outlined" size="small" id="btn-bulk-copy" disabled>
+        <button type="submit" class="btn secondary" formmethod="post" formaction="/racuni/kopiraj" id="btn-bulk-copy" disabled>
           {{ t('btn.copy', 'Kopiraj') }}
-        </wa-button>
-        <wa-button type="submit" formaction="/racuni/fiskalizuj-odabrane" variant="brand" size="small" id="btn-bulk-fiscalize" disabled>
+        </button>
+        <button type="submit" class="btn danger" formmethod="post" formaction="/racuni/bulk-obrisi" id="btn-bulk-delete" disabled>
+          {{ t('btn.delete', 'Obriši') }}
+        </button>
+        <button type="submit" class="btn" formmethod="post" formaction="/racuni/bulk-fiskalizuj" id="btn-bulk-fiscalize" disabled>
           {{ lbl_fisc_selected }}
-        </wa-button>
+        </button>
         <button type="button" class="bulk-bar-clear" id="btn-clear-selection" title="{{ t('btn.deselect_all', 'Poništi odabir') }}">×</button>
       </form>
     </div>
   </div>
+
   <div class="plan-table-wrap">
   <table class="soft-table invoices-table">
     <thead>
@@ -273,7 +278,7 @@
           <input type="checkbox" class="inv-check" name="invoice_ids" value="{{ inv.id }}" form="bulk-actions-form" data-status="{{ inv.status }}" aria-label="{{ inv|display_inv_num }}">
         </td>
         <td>
-          <div class="inv-num-stack" title="{{ inv.inv_num or inv.external_id or '' }}">
+          <div class="inv-num-stack">
             <span class="inv-status-rail {% if inv.status == 'fiscalized' %}ok{% elif inv.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
             <span class="inv-num-local">{{ inv|display_inv_num }}</span>
           </div>
@@ -303,6 +308,16 @@
             <a class="btn-icon-row" href="/racuni/{{ inv.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
               <i data-lucide="pencil" aria-hidden="true"></i>
             </a>
+            <form method="post" action="/racuni/{{ inv.id }}/obrisi" class="row-actions-delete"
+                  data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
+                  data-confirm-title="{{ t('inv.delete_draft', 'Brisanje nacrta') }}"
+                  data-confirm-tone="danger"
+                  data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn-icon-row" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+              </button>
+            </form>
             {% endif %}
             <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" title="PDF" aria-label="PDF">
               <i data-lucide="file-text" aria-hidden="true"></i>
@@ -325,6 +340,7 @@
   var bulkBar = document.getElementById('bulk-bar');
   var card = document.getElementById('inv-list-card');
   var btnCopy = document.getElementById('btn-bulk-copy');
+  var btnDelete = document.getElementById('btn-bulk-delete');
   var btnFisc = document.getElementById('btn-bulk-fiscalize');
   var btnSelectAll = document.getElementById('btn-select-all');
   var btnClear = document.getElementById('btn-clear-selection');
@@ -339,6 +355,7 @@
   var lblDeselect = (form && form.getAttribute('data-lbl-deselect')) || 'Poništi odabir';
   var msgFisc = (form && form.getAttribute('data-msg-fisc')) || 'Da li ste sigurni? Fiskalizovaće se %n odabranih faktura.';
   var msgCopy = (form && form.getAttribute('data-msg-copy')) || 'Kopirati %n odabranih faktura kao nacrte?';
+  var msgDelete = (form && form.getAttribute('data-msg-delete')) || 'Trajno obrisati %n nefiskalizovanih nacrta?';
   var msgNeed = (form && form.getAttribute('data-msg-need-draft')) || 'Označite fakture koje još nisu fiskalizovane.';
 
   function syncBulk() {
@@ -350,6 +367,7 @@
     var allDraftSelected = draftChecks.length > 0 && draftChecks.every(function (c) { return c.checked; });
     if (countEl) countEl.textContent = String(n);
     if (btnCopy) btnCopy.disabled = n === 0;
+    if (btnDelete) btnDelete.disabled = nDraft === 0;
     if (btnFisc) {
       btnFisc.disabled = nDraft === 0;
       btnFisc.textContent = nDraft ? (lblFisc + ' (' + nDraft + ')') : lblFisc;
@@ -378,6 +396,18 @@
     syncBulk();
   }
 
+  function openConfirm(opts) {
+    var api = window.sepkoDialog;
+    if (!api) {
+      if (!opts.onOk || window.confirm(opts.message)) {
+        if (opts.onOk) opts.onOk();
+      }
+      return;
+    }
+    if (opts.alert) api.alert(opts);
+    else api.confirm(opts);
+  }
+
   checks.forEach(function (c) {
     c.addEventListener('change', syncBulk);
   });
@@ -398,28 +428,71 @@
   }
   if (form) {
     form.addEventListener('submit', function (e) {
-      var action = (e.submitter && e.submitter.getAttribute('formaction')) || '';
+      var submitter = e.submitter;
+      var action = (submitter && submitter.getAttribute('formaction')) || form.getAttribute('action') || '';
       var selected = checks.filter(function (c) { return c.checked; });
       if (!selected.length) {
         e.preventDefault();
         return;
       }
-      if (action.indexOf('fiskalizuj') !== -1) {
+      e.preventDefault();
+
+      function go() {
+        form.setAttribute('method', 'post');
+        if (action) form.setAttribute('action', action);
+        HTMLFormElement.prototype.submit.call(form);
+      }
+
+      if (action.indexOf('fiskalizuj') !== -1 || action.indexOf('bulk-fiskalizuj') !== -1) {
         var n = selected.filter(function (c) {
           return c.getAttribute('data-status') !== 'fiscalized';
         }).length;
         if (!n) {
-          e.preventDefault();
-          alert(msgNeed);
+          openConfirm({
+            title: 'Nema nacrta',
+            message: msgNeed,
+            tone: 'warn',
+            okLabel: 'U redu',
+            alert: true
+          });
           return;
         }
-        if (!confirm(msgFisc.replace('%n', String(n)))) {
-          e.preventDefault();
+        openConfirm({
+          title: 'Fiskalizacija',
+          message: msgFisc.replace('%n', String(n)),
+          tone: 'warn',
+          okLabel: 'Fiskalizuj',
+          onOk: go
+        });
+      } else if (action.indexOf('obrisi') !== -1) {
+        var nDel = selected.filter(function (c) {
+          return c.getAttribute('data-status') !== 'fiscalized';
+        }).length;
+        if (!nDel) {
+          openConfirm({
+            title: 'Nema nacrta',
+            message: msgNeed,
+            tone: 'warn',
+            okLabel: 'U redu',
+            alert: true
+          });
+          return;
         }
+        openConfirm({
+          title: 'Brisanje nacrta',
+          message: msgDelete.replace('%n', String(nDel)),
+          tone: 'danger',
+          okLabel: 'Obriši',
+          onOk: go
+        });
       } else {
-        if (!confirm(msgCopy.replace('%n', String(selected.length)))) {
-          e.preventDefault();
-        }
+        openConfirm({
+          title: 'Kopiranje',
+          message: msgCopy.replace('%n', String(selected.length)),
+          tone: 'warn',
+          okLabel: 'Kopiraj',
+          onOk: go
+        });
       }
     });
   }
