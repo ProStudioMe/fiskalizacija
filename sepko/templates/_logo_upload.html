@@ -1,0 +1,38 @@
+{# Custom logo file picker. Expects: input_name, input_id, preview_src (optional), show_remove (bool) #}
+{% set input_name = input_name|default('logo') %}
+{% set input_id = input_id|default('logo-input') %}
+{% set show_remove = show_remove|default(false) %}
+<div class="file-upload" data-file-upload>
+  {% if preview_src %}
+  <div class="file-upload-current">
+    <img class="komitent-logo" src="{{ preview_src }}" alt="" data-file-preview-current>
+    {% if show_remove %}
+    <label class="toggle-row file-upload-remove">
+      <span>{{ t('upload.remove_logo', 'Ukloni logo') }}</span>
+      <input type="checkbox" name="remove_logo" value="1">
+    </label>
+    {% endif %}
+  </div>
+  {% endif %}
+  <label class="file-upload-zone" for="{{ input_id }}">
+    <input
+      type="file"
+      id="{{ input_id }}"
+      name="{{ input_name }}"
+      class="file-upload-input"
+      accept="image/png,image/jpeg,image/webp,image/gif"
+      data-file-input
+    >
+    <span class="file-upload-preview" data-file-preview hidden>
+      <img alt="" data-file-preview-img>
+    </span>
+    <span class="file-upload-idle" data-file-idle>
+      <span class="file-upload-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M19 15v4H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4h-2zm-6-1.5V4.8l2.6 2.6 1.4-1.4L12 1 7 6l1.4 1.4L11 4.8V13.5h2z"/></svg>
+      </span>
+      <span class="file-upload-title">{{ t('upload.choose', 'Odaberi sliku') }}</span>
+      <span class="file-upload-hint">{{ t('upload.hint', 'PNG, JPG, WEBP ili GIF · max 2 MB') }}</span>
+      <span class="file-upload-name muted" data-file-name>{{ t('upload.none', 'Nije odabran fajl') }}</span>
+    </span>
+  </label>
+</div>

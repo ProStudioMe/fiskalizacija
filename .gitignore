@@ -1,0 +1,24 @@
+.env
+*.p12
+*.pfx
+certs/
+deploy/certs/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+data/
+*.db
+.DS_Store
+logs/
+.cursor/
+
+# Large binary fiscalization packs (keep maps/README in git)
+docs/Fiskalizacija_uputstvo.zip
+docs/efi/**/*.docx
+docs/efi/**/*.xlsx
+docs/efi/**/*.rar
+docs/efi/**/*.zip
+docs/efi/**/*.png

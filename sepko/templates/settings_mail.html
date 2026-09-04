@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.mail', 'Mail') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.mail', 'Mail') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/podesavanja">← {{ t('settings.basic', 'Osnovna') }}</a>
+  <a class="btn secondary" href="/finansije">{{ t('nav.finansije', 'Finansije') }}</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:640px">
+  <h2>IMAP / SMTP (izvodi + slanje kartica)</h2>
+  <p class="muted">Isti obrazac kao u Finasije programu — Hipotekarna izvodi s maila, slanje kartice klijentu.</p>
+  <form method="post" action="/podesavanja/mail">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2 style="margin-top:1rem">IMAP (skidanje izvoda)</h2>
+    <div class="row">
+      <div class="field"><label>Host</label><input name="imap_host" value="{{ mail.imap_host }}"></div>
+      <div class="field"><label>Port</label><input name="imap_port" value="{{ mail.imap_port }}"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>User</label><input name="imap_user" value="{{ mail.imap_user }}" autocomplete="username"></div>
+      <div class="field"><label>Lozinka</label><input name="imap_password" type="password" value="" placeholder="{% if mail.imap_password %}•••••• (ostavi prazno da zadržiš){% else %}lozinka{% endif %}" autocomplete="current-password"></div>
+    </div>
+    <div class="field"><label>Folder</label><input name="imap_folder" value="{{ mail.imap_folder }}"></div>
+    <div class="field"><label>Uvoz izvoda od (YYYY-MM-DD)</label><input name="mail_since_date" value="{{ mail.mail_since_date }}"></div>
+    <div class="field"><label>Subject termini (jedan po redu)</label><textarea name="izvod_subjects" rows="3">{{ mail.izvod_subjects }}</textarea></div>
+    <div class="field"><label>Faktura subject termini</label><textarea name="faktura_subjects" rows="2">{{ mail.faktura_subjects }}</textarea></div>
+
+    <h2 style="margin-top:1.25rem">SMTP (slanje)</h2>
+    <div class="row">
+      <div class="field"><label>Host</label><input name="smtp_host" value="{{ mail.smtp_host }}" placeholder="isto kao IMAP ako prazno"></div>
+      <div class="field"><label>Port</label><input name="smtp_port" value="{{ mail.smtp_port }}"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>User</label><input name="smtp_user" value="{{ mail.smtp_user }}"></div>
+      <div class="field"><label>Lozinka</label><input name="smtp_password" type="password" value="" placeholder="{% if mail.smtp_password %}••••••{% endif %}"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>From email</label><input name="smtp_from" value="{{ mail.smtp_from }}"></div>
+      <div class="field"><label>From ime</label><input name="smtp_from_name" value="{{ mail.smtp_from_name }}"></div>
+    </div>
+    <button type="submit" class="btn">{{ t('btn.save', 'Sačuvaj') }}</button>
+  </form>
+  <p class="cell-secondary" style="margin-top:1rem">Može i preko `.env`: IMAP_HOST, IMAP_USER, IMAP_PASSWORD, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD.</p>
+</div>
+{% endblock %}

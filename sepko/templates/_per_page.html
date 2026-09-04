@@ -1,0 +1,8 @@
+<label class="per-page">
+  {{ t('label.per_page', 'Prikaži') }}
+  <select name="per_page" onchange="this.form.submit()">
+    {% for n in page_sizes %}
+    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
+    {% endfor %}
+  </select>
+</label>

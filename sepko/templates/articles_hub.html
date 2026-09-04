@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.artikli', 'Artikli') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('settings.articles', 'Artikli') }}{% endblock %}
+{% block content %}
+<div class="settings-layout">
+  <nav class="settings-nav">
+    <a href="/podesavanja">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/stampa">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/artikli" class="active">{{ t('settings.articles', 'Artikli') }} <span class="chevron">›</span></a>
+    <a href="/kupci">{{ t('nav.komitenti', 'Komitenti') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/operateri">{{ t('settings.operators', 'Operateri') }} <span class="chevron">›</span></a>
+  </nav>
+  <nav class="settings-nav">
+    <a href="/artikli">{{ t('btn.add', 'Dodaj') }} / {{ t('btn.edit', 'Izmijeni') }} <span class="chevron">›</span></a>
+    <a href="/artikli/kategorije">{{ t('page.kategorije', 'Kategorije') }} <span class="chevron">›</span></a>
+    <a href="/artikli/poreske-stope">{{ t('page.poreske', 'Poreske stope') }} <span class="chevron">›</span></a>
+  </nav>
+</div>
+{% endblock %}

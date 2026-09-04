@@ -1,0 +1,28 @@
+services:
+  app:
+    build: .
+    image: ghcr.io/OWNER/sepko:latest
+    env_file:
+      - .env
+    environment:
+      SEPKO_ENV: production
+      SEPKO_DATABASE_URL: postgresql+asyncpg://sepko_app:sepko_app@db:5432/sepko
+      SEPKO_DATABASE_ADMIN_URL: postgresql+psycopg://sepko:sepko@db:5432/sepko
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      # TLS: "443:443" + volume ./deploy/certs + nginx-ssl.conf
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./sepko/static:/app/sepko/static:ro
+    depends_on:
+      - app
+    restart: unless-stopped

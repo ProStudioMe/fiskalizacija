@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8">
+  <title>Račun {{ invoice|display_inv_num }}</title>
+  <style>
+    @page { size: 80mm auto; margin: 3mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: {{ ui.text_size or 12 }}px;
+      color: #111;
+      margin: 0;
+      padding: 8px;
+      background: #fff;
+    }
+    .noprint { margin: 0 0 12px; font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    .receipt { width: 72mm; max-width: 100%; margin: 0 auto; }
+    .center { text-align: center; }
+    .seller { font-weight: 700; font-size: 1.15em; }
+    .muted { color: #333; }
+    hr { border: 0; border-top: 1px dashed #333; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; gap: 8px; }
+    .item-name { word-break: break-word; }
+    .total { font-weight: 700; font-size: 1.1em; }
+    .fiscal { font-size: 0.9em; word-break: break-all; }
+    .qr { text-align: center; margin: 8px 0; }
+    .qr img { width: {{ qr_size }}px; height: {{ qr_size }}px; }
+    @media print {
+      .noprint { display: none !important; }
+      body { padding: 0; }
+      .receipt { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt">
+    <p class="noprint">
+      <a href="/racuni/{{ invoice.id }}">← Nazad</a>
+      ·
+      <button type="button" id="btn-print">Štampa</button>
+      ·
+      <a href="/racuni/{{ invoice.id }}/pdf">A4</a>
+    </p>
+    <div class="center">
+      <div class="seller">{{ tenant.name }}</div>
+      {% if company.address %}<div>{{ company.address }}</div>{% endif %}
+      <div>PIB: {{ tenant.pib }}</div>
+      <div>FISKALNI RAČUN</div>
+    </div>
+    <hr>
+    <div>Broj: {{ invoice.inv_num or invoice|display_inv_num }}</div>
+    <div>Vrijeme: {{ issue_dt or '—' }}</div>
+    {% if invoice.buyer_name %}<div>Kupac: {{ invoice.buyer_name }}</div>{% endif %}
+    <hr>
+    {% for row in line_rows %}
+      <div class="item-name">{{ row.name }}</div>
+      <div class="row"><span>{{ row.qty }} ×</span><span>{{ row.gross }}</span></div>
+    {% endfor %}
+    <hr>
+    <div class="row total"><span>UKUPNO</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
+    <div class="row"><span>{{ pay_label }}</span><span>{{ "%.2f"|format(invoice.total_gross) }} {{ currency }}</span></div>
+    <hr>
+    <div class="fiscal">IKOF: {{ invoice.ikof or '—' }}</div>
+    <div class="fiscal">JIKR: {{ invoice.jikr or '—' }}</div>
+    {% if qr_data_uri or qr_fallback %}
+    <div class="qr">
+      <img src="{{ qr_data_uri or qr_fallback }}" alt="QR">
+    </div>
+    {% endif %}
+    <div class="center muted">Hvala na posjeti</div>
+  </div>
+  <script src="/static/print.js?v=1"></script>
+  <script>
+    (function () {
+      var opts = {
+        printerType: "thermal",
+        agentUrl: {{ print_agent_url|tojson }},
+        escposUrl: {{ escpos_url|tojson }},
+        printerName: {{ printer_name|tojson }}
+      };
+      var btn = document.getElementById("btn-print");
+      if (btn) btn.addEventListener("click", function () { window.SepkoPrint.printPage(opts); });
+    })();
+  </script>
+</body>
+</html>

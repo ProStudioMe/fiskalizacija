@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+.git
+.env
+*.p12
+*.pfx
+docs/efi
+docs/Fiskalizacija_uputstvo.zip
+.pytest_cache
+*.md

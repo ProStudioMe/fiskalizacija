@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.poreske', 'Poreske stope') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.poreske', 'Poreske stope') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/podesavanja/artikli">← {{ t('nav.artikli', 'Artikli') }}</a>
+{% endblock %}
+{% block content %}
+<div class="plan-card" style="max-width:720px">
+  <table class="soft-table">
+    <thead>
+      <tr>
+        <th>Naziv poreske stope</th>
+        <th>Stopa</th>
+        <th>Podrazumijevana</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for tax_rate in tax_rates %}
+      <tr>
+        <td>
+          <div class="cell-primary">{{ tax_rate.name }}</div>
+          <div class="cell-secondary">{{ tax_rate.code }}</div>
+        </td>
+        <td><span class="pill-tag">{{ "%.0f"|format(tax_rate.rate) }}%</span></td>
+        <td>
+          <form method="post" action="/artikli/poreske-stope/{{ tax_rate.id }}/default">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label class="switch">
+              <input type="checkbox" {% if tax_rate.is_default %}checked{% endif %} onchange="this.form.submit()">
+              <span class="slider"></span>
+            </label>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="muted" style="padding:1.25rem">Nema poreskih stopa.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted" style="margin-top:1rem;max-width:720px">Stopa se bira na artiklu. Oslobođenja (čl. 17+) idu sa stopom 0% u EFI poruci.</p>
+{% endblock %}

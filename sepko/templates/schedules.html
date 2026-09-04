@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.raspored', 'Raspored') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('sched.title', 'Raspored') }}{% endblock %}
+{% block page_actions %}
+  <form method="post" action="/racuni/raspored/pokreni" style="margin:0;display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn secondary">{{ t('sched.run_due', 'Pokreni dospjele sada') }}</button>
+  </form>
+  <a class="btn secondary" href="/racuni">← {{ t('nav.fakture', 'Fakture') }}</a>
+{% endblock %}
+{% block content %}
+<p class="muted" style="margin-top:0">
+  Automatski kopira šablon fakture na odabrane dane u mjesecu (npr. 1 i 15),
+  po želji fiskalizuje i šalje na e-mail komitenta. Za produkciju podesi cron na
+  <code>/cron/raspored?token=…</code> (jednom dnevno).
+</p>
+
+<div class="grid grid-2" style="align-items:start;gap:1rem">
+  <div class="card">
+    <h2>{% if editing %}{{ t('btn.edit', 'Izmijeni') }}{% else %}{{ t('btn.add', 'Novi') }}{% endif %}</h2>
+    <form method="post" action="{% if editing %}/racuni/raspored/{{ editing.id }}{% else %}/racuni/raspored{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label>{{ t('col.name', 'Naziv') }}</label>
+        <input name="name" value="{{ editing.name if editing else '' }}" placeholder="npr. Hosting NIJZ" required>
+      </div>
+      <div class="field">
+        <label>{{ t('sched.template', 'Šablon fakture') }}</label>
+        <select name="template_invoice_id" required>
+          <option value="">— izaberi —</option>
+          {% for inv in templates %}
+          <option value="{{ inv.id }}"
+            {% if editing and editing.template_invoice_id == inv.id %}selected{% endif %}>
+            {{ inv|display_inv_num }} · {{ inv.buyer_name or 'bez kupca' }} · {{ "%.2f"|format(inv.total_gross) }} €
+          </option>
+          {% endfor %}
+        </select>
+        <div class="cell-secondary" style="margin-top:0.35rem">Koristi postojeću fakturu kao šablon (stavke + kupac).</div>
+      </div>
+      <div class="field">
+        <label>{{ t('sched.days', 'Dani u mjesecu') }}</label>
+        <input name="days_of_month" value="{{ editing.days_of_month if editing else '1' }}" placeholder="1,15" required>
+        <div class="cell-secondary" style="margin-top:0.35rem">Npr. <code>1</code> ili <code>1,15</code> ili <code>28</code></div>
+      </div>
+      <div class="field">
+        <label>E-mail (opciono)</label>
+        <input name="email_to" type="email" value="{{ editing.email_to if editing and editing.email_to else '' }}" placeholder="Ako prazno — e-mail komitenta">
+      </div>
+      <label class="toggle-row">
+        <span>Automatski fiskalizuj</span>
+        <input type="checkbox" name="auto_fiscalize" value="1" {% if editing and editing.auto_fiscalize %}checked{% elif not editing %}{% endif %}>
+      </label>
+      <label class="toggle-row">
+        <span>Pošalji e-mail</span>
+        <input type="checkbox" name="auto_email" value="1" {% if not editing or editing.auto_email %}checked{% endif %}>
+      </label>
+      <label class="toggle-row">
+        <span>{{ t('common.active', 'Aktivan') }}</span>
+        <input type="checkbox" name="active" value="1" {% if not editing or editing.active %}checked{% endif %}>
+      </label>
+      <div class="row" style="margin-top:1rem">
+        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+        {% if editing %}<a class="btn secondary" href="/racuni/raspored">{{ t('btn.cancel', 'Poništi') }}</a>{% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="plan-card">
+    <div class="plan-head">
+      <div>
+        <h2>{{ t('sched.title', 'Aktivni rasporedi') }}</h2>
+        <div class="cell-secondary">{{ schedules|length }} ukupno</div>
+      </div>
+    </div>
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <thead>
+          <tr>
+            <th>{{ t('col.name', 'Naziv') }}</th>
+            <th>{{ t('sched.days', 'Dani') }}</th>
+            <th>Šablon</th>
+            <th>Opcije</th>
+            <th>Zadnji put</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in schedules %}
+          <tr>
+            <td>
+              <div class="cell-primary">{{ s.name }}</div>
+              {% if not s.active %}<span class="pill-tag bad">off</span>{% endif %}
+              {% if s.last_error %}<div class="cell-secondary" style="color:var(--danger)">{{ s.last_error }}</div>{% endif %}
+            </td>
+            <td>{{ s.days_of_month }}</td>
+            <td>
+              {% if s.template_invoice %}
+              <a href="/racuni/{{ s.template_invoice_id }}">{{ s.template_invoice|display_inv_num }}</a>
+              <div class="cell-secondary">{{ s.template_invoice.buyer_name or '' }}</div>
+              {% else %}#{{ s.template_invoice_id }}{% endif %}
+            </td>
+            <td>
+              {% if s.auto_fiscalize %}<span class="pill-tag ok">fiskal</span>{% endif %}
+              {% if s.auto_email %}<span class="pill-tag">mail</span>{% endif %}
+            </td>
+            <td>
+              <div class="cell-secondary" style="margin:0">{{ s.last_run_key or '—' }}</div>
+              {% if s.last_invoice_id %}
+              <a href="/racuni/{{ s.last_invoice_id }}">#{{ s.last_invoice_id }}</a>
+              {% endif %}
+            </td>
+            <td class="cell-actions">
+              <a class="btn secondary" href="/racuni/raspored?edit={{ s.id }}">{{ t('btn.edit', 'Izmijeni') }}</a>
+              <form method="post" action="/racuni/raspored/{{ s.id }}/pokreni" style="display:inline;margin:0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn secondary">Sada</button>
+              </form>
+              <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi" style="display:inline;margin:0" onsubmit="return confirm('Deaktivirati raspored?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn danger">Off</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="muted" style="padding:1.25rem">Nema rasporeda — dodaj šablon lijevo.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Prevodi — Sepko admin{% endblock %}
+{% block page_title %}Prevodi{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/admin/prevodi/export?lang={{ lang }}">Export JSON</a>
+{% endblock %}
+{% block content %}
+<form class="inv-filter-toolbar" method="get" action="/admin/prevodi" style="margin-bottom:1rem">
+  <select name="lang">
+    {% for code, label in languages %}
+    <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ label }} ({{ code }})</option>
+    {% endfor %}
+  </select>
+  <input type="search" name="q" value="{{ q }}" placeholder="Ključ, kategorija…">
+  <button type="submit" class="btn secondary">Prikaži</button>
+</form>
+
+<div class="grid grid-2" style="margin-bottom:1.25rem">
+  <div class="card">
+    <h2>Novi ključ</h2>
+    <form method="post" action="/admin/prevodi/kljuc">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field"><label>Ključ</label><input name="key" placeholder="npr. nav.blagajna" required></div>
+      <div class="field"><label>Kategorija</label><input name="category" value="ui"></div>
+      <div class="field"><label>Opis</label><input name="description"></div>
+      <div class="field"><label>Crnogorski (cnr)</label><input name="cnr_value"></div>
+      <button type="submit">Dodaj ključ</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Import JSON</h2>
+    <p class="muted">Format: <code>{"language":"en","translations":{"nav.pregled":"Overview"}}</code> ili ravni <code>{"nav.pregled":"Overview"}</code>.</p>
+    <form method="post" action="/admin/prevodi/import" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label>Jezik (ako JSON nema language)</label>
+        <select name="lang">
+          {% for code, label in languages %}
+          <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Fajl</label><input type="file" name="file" accept="application/json,.json" required></div>
+      <button type="submit">Uvezi</button>
+    </form>
+  </div>
+</div>
+
+<form method="post" action="/admin/prevodi">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="lang" value="{{ lang }}">
+  <input type="hidden" name="q" value="{{ q }}">
+  <div class="row" style="margin-bottom:0.75rem">
+    <button type="submit">Sačuvaj {{ lang }}</button>
+    <span class="muted">{{ keys|length }} ključeva · lijevo cnr, desno {{ lang }}</span>
+  </div>
+  <table class="data-table i18n-table">
+    <thead>
+      <tr>
+        <th>Ključ</th>
+        <th>cnr</th>
+        <th>{{ lang }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for k in keys %}
+      <tr>
+        <td>
+          <div class="i18n-key">{{ k.key }}</div>
+          <div class="cell-secondary">{{ k.category }}{% if k.description %} · {{ k.description }}{% endif %}</div>
+        </td>
+        <td class="i18n-ref">{{ cnr_values.get(k.key, '') }}</td>
+        <td>
+          <input type="hidden" name="keys" value="{{ k.key }}">
+          <textarea name="values" rows="2">{{ values.get(k.key, '') }}</textarea>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="row" style="margin-top:1rem">
+    <button type="submit">Sačuvaj {{ lang }}</button>
+  </div>
+</form>
+{% endblock %}

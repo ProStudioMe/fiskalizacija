@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} — Sepko admin{% endblock %}
+{% block page_title %}{{ view.name }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/admin/audit?source=tenant&tenant_id={{ view.id }}">Dnevnik</a>
+  <a class="btn secondary" href="/admin/tenanti">Lista</a>
+{% endblock %}
+{% block content %}
+{% if alert == 'expired' %}
+  <div class="flash error">Licenca je istekla {{ view.license_until }}.</div>
+{% elif alert == 'expiring' %}
+  <div class="flash warn">Licenca ističe za {{ days }} dana ({{ view.license_until }}).</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Firma i licenca</h2>
+    <form method="post" action="/admin/tenanti/{{ view.id }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field"><label>Naziv</label><input name="name" value="{{ view.name }}" required></div>
+      <div class="field"><label>PIB</label><input name="pib" value="{{ view.pib }}" required></div>
+      <div class="field"><label>Slug</label><input name="slug" value="{{ view.slug }}" required></div>
+      <div class="field">
+        <label>Režim</label>
+        <select name="mode">
+          <option value="test" {% if view.mode == 'test' %}selected{% endif %}>Test</option>
+          <option value="prod" {% if view.mode == 'prod' %}selected{% endif %}>Produkcija</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tip licence</label>
+        <select name="license_type">
+          {% for code in license_types %}
+          <option value="{{ code }}" {% if view.license_type == code %}selected{% endif %}>{{ license_labels[code] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <div class="field"><label>Od</label><input type="date" name="license_from" value="{{ view.license_from or '' }}"></div>
+        <div class="field"><label>Do</label><input type="date" name="license_until" value="{{ view.license_until or '' }}"></div>
+      </div>
+      <p class="muted">Status: <span class="badge {{ view.status }}">{{ view.status }}</span>
+        · licenca: {{ license_label }}</p>
+      <button type="submit">Sačuvaj</button>
+    </form>
+
+    <hr class="settings-hr">
+    <h2>Status</h2>
+    <div class="row">
+      {% if view.status != 'suspended' %}
+      <form method="post" action="/admin/tenanti/{{ view.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="status" value="suspended">
+        <button type="submit" class="btn danger">Suspenduj</button>
+      </form>
+      {% else %}
+      <form method="post" action="/admin/tenanti/{{ view.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="status" value="active">
+        <button type="submit">Aktiviraj</button>
+      </form>
+      {% endif %}
+      {% if view.status != 'trial' %}
+      <form method="post" action="/admin/tenanti/{{ view.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="status" value="trial">
+        <button type="submit" class="btn secondary">Proba</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>EFI kodovi / tokeni</h2>
+      <p class="muted">Unesi EFI kodove i tokene Telekoma / Pošte za fiskalizaciju. Token se ne prikazuje nakon spremanja.</p>
+      <form method="post" action="/admin/tenanti/{{ view.id }}/efi">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field"><label>BusinUnitCode</label><input name="busin_unit_code" value="{{ fiscal.busin_unit_code }}" maxlength="10"></div>
+        <div class="field"><label>TCRCode (ENU)</label><input name="tcr_code" value="{{ fiscal.tcr_code }}" maxlength="10"></div>
+        <div class="field"><label>SoftCode</label><input name="soft_code" value="{{ fiscal.soft_code }}" maxlength="10"></div>
+        <div class="field"><label>OperatorCode</label><input name="operator_code" value="{{ fiscal.operator_code }}" maxlength="10"></div>
+        <div class="field">
+          <label>U PDV-u</label>
+          <select name="is_issuer_in_vat">
+            <option value="true" {% if fiscal.is_issuer_in_vat %}selected{% endif %}>Da</option>
+            <option value="false" {% if not fiscal.is_issuer_in_vat %}selected{% endif %}>Ne</option>
+          </select>
+        </div>
+        <hr class="settings-hr">
+        <div class="field">
+          <label>Aktivan kanal (token / cert)</label>
+          <select name="token_provider">
+            {% for code, label in token_providers %}
+            <option value="{{ code }}" {% if fiscal.token_provider == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Crnogorski Telekom — token</label>
+          <input type="password" name="telekom_token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_telekom_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}">
+          {% if fiscal.has_telekom_token() %}
+          <label class="toggle-row" style="margin-top:0.4rem">
+            <span>Ukloni Telekom token</span>
+            <input type="checkbox" name="clear_telekom_token" value="1">
+          </label>
+          {% endif %}
+        </div>
+        <div class="field">
+          <label>Pošta Crne Gore — token</label>
+          <input type="password" name="posta_token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_posta_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}">
+          {% if fiscal.has_posta_token() %}
+          <label class="toggle-row" style="margin-top:0.4rem">
+            <span>Ukloni Pošta token</span>
+            <input type="checkbox" name="clear_posta_token" value="1">
+          </label>
+          {% endif %}
+        </div>
+        <button type="submit">Sačuvaj EFI / tokene</button>
+      </form>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <h2>Korisnici</h2>
+      {% if not operators %}
+      <p class="muted">Nema korisnika.</p>
+      {% else %}
+      <table class="data-table">
+        <thead><tr><th>Email</th><th>Uloga</th><th></th></tr></thead>
+        <tbody>
+          {% for op in operators %}
+          <tr>
+            <td>{{ op.email }}<div class="cell-secondary">{{ op.full_name }}</div></td>
+            <td>{{ op.role }}</td>
+            <td>{% if op.active %}aktivan{% else %}neaktivan{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

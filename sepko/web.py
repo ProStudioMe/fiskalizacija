@@ -1,0 +1,2444 @@
+"""Sepko web back-office (Jinja) — Faza 1."""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_HALF_UP
+from urllib.parse import quote, urlencode
+
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, Response
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, joinedload
+
+from sepko.audit import write_audit
+from sepko.config import get_settings
+from sepko.db import get_db
+from sepko.efi import (
+    TenantCompany,
+    TenantFiscal,
+    TenantUiSettings,
+    UI_LANGUAGES,
+    FISCAL_TOKEN_LABELS,
+    FISCAL_TOKEN_PROVIDERS,
+    load_tenant_company,
+    load_tenant_fiscal,
+    load_tenant_ui,
+    normalize_ui_language,
+    parse_display_inv_num,
+    save_tenant_company,
+    save_tenant_fiscal,
+    save_tenant_ui,
+)
+from sepko.catalog import ARTICLE_COLORS, ensure_tax_rates, resolve_vat
+from sepko.models import (
+    ApiKey,
+    Article,
+    CashDeposit,
+    Category,
+    Customer,
+    Invoice,
+    InvoiceSchedule,
+    TaxRate,
+    Tenant,
+    TenantStatus,
+    User,
+)
+from sepko.schemas import BuyerIn, CashDepositRequest, FiscalizeRequest, InvoiceLineIn, TotalsIn
+from sepko.services import (
+    cash_day_summary,
+    copy_invoices,
+    fiscalize_invoice,
+    fiscalize_invoices,
+    fiscalize_saved_invoice,
+    preview_inv_num,
+    register_cash_deposit,
+    save_draft_invoice,
+)
+from sepko.web_auth import (
+    AuthRequired,
+    login_user,
+    logout_user,
+    resolve_tenant,
+    verify_password,
+)
+from sepko.web_security import (
+    clear_login_attempts,
+    flash,
+    login_rate_limited,
+    record_login_attempt,
+    redirect,
+    rotate_csrf,
+    validate_csrf,
+)
+from sepko.web_templates import render
+
+router = APIRouter(tags=["web"])
+
+PAGE_SIZES = (10, 20, 50, 100)
+DEFAULT_PER_PAGE = 20
+PER_PAGE_COOKIE = "sepko_per_page"
+
+
+def _resolve_per_page(request: Request, per_page: int | None) -> tuple[int, bool]:
+    """Vrati (veličina stranice, treba_upisati_cookie). Pamti izbor u sesiji + cookie."""
+    if per_page is not None and per_page in PAGE_SIZES:
+        request.session["list_per_page"] = per_page
+        return per_page, True
+    saved = request.session.get("list_per_page")
+    if isinstance(saved, int) and saved in PAGE_SIZES:
+        return saved, False
+    raw = request.cookies.get(PER_PAGE_COOKIE)
+    try:
+        n = int(raw) if raw is not None else 0
+    except ValueError:
+        n = 0
+    if n in PAGE_SIZES:
+        request.session["list_per_page"] = n
+        return n, False
+    return DEFAULT_PER_PAGE, False
+
+
+def _with_per_page_cookie(response, per_page: int, set_cookie: bool):
+    if set_cookie:
+        response.set_cookie(
+            PER_PAGE_COOKIE,
+            str(per_page),
+            max_age=365 * 24 * 3600,
+            httponly=False,
+            samesite="lax",
+            path="/",
+        )
+    return response
+
+
+def _parse_nonneg_money(raw: str) -> Decimal | None:
+    try:
+        value = Decimal(str(raw or "0").replace(",", ".").strip() or "0")
+    except Exception:
+        return None
+    if value < 0 or value > Decimal("10000000"):
+        return None
+    return value
+
+
+def _paginate(query, page: int, per_page: int):
+    total = query.count()
+    pages = max(1, (total + per_page - 1) // per_page) if total else 1
+    page = max(1, min(page, pages))
+    items = query.offset((page - 1) * per_page).limit(per_page).all()
+    return items, total, page, pages
+
+
+def _auth(request: Request, db: Session) -> tuple[User, Tenant]:
+    from sepko.web_auth import get_current_user
+
+    user = get_current_user(request, db)
+    tenant = resolve_tenant(user, db)
+    return user, tenant
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    if request.session.get("role") == "superadmin":
+        return redirect("/admin")
+    if request.session.get("user_id"):
+        return redirect("/")
+    return render(request, "login.html", {"user": None})
+
+
+@router.post("/login")
+def login_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/login")
+    if login_rate_limited(request):
+        flash(request, "Previše pokušaja. Sačekajte minut.", "error")
+        return redirect("/login")
+
+    user = db.query(User).filter(User.email == email.strip().lower()).first()
+    if not user or not user.active or not verify_password(password, user.password_hash):
+        record_login_attempt(request)
+        flash(request, "Pogrešan email ili lozinka.", "error")
+        return redirect("/login")
+    if user.role == "superadmin":
+        flash(request, "Koristite prijavu za platformu.", "error")
+        return redirect("/admin/login")
+    tenant = db.get(Tenant, user.tenant_id) if user.tenant_id else None
+    if not tenant or tenant.status == TenantStatus.suspended.value:
+        flash(request, "Nalog firme je suspendovan. Kontaktirajte podršku.", "error")
+        return redirect("/login")
+
+    clear_login_attempts(request)
+    login_user(request, user)
+    rotate_csrf(request)
+    write_audit(db, "auth.login", tenant_id=tenant.id, detail=user.email)
+    db.commit()
+    flash(request, "Uspješna prijava.")
+    return redirect("/")
+
+
+@router.post("/logout")
+def logout_submit(
+    request: Request,
+    csrf_token: str = Form(""),
+):
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/")
+    logout_user(request)
+    return redirect("/login")
+
+
+@router.get("/logout")
+def logout_legacy():
+    # GET odjava je uklonjena zbog CSRF; zadržan redirect radi starih bookmarkova.
+    return redirect("/login")
+
+
+def _build_invoice_list(
+    request: Request,
+    db: Session,
+    tenant: Tenant,
+    *,
+    q: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    per_page: int | None,
+    page: int,
+    sort: str | None,
+    dir: str | None,
+    client: str | None,
+    tip: str | None,
+    list_path: str = "/racuni",
+) -> tuple[dict, int, bool]:
+    """Shared invoice table context for Pregled and Fakture."""
+    status_val = (status or "all").strip()
+    client_val = (client or "").strip()
+    tip_val = (tip or "").strip()
+    sort_key = (sort or "number").strip()
+    if sort_key not in _INVOICE_SORTS:
+        sort_key = "number"
+    sort_dir = "asc" if (dir or "").strip().lower() == "asc" else "desc"
+
+    query = db.query(Invoice).filter(Invoice.tenant_id == tenant.id)
+    if q and q.strip():
+        q_raw = q.strip()
+        term = f"%{q_raw}%"
+        search_clauses = [
+            Invoice.external_id.ilike(term),
+            Invoice.inv_num.ilike(term),
+            Invoice.buyer_name.ilike(term),
+            Invoice.buyer_pib.ilike(term),
+            Invoice.jikr.ilike(term),
+            Invoice.ikof.ilike(term),
+        ]
+        # Lokalni broj 1-1-32/2026 → inv_ord_num + godina
+        parsed = parse_display_inv_num(q_raw)
+        if parsed:
+            ord_num, year = parsed
+            search_clauses.append(
+                (Invoice.inv_ord_num == ord_num)
+                & (func.extract("year", Invoice.issue_datetime) == year)
+            )
+            # EFI InvNum često: .../32/2026/...
+            search_clauses.append(Invoice.inv_num.ilike(f"%/{ord_num}/{year}/%"))
+            search_clauses.append(Invoice.external_id.ilike(f"%/{ord_num}/{year}%"))
+        else:
+            # djelimičan unos tipa 1-1-32
+            m_partial = q_raw.replace(" ", "")
+            if m_partial.startswith("1-1-") and m_partial[4:].isdigit():
+                search_clauses.append(Invoice.inv_ord_num == int(m_partial[4:]))
+            elif q_raw.isdigit():
+                search_clauses.append(Invoice.inv_ord_num == int(q_raw))
+        query = query.filter(or_(*search_clauses))
+    if status_val and status_val != "all":
+        if status_val == "pending":
+            query = query.filter(Invoice.status.in_(["pending", "draft"]))
+        else:
+            query = query.filter(Invoice.status == status_val)
+    if client_val:
+        if client_val == "__none__":
+            query = query.filter(or_(Invoice.buyer_name.is_(None), Invoice.buyer_name == ""))
+        else:
+            # tačno ili ilike (razlike u velikim slovima / razmacima)
+            query = query.filter(Invoice.buyer_name.ilike(client_val))
+    if tip_val:
+        query = query.filter(Invoice.payment_method == tip_val)
+    d_from = _parse_date(date_from)
+    d_to = _parse_date(date_to)
+    if d_from:
+        query = query.filter(func.date(Invoice.issue_datetime) >= d_from)
+    if d_to:
+        query = query.filter(func.date(Invoice.issue_datetime) <= d_to)
+
+    size, set_cookie = _resolve_per_page(request, per_page)
+    col = _INVOICE_SORTS[sort_key]
+    if sort_key == "number":
+        # Broj računa: zadnja (najveći rbr) → prva; nacrti bez broja po id
+        year_col = func.extract("year", Invoice.issue_datetime)
+        if sort_dir == "asc":
+            ordered = query.order_by(
+                year_col.asc().nulls_last(),
+                Invoice.inv_ord_num.asc().nulls_last(),
+                Invoice.id.asc(),
+            )
+        else:
+            # Zadnja → prva; nacrti (bez broja) na vrhu
+            ordered = query.order_by(
+                year_col.desc().nulls_first(),
+                Invoice.inv_ord_num.desc().nulls_first(),
+                Invoice.id.desc(),
+            )
+    else:
+        primary = col.asc() if sort_dir == "asc" else col.desc()
+        ordered = query.order_by(
+            primary,
+            Invoice.id.asc() if sort_dir == "asc" else Invoice.id.desc(),
+        )
+    invoices, total, page, pages = _paginate(ordered, page, size)
+
+    clients = [
+        row[0]
+        for row in (
+            db.query(Invoice.buyer_name)
+            .filter(
+                Invoice.tenant_id == tenant.id,
+                Invoice.buyer_name.isnot(None),
+                Invoice.buyer_name != "",
+            )
+            .distinct()
+            .order_by(Invoice.buyer_name)
+            .all()
+        )
+    ]
+    tips = [
+        row[0]
+        for row in (
+            db.query(Invoice.payment_method)
+            .filter(Invoice.tenant_id == tenant.id)
+            .distinct()
+            .order_by(Invoice.payment_method)
+            .all()
+        )
+    ]
+
+    filters = {
+        "q": q or "",
+        "status": status_val,
+        "date_from": date_from or "",
+        "date_to": date_to or "",
+        "per_page": size,
+        "sort": sort_key,
+        "dir": sort_dir,
+        "client": client_val,
+        "tip": tip_val,
+    }
+
+    def qs(**overrides):
+        merged = {**filters, "page": 1, **overrides}
+        return _invoice_list_qs(**merged)
+
+    ctx = {
+        "invoices": invoices,
+        "q": filters["q"],
+        "status": status_val,
+        "date_from": filters["date_from"],
+        "date_to": filters["date_to"],
+        "per_page": size,
+        "page_sizes": PAGE_SIZES,
+        "page": page,
+        "pages": pages,
+        "total": total,
+        "sort": sort_key,
+        "dir": sort_dir,
+        "client": client_val,
+        "tip": tip_val,
+        "clients": clients,
+        "tips": tips,
+        "qs": qs,
+        "pager_qs": _invoice_list_qs(**{**filters, "page": page}),
+        "list_path": list_path,
+    }
+    return ctx, size, set_cookie
+
+
+@router.get("/", response_class=HTMLResponse)
+def dashboard(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    per_page: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+
+    today = datetime.now(timezone.utc).date()
+    base_q = db.query(Invoice).filter(Invoice.tenant_id == tenant.id)
+    count_total = base_q.count()
+    count_today = base_q.filter(func.date(Invoice.issue_datetime) == today).count()
+    gross_today = (
+        db.query(func.coalesce(func.sum(Invoice.total_gross), 0))
+        .filter(Invoice.tenant_id == tenant.id, func.date(Invoice.issue_datetime) == today)
+        .scalar()
+    )
+    fiscal = load_tenant_fiscal(tenant)
+    day = cash_day_summary(db, tenant, today)
+
+    list_ctx, size, set_cookie = _build_invoice_list(
+        request,
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        per_page=per_page,
+        page=page,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        list_path="/",
+    )
+    resp = render(
+        request,
+        "dashboard.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "fiscal": fiscal,
+            "day": day,
+            "stats": {
+                "count_today": count_today,
+                "count_total": count_total,
+                "gross_today": float(gross_today or 0),
+            },
+            **list_ctx,
+        },
+    )
+    return _with_per_page_cookie(resp, size, set_cookie)
+
+
+def _get_article(db: Session, tenant: Tenant, article_id: int) -> Article | None:
+    return (
+        db.query(Article)
+        .filter(Article.tenant_id == tenant.id, Article.id == article_id)
+        .first()
+    )
+
+
+def _get_category(db: Session, tenant: Tenant, category_id: int) -> Category | None:
+    return (
+        db.query(Category)
+        .filter(Category.tenant_id == tenant.id, Category.id == category_id)
+        .first()
+    )
+
+
+@router.get("/podesavanja/artikli", response_class=HTMLResponse)
+def articles_hub(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    return render(
+        request,
+        "articles_hub.html",
+        {"user": user, "tenant": tenant},
+    )
+
+
+@router.get("/artikli", response_class=HTMLResponse)
+def articles_page(
+    request: Request,
+    edit: int | None = Query(None),
+    q: str | None = Query(None),
+    per_page: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    ensure_tax_rates(db, tenant)
+    query = db.query(Article).filter(Article.tenant_id == tenant.id)
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        query = query.filter(or_(Article.name.ilike(term), Article.code.ilike(term), Article.barcode.ilike(term)))
+    size, set_cookie = _resolve_per_page(request, per_page)
+    ordered = query.order_by(Article.active.desc(), Article.name)
+    articles, total, page, pages = _paginate(ordered, page, size)
+    editing = _get_article(db, tenant, edit) if edit else None
+    categories = (
+        db.query(Category)
+        .filter(Category.tenant_id == tenant.id, Category.active.is_(True))
+        .order_by(Category.position, Category.name)
+        .all()
+    )
+    tax_rates = ensure_tax_rates(db, tenant)
+    resp = render(
+        request,
+        "articles.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "articles": articles,
+            "editing": editing,
+            "categories": categories,
+            "tax_rates": tax_rates,
+            "colors": ARTICLE_COLORS,
+            "q": q or "",
+            "per_page": size,
+            "page_sizes": PAGE_SIZES,
+            "page": page,
+            "pages": pages,
+            "total": total,
+        },
+    )
+    return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.post("/artikli")
+def articles_create(
+    request: Request,
+    csrf_token: str = Form(""),
+    code: str = Form(...),
+    name: str = Form(...),
+    price_gross: str = Form(...),
+    price_retail: str = Form(""),
+    stock_qty: str = Form(""),
+    barcode: str = Form(""),
+    description: str = Form(""),
+    color: str = Form("#c62828"),
+    category_id: str = Form(""),
+    tax_rate_code: str = Form("PDV21"),
+    unit: str = Form("KOM"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli")
+
+    exists = (
+        db.query(Article)
+        .filter(Article.tenant_id == tenant.id, Article.code == code.strip())
+        .first()
+    )
+    if exists:
+        flash(request, "Artikal sa tom šifrom već postoji.", "error")
+        return redirect("/artikli")
+
+    vat, tax_code = resolve_vat(db, tenant, tax_rate_code.strip() or None)
+    cat_id = int(category_id) if category_id.strip().isdigit() else None
+    if cat_id and not _get_category(db, tenant, cat_id):
+        cat_id = None
+    price = _parse_nonneg_money(price_gross)
+    retail = _parse_nonneg_money(price_retail) if price_retail.strip() else None
+    stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
+    if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
+        flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
+        return redirect("/artikli")
+    db.add(
+        Article(
+            tenant_id=tenant.id,
+            category_id=cat_id,
+            code=code.strip(),
+            name=name.strip(),
+            unit=unit.strip() or "KOM",
+            price_gross=price,
+            price_retail=retail,
+            stock_qty=stock,
+            barcode=(barcode.strip() or None),
+            description=(description.strip() or None),
+            color=(color.strip() or "#c62828"),
+            vat_rate=vat,
+            tax_rate_code=tax_code,
+            active=True,
+        )
+    )
+    write_audit(
+        db,
+        "article.create",
+        tenant_id=tenant.id,
+        entity_type="article",
+        detail=f"{code.strip()} price={price}",
+    )
+    db.commit()
+    flash(request, "Artikal sačuvan.")
+    return redirect("/artikli")
+
+
+@router.post("/artikli/{article_id}")
+def articles_update(
+    request: Request,
+    article_id: int,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    price_gross: str = Form(...),
+    price_retail: str = Form(""),
+    stock_qty: str = Form(""),
+    barcode: str = Form(""),
+    description: str = Form(""),
+    color: str = Form("#c62828"),
+    category_id: str = Form(""),
+    tax_rate_code: str = Form("PDV21"),
+    unit: str = Form("KOM"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli")
+    article = _get_article(db, tenant, article_id)
+    if not article:
+        flash(request, "Artikal nije pronađen.", "error")
+        return redirect("/artikli")
+    vat, tax_code = resolve_vat(db, tenant, tax_rate_code.strip() or None)
+    cat_id = int(category_id) if category_id.strip().isdigit() else None
+    if cat_id and not _get_category(db, tenant, cat_id):
+        cat_id = None
+    price = _parse_nonneg_money(price_gross)
+    retail = _parse_nonneg_money(price_retail) if price_retail.strip() else None
+    stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
+    if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
+        flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
+        return redirect("/artikli")
+    old_price = article.price_gross
+    article.name = name.strip()
+    article.unit = unit.strip() or "KOM"
+    article.price_gross = price
+    article.price_retail = retail
+    article.stock_qty = stock
+    article.barcode = barcode.strip() or None
+    article.description = description.strip() or None
+    article.color = color.strip() or "#c62828"
+    article.category_id = cat_id
+    article.vat_rate = vat
+    article.tax_rate_code = tax_code
+    article.active = True
+    if old_price != price:
+        write_audit(
+            db,
+            "article.price",
+            tenant_id=tenant.id,
+            entity_type="article",
+            entity_id=article.id,
+            detail=f"{article.code} {old_price} → {price}",
+        )
+    db.commit()
+    flash(request, f"Artikal {article.code} izmijenjen.")
+    return redirect("/artikli")
+
+
+@router.post("/artikli/{article_id}/obrisi")
+def articles_delete(
+    request: Request,
+    article_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli")
+    article = _get_article(db, tenant, article_id)
+    if not article:
+        flash(request, "Artikal nije pronađen.", "error")
+        return redirect("/artikli")
+    article.active = False
+    db.commit()
+    flash(request, f"Artikal {article.code} deaktiviran.")
+    return redirect("/artikli")
+
+
+@router.get("/artikli/kategorije", response_class=HTMLResponse)
+def categories_page(
+    request: Request,
+    edit: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    categories = (
+        db.query(Category)
+        .filter(Category.tenant_id == tenant.id)
+        .order_by(Category.position, Category.name)
+        .all()
+    )
+    editing = _get_category(db, tenant, edit) if edit else None
+    return render(
+        request,
+        "categories.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "categories": categories,
+            "editing": editing,
+            "colors": ARTICLE_COLORS,
+        },
+    )
+
+
+@router.post("/artikli/kategorije")
+def categories_create(
+    request: Request,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    position: str = Form("1"),
+    color: str = Form("#e65100"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli/kategorije")
+    try:
+        pos = int(position)
+    except ValueError:
+        pos = 1
+    db.add(
+        Category(
+            tenant_id=tenant.id,
+            name=name.strip(),
+            position=pos,
+            color=color.strip() or "#e65100",
+            active=True,
+        )
+    )
+    db.commit()
+    flash(request, "Kategorija sačuvana.")
+    return redirect("/artikli/kategorije")
+
+
+@router.post("/artikli/kategorije/{category_id}")
+def categories_update(
+    request: Request,
+    category_id: int,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    position: str = Form("1"),
+    color: str = Form("#e65100"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli/kategorije")
+    cat = _get_category(db, tenant, category_id)
+    if not cat:
+        flash(request, "Kategorija nije pronađena.", "error")
+        return redirect("/artikli/kategorije")
+    try:
+        pos = int(position)
+    except ValueError:
+        pos = 1
+    cat.name = name.strip()
+    cat.position = pos
+    cat.color = color.strip() or "#e65100"
+    cat.active = True
+    db.commit()
+    flash(request, "Kategorija izmijenjena.")
+    return redirect("/artikli/kategorije")
+
+
+@router.post("/artikli/kategorije/{category_id}/obrisi")
+def categories_delete(
+    request: Request,
+    category_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli/kategorije")
+    cat = _get_category(db, tenant, category_id)
+    if not cat:
+        flash(request, "Kategorija nije pronađena.", "error")
+        return redirect("/artikli/kategorije")
+    cat.active = False
+    db.commit()
+    flash(request, "Kategorija deaktivirana.")
+    return redirect("/artikli/kategorije")
+
+
+@router.get("/artikli/poreske-stope", response_class=HTMLResponse)
+def tax_rates_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    rates = ensure_tax_rates(db, tenant)
+    return render(
+        request,
+        "tax_rates.html",
+        {"user": user, "tenant": tenant, "tax_rates": rates},
+    )
+
+
+@router.post("/artikli/poreske-stope/{rate_id}/default")
+def tax_rates_set_default(
+    request: Request,
+    rate_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/artikli/poreske-stope")
+    rates = db.query(TaxRate).filter(TaxRate.tenant_id == tenant.id).all()
+    found = False
+    for r in rates:
+        if r.id == rate_id:
+            r.is_default = True
+            found = True
+        else:
+            r.is_default = False
+    if not found:
+        flash(request, "Stopa nije pronađena.", "error")
+        return redirect("/artikli/poreske-stope")
+    db.commit()
+    flash(request, "Podrazumijevana poreska stopa postavljena.")
+    return redirect("/artikli/poreske-stope")
+
+
+# --- Kupci ---
+
+
+def _get_customer(db: Session, tenant: Tenant, customer_id: int) -> Customer | None:
+    return (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.id == customer_id)
+        .first()
+    )
+
+
+@router.get("/kupci", response_class=HTMLResponse)
+def customers_page(
+    request: Request,
+    edit: int | None = Query(None),
+    q: str | None = Query(None),
+    per_page: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    query = db.query(Customer).filter(Customer.tenant_id == tenant.id)
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                Customer.name.ilike(term),
+                Customer.pib.ilike(term),
+                Customer.city.ilike(term),
+                Customer.email.ilike(term),
+                Customer.pdv_number.ilike(term),
+            )
+        )
+    size, set_cookie = _resolve_per_page(request, per_page)
+    ordered = query.order_by(Customer.active.desc(), Customer.name)
+    customers, total, page, pages = _paginate(ordered, page, size)
+    editing = _get_customer(db, tenant, edit) if edit else None
+    resp = render(
+        request,
+        "customers.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "customers": customers,
+            "editing": editing,
+            "q": q or "",
+            "per_page": size,
+            "page_sizes": PAGE_SIZES,
+            "page": page,
+            "pages": pages,
+            "total": total,
+        },
+    )
+    return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.post("/kupci")
+async def customers_create(
+    request: Request,
+    csrf_token: str = Form(""),
+    pib: str = Form(...),
+    name: str = Form(...),
+    pdv_number: str = Form(""),
+    street: str = Form(""),
+    city: str = Form(""),
+    country: str = Form("Crna Gora"),
+    email: str = Form(""),
+    phone: str = Form(""),
+    tax_card_number: str = Form(""),
+    contact: str = Form(""),
+    notes: str = Form(""),
+    logo: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/kupci")
+    pib_clean = pib.strip()
+    exists = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.pib == pib_clean)
+        .first()
+    )
+    if exists:
+        flash(request, "Kupac sa tim PIB-om već postoji.", "error")
+        return redirect("/kupci")
+    street_s = street.strip() or None
+    city_s = city.strip() or None
+    country_s = (country.strip() or "Crna Gora")
+    addr_parts = [p for p in (street_s, city_s, country_s) if p]
+    customer = Customer(
+        tenant_id=tenant.id,
+        pib=pib_clean,
+        pdv_number=(pdv_number.strip() or None),
+        name=name.strip(),
+        street=street_s,
+        city=city_s,
+        country=country_s,
+        email=(email.strip() or None),
+        phone=(phone.strip() or None),
+        tax_card_number=(tax_card_number.strip() or None),
+        contact=(contact.strip() or None),
+        address=(", ".join(addr_parts) if addr_parts else None),
+        notes=(notes.strip() or None),
+        active=True,
+    )
+    db.add(customer)
+    db.flush()
+    try:
+        from sepko.uploads import save_customer_logo
+
+        customer.logo_filename = await save_customer_logo(
+            tenant.id, customer.id, logo, previous=None
+        )
+    except ValueError as exc:
+        db.rollback()
+        flash(request, str(exc), "error")
+        return redirect("/kupci")
+    db.commit()
+    flash(request, "Komitent sačuvan.")
+    return redirect("/kupci")
+
+
+@router.post("/kupci/{customer_id}")
+async def customers_update(
+    request: Request,
+    customer_id: int,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    pdv_number: str = Form(""),
+    street: str = Form(""),
+    city: str = Form(""),
+    country: str = Form("Crna Gora"),
+    email: str = Form(""),
+    phone: str = Form(""),
+    tax_card_number: str = Form(""),
+    contact: str = Form(""),
+    notes: str = Form(""),
+    remove_logo: str = Form(""),
+    logo: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/kupci")
+    customer = _get_customer(db, tenant, customer_id)
+    if not customer:
+        flash(request, "Kupac nije pronađen.", "error")
+        return redirect("/kupci")
+    customer.name = name.strip()
+    customer.pdv_number = pdv_number.strip() or None
+    customer.street = street.strip() or None
+    customer.city = city.strip() or None
+    customer.country = country.strip() or "Crna Gora"
+    customer.email = email.strip() or None
+    customer.phone = phone.strip() or None
+    customer.tax_card_number = tax_card_number.strip() or None
+    customer.contact = contact.strip() or None
+    customer.notes = notes.strip() or None
+    customer.address = customer.composed_address()
+    customer.active = True
+
+    from sepko.uploads import delete_customer_logo, save_customer_logo
+
+    if remove_logo in ("1", "on", "true"):
+        delete_customer_logo(tenant.id, customer.logo_filename)
+        customer.logo_filename = None
+    else:
+        try:
+            customer.logo_filename = await save_customer_logo(
+                tenant.id, customer.id, logo, previous=customer.logo_filename
+            )
+        except ValueError as exc:
+            flash(request, str(exc), "error")
+            return redirect(f"/kupci?edit={customer_id}")
+
+    db.commit()
+    flash(request, f"Komitent {customer.pib} izmijenjen.")
+    return redirect("/kupci")
+
+
+@router.get("/kupci/{customer_id}/logo")
+def customer_logo(request: Request, customer_id: int, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    customer = _get_customer(db, tenant, customer_id)
+    if not customer or not customer.logo_filename:
+        flash(request, "Logo nije pronađen.", "error")
+        return redirect("/kupci")
+    from sepko.uploads import resolve_customer_logo
+
+    path = resolve_customer_logo(tenant.id, customer.logo_filename)
+    if not path:
+        flash(request, "Logo fajl nedostaje.", "error")
+        return redirect("/kupci")
+    return FileResponse(path)
+
+
+@router.post("/kupci/{customer_id}/obrisi")
+def customers_delete(
+    request: Request,
+    customer_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/kupci")
+    customer = _get_customer(db, tenant, customer_id)
+    if not customer:
+        flash(request, "Kupac nije pronađen.", "error")
+        return redirect("/kupci")
+    customer.active = False
+    db.commit()
+    flash(request, f"Kupac {customer.pib} deaktiviran.")
+    return redirect("/kupci")
+
+
+# --- Blagajna / depozit ---
+
+
+@router.get("/blagajna", response_class=HTMLResponse)
+def cash_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    day = cash_day_summary(db, tenant)
+    today = datetime.now(timezone.utc).date()
+    start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    deposits = (
+        db.query(CashDeposit)
+        .filter(CashDeposit.tenant_id == tenant.id, CashDeposit.change_datetime >= start)
+        .order_by(CashDeposit.id.desc())
+        .all()
+    )
+    fiscal = load_tenant_fiscal(tenant)
+    return render(
+        request,
+        "cash.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "day": day,
+            "deposits": deposits,
+            "fiscal": fiscal,
+        },
+    )
+
+
+@router.post("/blagajna")
+def cash_submit(
+    request: Request,
+    csrf_token: str = Form(""),
+    operation: str = Form("INITIAL"),
+    amount: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/blagajna")
+    try:
+        amt = Decimal(amount)
+    except Exception:
+        flash(request, "Neispravan iznos.", "error")
+        return redirect("/blagajna")
+    if amt < 0 or amt > Decimal("10000000"):
+        flash(request, "Iznos mora biti od 0 do 10.000.000.", "error")
+        return redirect("/blagajna")
+    result = register_cash_deposit(
+        db,
+        tenant,
+        CashDepositRequest(operation=operation, amount=amt),
+    )
+    if result.status == "registered":
+        flash(request, f"{result.operation} {result.amount} € — registrovano.")
+    else:
+        flash(request, result.error_message or "Depozit nije uspio.", "error")
+    return redirect("/blagajna")
+
+
+# --- Računi ---
+
+
+def _parse_date(value: str | None):
+    if not value or not str(value).strip():
+        return None
+    raw = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+_INVOICE_SORTS = {
+    "date": Invoice.issue_datetime,
+    "client": Invoice.buyer_name,
+    "amount": Invoice.total_gross,
+    "number": Invoice.inv_ord_num,
+    "status": Invoice.status,
+    "tip": Invoice.payment_method,
+}
+
+
+def _invoice_list_qs(
+    *,
+    q: str = "",
+    status: str = "all",
+    date_from: str = "",
+    date_to: str = "",
+    per_page: int = 20,
+    page: int = 1,
+    sort: str = "number",
+    dir: str = "desc",
+    client: str = "",
+    tip: str = "",
+) -> str:
+    data = {
+        "q": q,
+        "status": status,
+        "date_from": date_from,
+        "date_to": date_to,
+        "per_page": str(per_page),
+        "page": str(page),
+        "sort": sort,
+        "dir": dir,
+        "client": client,
+        "tip": tip,
+    }
+    # Drop empty optional filters; keep status/sort/dir/per_page always.
+    out: dict[str, str] = {}
+    for key, val in data.items():
+        if key in ("q", "date_from", "date_to", "client", "tip") and not val:
+            continue
+        if key == "page" and str(val) in ("1", ""):
+            continue
+        out[key] = val
+    return urlencode(out)
+
+
+@router.get("/racuni", response_class=HTMLResponse)
+def invoices_list(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    per_page: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+
+    list_ctx, size, set_cookie = _build_invoice_list(
+        request,
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        per_page=per_page,
+        page=page,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        list_path="/racuni",
+    )
+    resp = render(
+        request,
+        "invoices.html",
+        {"user": user, "tenant": tenant, **list_ctx},
+    )
+    return _with_per_page_cookie(resp, size, set_cookie)
+
+
+def _schedule_templates(db: Session, tenant: Tenant) -> list[Invoice]:
+    return (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id)
+        .order_by(Invoice.id.desc())
+        .limit(200)
+        .all()
+    )
+
+
+@router.get("/racuni/raspored", response_class=HTMLResponse)
+def schedules_page(
+    request: Request,
+    edit: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    schedules = (
+        db.query(InvoiceSchedule)
+        .options(joinedload(InvoiceSchedule.template_invoice))
+        .filter(InvoiceSchedule.tenant_id == tenant.id)
+        .order_by(InvoiceSchedule.active.desc(), InvoiceSchedule.id.desc())
+        .all()
+    )
+    editing = None
+    if edit:
+        editing = (
+            db.query(InvoiceSchedule)
+            .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == edit)
+            .first()
+        )
+    return render(
+        request,
+        "schedules.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "schedules": schedules,
+            "editing": editing,
+            "templates": _schedule_templates(db, tenant),
+        },
+    )
+
+
+@router.post("/racuni/raspored")
+def schedules_create(
+    request: Request,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    template_invoice_id: int = Form(...),
+    days_of_month: str = Form("1"),
+    email_to: str = Form(""),
+    auto_fiscalize: str = Form(""),
+    auto_email: str = Form(""),
+    active: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    from sepko.schedules import format_days_of_month, parse_days_of_month
+
+    tmpl = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == template_invoice_id)
+        .first()
+    )
+    if not tmpl:
+        flash(request, "Šablon fakture nije pronađen.", "error")
+        return redirect("/racuni/raspored")
+    customer_id = None
+    if tmpl.buyer_pib:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == tenant.id, Customer.pib == tmpl.buyer_pib)
+            .first()
+        )
+        if cust:
+            customer_id = cust.id
+    days = format_days_of_month(parse_days_of_month(days_of_month))
+    db.add(
+        InvoiceSchedule(
+            tenant_id=tenant.id,
+            name=name.strip() or f"Raspored {tmpl.id}",
+            template_invoice_id=tmpl.id,
+            customer_id=customer_id,
+            days_of_month=days,
+            email_to=(email_to.strip() or None),
+            auto_fiscalize=auto_fiscalize in ("1", "on", "true"),
+            auto_email=auto_email in ("1", "on", "true"),
+            active=active in ("1", "on", "true"),
+        )
+    )
+    db.commit()
+    flash(request, "Raspored sačuvan.")
+    return redirect("/racuni/raspored")
+
+
+@router.post("/racuni/raspored/pokreni")
+def schedules_run_due(request: Request, csrf_token: str = Form(""), db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    from sepko.schedules import run_due_schedules
+
+    result = run_due_schedules(db, tenant_id=tenant.id)
+    flash(
+        request,
+        f"Pokrenuto: {result['ok']}, preskočeno: {result['skipped']}, greške: {result['failed']}.",
+        "error" if result["failed"] and not result["ok"] else "ok",
+    )
+    return redirect("/racuni/raspored")
+
+
+@router.post("/racuni/raspored/{schedule_id}")
+def schedules_update(
+    request: Request,
+    schedule_id: int,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    template_invoice_id: int = Form(...),
+    days_of_month: str = Form("1"),
+    email_to: str = Form(""),
+    auto_fiscalize: str = Form(""),
+    auto_email: str = Form(""),
+    active: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    from sepko.schedules import format_days_of_month, parse_days_of_month
+
+    sch = (
+        db.query(InvoiceSchedule)
+        .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == schedule_id)
+        .first()
+    )
+    if not sch:
+        flash(request, "Raspored nije pronađen.", "error")
+        return redirect("/racuni/raspored")
+    tmpl = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == template_invoice_id)
+        .first()
+    )
+    if not tmpl:
+        flash(request, "Šablon fakture nije pronađen.", "error")
+        return redirect("/racuni/raspored")
+    customer_id = None
+    if tmpl.buyer_pib:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == tenant.id, Customer.pib == tmpl.buyer_pib)
+            .first()
+        )
+        if cust:
+            customer_id = cust.id
+    sch.name = name.strip() or sch.name
+    sch.template_invoice_id = tmpl.id
+    sch.customer_id = customer_id
+    sch.days_of_month = format_days_of_month(parse_days_of_month(days_of_month))
+    sch.email_to = email_to.strip() or None
+    sch.auto_fiscalize = auto_fiscalize in ("1", "on", "true")
+    sch.auto_email = auto_email in ("1", "on", "true")
+    sch.active = active in ("1", "on", "true")
+    db.commit()
+    flash(request, "Raspored ažuriran.")
+    return redirect("/racuni/raspored")
+
+
+@router.post("/racuni/raspored/{schedule_id}/pokreni")
+def schedules_run_one(
+    request: Request,
+    schedule_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    from sepko.schedules import run_schedule
+
+    sch = (
+        db.query(InvoiceSchedule)
+        .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == schedule_id)
+        .first()
+    )
+    if not sch:
+        flash(request, "Raspored nije pronađen.", "error")
+        return redirect("/racuni/raspored")
+    result = run_schedule(db, tenant, sch, force=True)
+    flash(request, result.get("message") or "Gotovo.", "ok" if result.get("ok") else "error")
+    return redirect("/racuni/raspored")
+
+
+@router.post("/racuni/raspored/{schedule_id}/obrisi")
+def schedules_delete(
+    request: Request,
+    schedule_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    sch = (
+        db.query(InvoiceSchedule)
+        .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == schedule_id)
+        .first()
+    )
+    if not sch:
+        flash(request, "Raspored nije pronađen.", "error")
+        return redirect("/racuni/raspored")
+    sch.active = False
+    db.commit()
+    flash(request, "Raspored deaktiviran.")
+    return redirect("/racuni/raspored")
+
+
+@router.post("/racuni/kopiraj")
+def invoices_copy(
+    request: Request,
+    csrf_token: str = Form(""),
+    invoice_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni")
+    seen: set[int] = set()
+    ids: list[int] = []
+    for raw in invoice_ids:
+        try:
+            iid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if iid not in seen:
+            seen.add(iid)
+            ids.append(iid)
+    if not ids:
+        flash(request, "Označite barem jednu fakturu.", "error")
+        return redirect("/racuni")
+    if len(ids) > 50:
+        flash(request, "Najviše 50 faktura odjednom.", "error")
+        return redirect("/racuni")
+    created = copy_invoices(db, tenant, ids)
+    if not created:
+        flash(request, "Nije pronađena nijedna faktura za kopiranje.", "error")
+        return redirect("/racuni")
+    flash(request, f"Kopirano {len(created)} faktura kao nacrti (U pripremi).")
+    return redirect("/racuni?status=pending")
+
+
+@router.get("/racuni/novi", response_class=HTMLResponse)
+def invoice_new_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    articles = (
+        db.query(Article)
+        .filter(Article.tenant_id == tenant.id, Article.active.is_(True))
+        .order_by(Article.code)
+        .all()
+    )
+    customers = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
+        .order_by(Customer.name)
+        .all()
+    )
+    next_num, next_ord = preview_inv_num(db, tenant)
+    day = cash_day_summary(db, tenant)
+    due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
+    return render(
+        request,
+        "invoice_new.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "articles": articles,
+            "customers": customers,
+            "next_inv_num": next_num,
+            "next_ord": next_ord,
+            "next_display_num": f"1-1-{next_ord}/{datetime.now(timezone.utc).year}",
+            "day": day,
+            "due_date_default": due_default,
+        },
+    )
+
+
+@router.post("/racuni/novi")
+def invoice_new_submit(
+    request: Request,
+    csrf_token: str = Form(""),
+    line_article_id: list[str] = Form(default=[]),
+    line_qty: list[str] = Form(default=[]),
+    line_price: list[str] = Form(default=[]),
+    line_discount: list[str] = Form(default=[]),
+    discount_pct: str = Form("0"),
+    payment_method: str = Form("BANKNOTE"),
+    customer_id: str = Form(""),
+    buyer_pib: str = Form(""),
+    buyer_name: str = Form(""),
+    due_date: str = Form(""),
+    fiscal_note: str = Form(""),
+    notes: str = Form(""),
+    action: str = Form("fiscalize"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/novi")
+
+    article_ids = line_article_id
+    qtys = line_qty
+    prices = line_price
+    line_discounts = line_discount
+
+    lines: list[InvoiceLineIn] = []
+    for i, aid in enumerate(article_ids):
+        if not aid:
+            continue
+        article = (
+            db.query(Article)
+            .filter(Article.tenant_id == tenant.id, Article.id == int(aid))
+            .first()
+        )
+        if not article:
+            continue
+        qty = Decimal(str(qtys[i] if i < len(qtys) and qtys[i] else "0"))
+        if qty <= 0:
+            continue
+        unit_gross = Decimal(
+            str(prices[i] if i < len(prices) and prices[i] else article.price_gross)
+        )
+        disc = Decimal(str(line_discounts[i] if i < len(line_discounts) and line_discounts[i] else "0"))
+        if disc < 0:
+            disc = Decimal("0")
+        if disc > 100:
+            disc = Decimal("100")
+        rate = article.vat_rate / Decimal("100")
+        gross = (unit_gross * qty * (Decimal("1") - disc / Decimal("100"))).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        net_unit = (unit_gross / (Decimal("1") + rate)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        name = article.name
+        if disc > 0:
+            name = f"{article.name} (popust {disc}%)"
+        lines.append(
+            InvoiceLineIn(
+                code=article.code,
+                name=name,
+                quantity=qty,
+                unit_price_net=net_unit,
+                vat_rate=article.vat_rate,
+                total_gross=gross,
+            )
+        )
+
+    if not lines:
+        flash(request, "Dodajte barem jednu stavku.", "error")
+        return redirect("/racuni/novi")
+
+    inv_discount = Decimal(str(discount_pct or "0"))
+    if inv_discount < 0:
+        inv_discount = Decimal("0")
+    if inv_discount > 100:
+        inv_discount = Decimal("100")
+    if inv_discount > 0:
+        factor = Decimal("1") - inv_discount / Decimal("100")
+        lines = [
+            ln.model_copy(
+                update={
+                    "total_gross": (ln.total_gross * factor).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
+                }
+            )
+            for ln in lines
+        ]
+
+    total_gross = sum((ln.total_gross for ln in lines), Decimal("0"))
+    total_net = Decimal("0")
+    total_vat = Decimal("0")
+    for ln in lines:
+        rate = ln.vat_rate / Decimal("100")
+        net = (ln.total_gross / (Decimal("1") + rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        vat = (ln.total_gross - net).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_net += net
+        total_vat += vat
+
+    payment_method = str(payment_method or "BANKNOTE")
+    from sepko.efi import CASH_PAY_METHODS, normalize_pay_method
+
+    try:
+        payment_method = normalize_pay_method(payment_method)
+    except ValueError:
+        flash(request, "Nepoznat tip plaćanja.", "error")
+        return redirect("/racuni/novi")
+    invoice_type = "CASH" if payment_method in CASH_PAY_METHODS else "NONCASH"
+
+    buyer = None
+    customer_id = (customer_id or "").strip()
+    if customer_id:
+        customer = _get_customer(db, tenant, int(customer_id))
+        if customer:
+            buyer = BuyerIn(
+                pib=customer.pib,
+                name=customer.name,
+                address=customer.composed_address(),
+            )
+    else:
+        buyer_pib = (buyer_pib or "").strip() or None
+        buyer_name = (buyer_name or "").strip() or None
+        if buyer_pib or buyer_name:
+            buyer = BuyerIn(pib=buyer_pib, name=buyer_name)
+
+    note_parts: list[str] = []
+    due = (due_date or "").strip()
+    if not due:
+        due = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
+    note_parts.append(f"Rok plaćanja: {due}")
+    fiscal_note = (fiscal_note or "").strip()
+    if fiscal_note:
+        note_parts.append(f"Napomena fiskalizacija: {fiscal_note}")
+    desc = (notes or "").strip()
+    if desc:
+        note_parts.append(desc)
+    if inv_discount > 0:
+        note_parts.append(f"Popust na račun: {inv_discount}%")
+    notes = "\n".join(note_parts) or None
+
+    req = FiscalizeRequest(
+        external_id=None,
+        issue_datetime=datetime.now(timezone.utc),
+        invoice_type=invoice_type,
+        payment_method=payment_method,
+        currency="EUR",
+        buyer=buyer,
+        lines=lines,
+        totals=TotalsIn(net=total_net, vat=total_vat, gross=total_gross),
+        notes=notes,
+    )
+
+    action = str(action or "fiscalize").strip().lower()
+    if action == "save":
+        inv = save_draft_invoice(db, tenant, req)
+        flash(request, "Faktura sačuvana kao nacrt (U pripremi).")
+        return redirect(f"/racuni/{inv.id}")
+
+    result = fiscalize_invoice(db, tenant, req)
+    if result.status == "fiscalized":
+        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        inv = (
+            db.query(Invoice)
+            .filter(Invoice.tenant_id == tenant.id, Invoice.external_id == result.external_id)
+            .first()
+        )
+        if inv:
+            return redirect(f"/racuni/{inv.id}")
+        return redirect("/racuni")
+
+    flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
+    return redirect("/racuni/novi")
+
+
+@router.post("/racuni/fiskalizuj-odabrane")
+def invoices_bulk_fiscalize(
+    request: Request,
+    csrf_token: str = Form(""),
+    invoice_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni")
+    seen: set[int] = set()
+    ids: list[int] = []
+    for raw in invoice_ids:
+        try:
+            iid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if iid not in seen:
+            seen.add(iid)
+            ids.append(iid)
+    if not ids:
+        flash(request, "Označite barem jednu fakturu.", "error")
+        return redirect("/racuni")
+    if len(ids) > 50:
+        flash(request, "Najviše 50 faktura odjednom.", "error")
+        return redirect("/racuni")
+    result = fiscalize_invoices(db, tenant, ids)
+    msg = (
+        f"Fiskalizovano: {result['ok']}. "
+        f"Preskočeno: {result['skipped']}. "
+        f"Neuspješno: {result['failed']}."
+    )
+    err_list = result.get("errors") or []
+    if err_list:
+        msg += " " + "; ".join(err_list[:5])
+    flash(request, msg, "error" if result["failed"] and not result["ok"] else "ok")
+    return redirect("/racuni")
+
+
+@router.post("/racuni/{invoice_id}/fiskalizuj")
+def invoice_fiscalize_one(
+    request: Request,
+    invoice_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(f"/racuni/{invoice_id}")
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    if invoice.status == "fiscalized":
+        flash(request, "Račun je već fiskalizovan.")
+        return redirect(f"/racuni/{invoice_id}")
+    try:
+        result = fiscalize_saved_invoice(db, tenant, invoice)
+    except Exception as exc:
+        flash(request, f"Greška: {exc}", "error")
+        return redirect(f"/racuni/{invoice_id}")
+    if result.status == "fiscalized":
+        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+    else:
+        flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
+    return redirect(f"/racuni/{invoice_id}")
+
+
+@router.get("/racuni/{invoice_id}", response_class=HTMLResponse)
+def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+
+    readonly = invoice.status == "fiscalized"
+    notes = invoice.notes or ""
+    due_date = ""
+    fiscal_note = ""
+    desc_parts: list[str] = []
+    for line in notes.splitlines():
+        raw = line.strip()
+        if raw.lower().startswith("rok plaćanja:"):
+            due_date = raw.split(":", 1)[-1].strip()
+        elif raw.lower().startswith("napomena fiskalizacija:"):
+            fiscal_note = raw.split(":", 1)[-1].strip()
+        elif raw.lower().startswith("popust na račun:"):
+            continue
+        elif raw:
+            desc_parts.append(raw)
+    if due_date and "T" not in due_date and len(due_date) == 10 and due_date[4] == "-":
+        try:
+            due_date = datetime.strptime(due_date, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+
+    pay_labels = {
+        "BANKNOTE": "Gotovina",
+        "CARD": "Kartica",
+        "BUSINESSCARD": "Poslovna kartica",
+        "ORDER": "Virman",
+        "ADVANCE": "Avans",
+        "OTHER": "Drugo bezgotovinsko",
+        "ACCOUNT": "Na račun",
+    }
+    return render(
+        request,
+        "invoice_view.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "invoice": invoice,
+            "readonly": readonly,
+            "due_date": due_date,
+            "fiscal_note": fiscal_note,
+            "desc_note": "\n".join(desc_parts),
+            "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
+        },
+    )
+
+
+@router.get("/racuni/{invoice_id}/pdf", response_class=HTMLResponse)
+def invoice_pdf(request: Request, invoice_id: int, db: Session = Depends(get_db)):
+    return _render_invoice_print(request, invoice_id, db, force="a4")
+
+
+@router.get("/racuni/{invoice_id}/stampa", response_class=HTMLResponse)
+def invoice_print(
+    request: Request,
+    invoice_id: int,
+    fmt: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    return _render_invoice_print(request, invoice_id, db, force=fmt)
+
+
+@router.get("/racuni/{invoice_id}/escpos")
+def invoice_escpos(request: Request, invoice_id: int, db: Session = Depends(get_db)):
+    ctx = _invoice_print_context(request, invoice_id, db)
+    if ctx is None:
+        return redirect("/login" if not request.session.get("user_id") else "/racuni")
+    if ctx.get("missing"):
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    from sepko.efi import CASH_PAY_METHODS
+    from sepko.escpos import EscPosOptions, build_receipt
+
+    invoice = ctx["invoice"]
+    ui = ctx["ui"]
+    try:
+        blank_start = int(ui.blank_lines_start or "0")
+    except ValueError:
+        blank_start = 0
+    try:
+        blank_end = int(ui.blank_lines_end or "2")
+    except ValueError:
+        blank_end = 2
+    raw = build_receipt(
+        seller_name=ctx["tenant"].name,
+        seller_pib=ctx["tenant"].pib,
+        inv_num=invoice.inv_num or invoice.external_id or str(invoice.id),
+        issue_dt=ctx["issue_dt"],
+        buyer_name=invoice.buyer_name,
+        lines=ctx["line_rows"],
+        total_gross=invoice.total_gross,
+        pay_label=ctx["pay_label"],
+        ikof=invoice.ikof,
+        jikr=invoice.jikr,
+        qr_url=invoice.qr_url,
+        options=EscPosOptions(
+            blank_start=blank_start,
+            blank_end=blank_end,
+            paper_cut=ui.paper_cut or "partial",
+            open_drawer=ui.open_drawer or "never",
+            is_cash=invoice.payment_method in CASH_PAY_METHODS,
+        ),
+    )
+    return Response(content=raw, media_type="application/octet-stream")
+
+
+def _invoice_print_context(request: Request, invoice_id: int, db: Session) -> dict | None:
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return None
+    invoice = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.lines))
+        .filter(Invoice.tenant_id == tenant.id, Invoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        return {"missing": True, "user": user, "tenant": tenant}
+
+    ui = load_tenant_ui(tenant)
+    company = load_tenant_company(tenant)
+    fiscal = load_tenant_fiscal(tenant)
+
+    notes = invoice.notes or ""
+    due_date = ""
+    desc_parts: list[str] = []
+    for line in notes.splitlines():
+        raw = line.strip()
+        if raw.lower().startswith("rok plaćanja:"):
+            due_date = raw.split(":", 1)[-1].strip()
+        elif raw.lower().startswith("napomena fiskalizacija:"):
+            continue
+        elif raw.lower().startswith("popust na račun:"):
+            continue
+        elif raw:
+            desc_parts.append(raw)
+    if due_date and len(due_date) == 10 and due_date[4] == "-":
+        try:
+            due_date = datetime.strptime(due_date, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+
+    pay_labels = {
+        "BANKNOTE": "Gotovina",
+        "CARD": "Kartica",
+        "BUSINESSCARD": "Poslovna kartica",
+        "ORDER": "Virman",
+        "ADVANCE": "Avans",
+        "OTHER": "Drugo bezgotovinsko",
+        "ACCOUNT": "Na račun",
+        "OTHER-CASH": "Ostalo gotovina",
+    }
+
+    buyer_pdv = ""
+    buyer_logo_url = ""
+    if invoice.buyer_pib:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == tenant.id, Customer.pib == invoice.buyer_pib)
+            .first()
+        )
+        if cust and cust.pdv_number:
+            buyer_pdv = cust.pdv_number
+        if cust and cust.logo_filename:
+            buyer_logo_url = f"/kupci/{cust.id}/logo"
+
+    article_units: dict[str, str] = {}
+    codes = [ln.code for ln in invoice.lines if ln.code]
+    if codes:
+        for art in (
+            db.query(Article)
+            .filter(Article.tenant_id == tenant.id, Article.code.in_(codes))
+            .all()
+        ):
+            article_units[art.code] = art.unit or "kom"
+
+    line_rows = []
+    net_before = Decimal("0")
+    exempt_map: dict[str, Decimal] = {}
+    for ln in invoice.lines:
+        qty = Decimal(str(ln.quantity))
+        vp = Decimal(str(ln.unit_price_net))
+        rate = Decimal(str(ln.vat_rate))
+        net_val = (qty * vp).quantize(Decimal("0.0001"))
+        vat_amt = (net_val * rate / Decimal("100")).quantize(Decimal("0.01"))
+        unit_gross = (vp * (Decimal("1") + rate / Decimal("100"))).quantize(Decimal("0.0001"))
+        gross = Decimal(str(ln.total_gross))
+        net_before += net_val
+        if rate == 0:
+            exempt_map["Oslobođeno PDV-a"] = exempt_map.get("Oslobođeno PDV-a", Decimal("0")) + net_val
+        qty_fmt = f"{int(qty)}" if ui.qty_no_decimals else f"{qty:.3f}".replace(".", ",")
+        line_rows.append(
+            {
+                "code": ln.code,
+                "name": ln.name,
+                "unit": (article_units.get(ln.code) or "kom").lower(),
+                "qty": qty_fmt,
+                "vp": f"{vp:.4f}".replace(".", ","),
+                "net": f"{net_val:.4f}".replace(".", ","),
+                "discount": "0%",
+                "vat_label": f"{rate:.0f}%" if rate else "0%",
+                "vat_amt": f"{vat_amt:.2f}".replace(".", ","),
+                "unit_gross": f"{unit_gross:.4f}".replace(".", ","),
+                "gross": f"{gross:.2f}".replace(".", ","),
+            }
+        )
+
+    exempt_rows = [
+        {"label": label, "amount": f"{amt:.2f}".replace(".", ",")}
+        for label, amt in exempt_map.items()
+    ]
+
+    issuer_name = (user.full_name or user.email or "").strip()
+    op = fiscal.operator_code or ""
+    issuer_label = f"{issuer_name} ({op})" if op else issuer_name or "—"
+
+    issue_dt = ""
+    if invoice.issue_datetime:
+        issue_dt = invoice.issue_datetime.strftime("%d.%m.%Y %H:%M:%S")
+
+    from sepko.qrutil import qr_data_uri
+
+    try:
+        qr_px = max(120, min(280, int(ui.qr_width_px or "180")))
+    except ValueError:
+        qr_px = 180
+
+    qr_uri = qr_data_uri(invoice.qr_url or "") if invoice.qr_url else None
+    qr_fallback = None
+    if invoice.qr_url and not qr_uri:
+        qr_fallback = (
+            f"https://api.qrserver.com/v1/create-qr-code/"
+            f"?size={qr_px}x{qr_px}&data={quote(invoice.qr_url, safe='')}"
+        )
+
+    return {
+        "user": user,
+        "tenant": tenant,
+        "invoice": invoice,
+        "ui": ui,
+        "company": company,
+        "due_date": due_date,
+        "desc_note": "\n".join(desc_parts),
+        "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
+        "buyer_pdv": buyer_pdv,
+        "buyer_logo_url": buyer_logo_url,
+        "line_rows": line_rows,
+        "exempt_rows": exempt_rows,
+        "issuer_label": issuer_label,
+        "issue_dt": issue_dt,
+        "currency": invoice.currency or "EUR",
+        "qr_data_uri": qr_uri,
+        "qr_fallback": qr_fallback,
+        "qr_size": qr_px,
+        "totals": {
+            "net_before": net_before.quantize(Decimal("0.01")),
+            "discount": Decimal("0.00"),
+        },
+    }
+
+
+def _render_invoice_print(request: Request, invoice_id: int, db: Session, force: str = ""):
+    ctx = _invoice_print_context(request, invoice_id, db)
+    if ctx is None:
+        return redirect("/login")
+    if ctx.get("missing"):
+        flash(request, "Račun nije pronađen.", "error")
+        return redirect("/racuni")
+    ui = ctx["ui"]
+    kind = (force or ui.printer_type or "a4").strip().lower()
+    template = "invoice_thermal.html" if kind == "thermal" else "invoice_pdf.html"
+    ctx["print_agent_url"] = ui.print_agent_url or "ws://127.0.0.1:17890/ws"
+    ctx["escpos_url"] = f"/racuni/{invoice_id}/escpos"
+    ctx["printer_name"] = ui.printer_name or ""
+    return render(request, template, ctx)
+
+
+@router.get("/dnevnik", response_class=HTMLResponse)
+def audit_dnevnik(request: Request, db: Session = Depends(get_db)):
+    """Stari URL — dnevnik je u platform adminu."""
+    try:
+        _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    flash(request, "Revizijski dnevnik je u platform adminu: Audit → Aktivnost tenanata.", "warn")
+    return redirect("/")
+
+
+@router.get("/informacije", response_class=HTMLResponse)
+def info_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    fiscal = load_tenant_fiscal(tenant)
+    from sepko import __version__
+    from sepko.licenses import license_alert, license_days_left, license_label
+
+    alert = license_alert(tenant)
+    days = license_days_left(tenant.license_until)
+
+    return render(
+        request,
+        "info.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "fiscal": fiscal,
+            "version": __version__,
+            "partner_mode": get_settings().partner_mode,
+            "license_alert": alert,
+            "license_days": days,
+            "license_label": license_label(tenant.license_type),
+        },
+    )
+
+
+@router.get("/izvjestaji", response_class=HTMLResponse)
+def reports_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    return render(request, "reports.html", {"user": user, "tenant": tenant})
+
+
+def _require_admin(request: Request, db: Session) -> tuple[User, Tenant] | None:
+    """Vrati (user, tenant) ili None ako nije admin (flash već postavljen). Redirect login ako nema sesije."""
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return None
+    if user.role != "admin":
+        flash(request, "Samo admin može otvoriti podešavanja.", "error")
+        return None
+    return user, tenant
+
+
+@router.get("/podesavanja", response_class=HTMLResponse)
+def settings_page(request: Request, db: Session = Depends(get_db)):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    user, tenant = pair
+    keys = db.query(ApiKey).filter(ApiKey.tenant_id == tenant.id, ApiKey.active.is_(True)).all()
+    return render(
+        request,
+        "settings.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "section": "osnovna",
+            "partner_mode": get_settings().partner_mode,
+            "api_key_prefixes": [k.key_prefix for k in keys],
+            "fiscal": load_tenant_fiscal(tenant),
+            "ui": load_tenant_ui(tenant),
+            "company": load_tenant_company(tenant),
+            "token_providers": [(c, FISCAL_TOKEN_LABELS[c]) for c in FISCAL_TOKEN_PROVIDERS],
+            "operators": [],
+            "editing_op": None,
+        },
+    )
+
+
+@router.get("/podesavanja/stampa", response_class=HTMLResponse)
+def settings_print_page(request: Request, db: Session = Depends(get_db)):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    user, tenant = pair
+    return render(
+        request,
+        "settings.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "section": "stampa",
+            "partner_mode": get_settings().partner_mode,
+            "api_key_prefixes": [],
+            "fiscal": load_tenant_fiscal(tenant),
+            "ui": load_tenant_ui(tenant),
+            "operators": [],
+            "editing_op": None,
+        },
+    )
+
+
+@router.get("/podesavanja/operateri", response_class=HTMLResponse)
+def settings_operators_page(
+    request: Request,
+    edit: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    user, tenant = pair
+    operators = (
+        db.query(User)
+        .filter(User.tenant_id == tenant.id)
+        .order_by(User.active.desc(), User.full_name, User.email)
+        .all()
+    )
+    editing_op = next((o for o in operators if o.id == edit), None) if edit else None
+    return render(
+        request,
+        "settings.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "section": "operateri",
+            "partner_mode": get_settings().partner_mode,
+            "api_key_prefixes": [],
+            "fiscal": load_tenant_fiscal(tenant),
+            "ui": load_tenant_ui(tenant),
+            "operators": operators,
+            "editing_op": editing_op,
+        },
+    )
+
+
+@router.post("/podesavanja")
+def settings_save_basic(
+    request: Request,
+    csrf_token: str = Form(""),
+    name: str = Form(...),
+    pib: str = Form(...),
+    mode: str = Form("test"),
+    busin_unit_code: str = Form(""),
+    tcr_code: str = Form(""),
+    soft_code: str = Form(""),
+    operator_code: str = Form(""),
+    is_issuer_in_vat: str = Form("true"),
+    token_provider: str = Form(""),
+    telekom_token: str = Form(""),
+    posta_token: str = Form(""),
+    clear_telekom_token: str = Form(""),
+    clear_posta_token: str = Form(""),
+    language: str = Form("cnr"),
+    max_invoice_amount: str = Form("1000000.00"),
+    pin_length: str = Form("4"),
+    auto_login: str = Form(""),
+    pin_only_login: str = Form(""),
+    a4_item_name_own_line: str = Form(""),
+    a4_signature_lines: str = Form(""),
+    qty_no_decimals: str = Form(""),
+    company_address: str = Form(""),
+    company_address2: str = Form(""),
+    company_pdv_number: str = Form(""),
+    company_bank_account: str = Form(""),
+    company_website: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    _user, tenant = pair
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/podesavanja")
+
+    tenant.name = name.strip()
+    tenant.pib = pib.strip()
+    tenant.mode = mode if mode in ("test", "prod") else "test"
+    save_tenant_fiscal(
+        tenant,
+        TenantFiscal(
+            busin_unit_code=busin_unit_code.strip(),
+            tcr_code=tcr_code.strip(),
+            soft_code=soft_code.strip(),
+            operator_code=operator_code.strip(),
+            is_issuer_in_vat=is_issuer_in_vat in ("true", "on", "1", "da"),
+            token_provider=token_provider.strip().lower(),
+        ),
+        telekom_token_new=telekom_token,
+        posta_token_new=posta_token,
+        clear_telekom_token=clear_telekom_token in ("1", "on", "true"),
+        clear_posta_token=clear_posta_token in ("1", "on", "true"),
+    )
+    save_tenant_company(
+        tenant,
+        TenantCompany(
+            address=company_address.strip(),
+            address2=company_address2.strip(),
+            pdv_number=company_pdv_number.strip(),
+            bank_account=company_bank_account.strip(),
+            website=company_website.strip(),
+        ),
+    )
+    ui = load_tenant_ui(tenant)
+    ui.language = normalize_ui_language(language)
+    ui.max_invoice_amount = max_invoice_amount.strip() or "1000000.00"
+    try:
+        ui.pin_length = int(pin_length)
+    except ValueError:
+        ui.pin_length = 4
+    if ui.pin_length not in (4, 5, 6):
+        ui.pin_length = 4
+    ui.auto_login = auto_login in ("1", "on", "true")
+    ui.pin_only_login = pin_only_login in ("1", "on", "true")
+    ui.a4_item_name_own_line = a4_item_name_own_line in ("1", "on", "true")
+    ui.a4_signature_lines = a4_signature_lines in ("1", "on", "true")
+    ui.qty_no_decimals = qty_no_decimals in ("1", "on", "true")
+    save_tenant_ui(tenant, ui)
+    db.commit()
+    flash(request, "Osnovna podešavanja sačuvana.")
+    return redirect("/podesavanja")
+
+
+@router.post("/podesavanja/stampa")
+def settings_save_print(
+    request: Request,
+    csrf_token: str = Form(""),
+    print_enabled: str = Form(""),
+    printer_number: str = Form("1"),
+    printer_name: str = Form(""),
+    printer_type: str = Form(""),
+    receipt_width_px: str = Form("576"),
+    text_size: str = Form("12"),
+    qr_width_px: str = Form("180"),
+    blank_lines_start: str = Form("0"),
+    blank_lines_end: str = Form("2"),
+    max_print_height: str = Form(""),
+    paper_cut: str = Form("partial"),
+    open_drawer: str = Form("never"),
+    print_pause_sec: str = Form("0"),
+    print_agent_url: str = Form("ws://127.0.0.1:17890/ws"),
+    db: Session = Depends(get_db),
+):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    _user, tenant = pair
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/podesavanja/stampa")
+
+    ui = load_tenant_ui(tenant)
+    ui.print_enabled = print_enabled in ("1", "on", "true")
+    ui.printer_number = printer_number.strip() or "1"
+    ui.printer_name = printer_name.strip()
+    ui.printer_type = printer_type.strip()
+    ui.receipt_width_px = receipt_width_px.strip() or "576"
+    ui.text_size = text_size.strip() or "12"
+    ui.qr_width_px = qr_width_px.strip() or "180"
+    ui.blank_lines_start = blank_lines_start.strip() or "0"
+    ui.blank_lines_end = blank_lines_end.strip() or "2"
+    ui.max_print_height = max_print_height.strip()
+    ui.paper_cut = paper_cut if paper_cut in ("none", "partial", "full") else "partial"
+    ui.open_drawer = open_drawer if open_drawer in ("never", "cash", "always") else "never"
+    ui.print_pause_sec = print_pause_sec.strip() or "0"
+    ui.print_agent_url = print_agent_url.strip() or "ws://127.0.0.1:17890/ws"
+    save_tenant_ui(tenant, ui)
+    db.commit()
+    flash(request, "Podešavanja štampe sačuvana.")
+    return redirect("/podesavanja/stampa")
+
+
+@router.post("/podesavanja/operateri/{user_id}")
+def settings_operator_save(
+    request: Request,
+    user_id: int,
+    csrf_token: str = Form(""),
+    full_name: str = Form(...),
+    role: str = Form("kasir"),
+    active: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    user, tenant = pair
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/podesavanja/operateri")
+    op = (
+        db.query(User)
+        .filter(User.tenant_id == tenant.id, User.id == user_id)
+        .first()
+    )
+    if not op:
+        flash(request, "Operater nije pronađen.", "error")
+        return redirect("/podesavanja/operateri")
+    op.full_name = full_name.strip()
+    op.role = role if role in ("admin", "kasir") else "kasir"
+    want_active = active in ("1", "on", "true")
+    if op.id == user.id and not want_active:
+        flash(request, "Ne možeš deaktivirati sebe.", "error")
+        return redirect(f"/podesavanja/operateri?edit={user_id}")
+    op.active = want_active
+    db.commit()
+    flash(request, "Operater sačuvan.")
+    return redirect("/podesavanja/operateri")

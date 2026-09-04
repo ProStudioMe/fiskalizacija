@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}{% if readonly %}{{ t('page.invoice_view', 'Pregled fakture') }}{% else %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% endif %} — Sepko{% endblock %}
+{% block page_title %}{% if readonly %}{{ t('page.invoice_view', 'Pregled fakture') }}{% else %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% endif %}{% endblock %}
+{% block page_actions %}
+  {% if invoice.status == 'fiscalized' %}
+    <span class="pill-tag ok">{{ t('status.fiscalized', 'Fiskalizovan') }}</span>
+  {% elif invoice.status == 'failed' %}
+    <span class="pill-tag bad">{{ t('status.failed', 'Greška') }}</span>
+  {% else %}
+    <span class="pill-tag warn">{{ t('status.pending', 'U pripremi') }}</span>
+  {% endif %}
+  <a class="btn secondary" href="/racuni/{{ invoice.id }}/stampa" title="{{ t('btn.print', 'Štampa') }}">{{ t('btn.print', 'Štampa') }}</a>
+  <a class="btn secondary" href="/racuni/{{ invoice.id }}/pdf" title="A4">A4</a>
+  {% if not readonly %}
+    <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" style="display:inline;margin:0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">{{ t('btn.fiscalize', 'Fiskalizuj') }}</button>
+    </form>
+  {% endif %}
+  <a class="btn secondary" href="/racuni">← {{ t('btn.back', 'Lista') }}</a>{% endblock %}
+{% block content %}
+{% if readonly %}
+<p class="muted" style="margin-top:0">Fiskalizovani račun — samo pregled, izmjene nisu dozvoljene.</p>
+{% endif %}
+
+<div class="inv-editor inv-view {% if readonly %}is-readonly{% endif %}">
+  <div class="inv-main">
+    <div class="card inv-meta">
+      <div class="inv-meta-grid">
+        <div class="inv-meta-block">
+          <label>Broj fakture</label>
+          <div class="inv-field-value inv-field-num">
+            <div class="inv-num-stack">
+              <span class="inv-status-rail {% if invoice.status == 'fiscalized' %}ok{% elif invoice.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
+              <span class="inv-num-local">{{ invoice|display_inv_num }}</span>
+            </div>
+            <span class="inv-field-sub">EFI {{ invoice.inv_num or invoice.external_id or '—' }}</span>
+          </div>
+        </div>
+        <div class="inv-meta-block inv-meta-client">
+          <label>Klijent</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ invoice.buyer_name or 'Bez kupca' }}</span>
+            {% if invoice.buyer_pib %}
+            <span class="inv-field-sub">PIB {{ invoice.buyer_pib }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="inv-meta-block">
+          <label>Rok plaćanja</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ due_date or '—' }}</span>
+          </div>
+        </div>
+
+        <div class="inv-meta-block">
+          <label>Tip plaćanja</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ pay_label }}</span>
+          </div>
+        </div>
+        <div class="inv-meta-block">
+          <label>Valuta</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ invoice.currency or 'EUR' }}</span>
+          </div>
+        </div>
+        <div class="inv-meta-block">
+          <label>Datum</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ invoice.issue_datetime.strftime('%d.%m.%Y %H:%M') if invoice.issue_datetime else '—' }}</span>
+          </div>
+        </div>
+
+        {% if invoice.buyer_address %}
+        <div class="inv-meta-block inv-meta-wide">
+          <label>Adresa kupca</label>
+          <div class="inv-field-value">
+            <span class="inv-field-main">{{ invoice.buyer_address }}</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="inv-meta-foot">
+        Posljednja promjena: {{ (invoice.updated_at or invoice.created_at).strftime('%d.%m.%Y %H:%M') if (invoice.updated_at or invoice.created_at) else '—' }}
+      </div>
+    </div>
+
+    <div class="totals-bar card">
+      <div><span class="muted">Ukupno</span><strong>{{ "%.2f"|format(invoice.total_gross) }}</strong></div>
+      <div><span class="muted">Porez</span><strong>{{ "%.2f"|format(invoice.total_vat) }}</strong></div>
+      <div><span class="muted">Neto</span><strong>{{ "%.2f"|format(invoice.total_net) }}</strong></div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Šifra</th>
+            <th>Artikal</th>
+            <th>JM</th>
+            <th class="num">Količina</th>
+            <th class="num">VP cijena</th>
+            <th class="num">PDV %</th>
+            <th class="num">PDV</th>
+            <th class="num">Ukupno</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for line in invoice.lines %}
+          {% set line_net = (line.quantity * line.unit_price_net) %}
+          {% set line_vat = line.total_gross - line_net %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ line.code }}</td>
+            <td><strong>{{ line.name }}</strong></td>
+            <td>kom</td>
+            <td class="num">{{ "%.3f"|format(line.quantity) }}</td>
+            <td class="num">{{ "%.4f"|format(line.unit_price_net) }}</td>
+            <td class="num">{{ "%.0f"|format(line.vat_rate) }}</td>
+            <td class="num">{{ "%.2f"|format(line_vat) }}</td>
+            <td class="num"><strong>{{ "%.2f"|format(line.total_gross) }}</strong></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="muted" style="padding:1rem">Nema stavki.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <aside class="inv-side">
+    <div class="card">
+      <label>Napomena za fiskalizaciju</label>
+      <div class="inv-note-display">{{ fiscal_note or '—' }}</div>
+    </div>
+    <div class="card" style="margin-top:0.75rem">
+      <label>Opis za račun</label>
+      <div class="inv-note-display">{{ desc_note or '—' }}</div>
+    </div>
+    <div class="card" style="margin-top:0.75rem">
+      <label>Fiskalni podaci</label>
+      <div class="cell-secondary" style="line-height:1.6">
+        Status: <strong>{{ invoice.status }}</strong><br>
+        IKOF: <code>{{ invoice.ikof or '—' }}</code><br>
+        JIKR: <code>{{ invoice.jikr or '—' }}</code><br>
+        {% if invoice.qr_url %}
+        <a href="{{ invoice.qr_url }}" target="_blank" rel="noopener">QR / verifikacija</a>
+        {% endif %}
+        {% if invoice.error_message %}
+        <div class="flash error" style="margin-top:0.75rem">{{ invoice.error_message }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% if not readonly %}
+    <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" style="margin-top:1rem">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn" style="width:100%">{{ t('btn.fiscalize', 'Fiskalizuj') }}</button>
+    </form>
+    {% endif %}
+    <a class="btn secondary" href="/racuni" style="width:100%;margin-top:0.5rem;text-align:center">← {{ t('page.fakture', 'Lista faktura') }}</a>
+    <a class="btn" href="/racuni/{{ invoice.id }}/pdf" style="width:100%;margin-top:0.5rem;text-align:center">PDF / {{ t('btn.print', 'štampa') }}</a>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.finansije', 'Finansije') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.finansije', 'Finansije') }}{% endblock %}
+{% block page_actions %}
+  <form method="post" action="/finansije/izvodi/povuci" style="margin:0;display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn secondary" {% if not mail_enabled %}title="Podesi IMAP u Podešavanja → Mail"{% endif %}>
+      Povuci izvode s maila
+    </button>
+  </form>
+  <a class="btn secondary" href="/podesavanja/mail">{{ t('settings.mail', 'Mail postavke') }}</a>
+{% endblock %}
+{% block content %}
+<div class="grid grid-2" style="gap:1rem;align-items:start">
+  <div class="plan-card">
+    <div class="plan-head">
+      <div>
+        <h2>{{ t('fin.cards', 'Finansijske kartice') }}</h2>
+        <div class="cell-secondary">Fakture (duguje) − uplate (potražuje)</div>
+      </div>
+    </div>
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <thead>
+          <tr>
+            <th>{{ t('col.client', 'Komitent') }}</th>
+            <th>PIB</th>
+            <th class="num">{{ t('fin.invoiced', 'Fakturisano') }}</th>
+            <th class="num">{{ t('fin.paid', 'Uplaćeno') }}</th>
+            <th class="num">{{ t('fin.debt', 'Dug') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in cards %}
+          <tr>
+            <td><div class="cell-client">{{ c.naziv }}</div></td>
+            <td>{{ c.pib }}</td>
+            <td class="num">{{ "%.2f"|format(c.fakturisano) }} €</td>
+            <td class="num">{{ "%.2f"|format(c.uplaceno) }} €</td>
+            <td class="num"><strong>{{ "%.2f"|format(c.dug) }} €</strong></td>
+            <td class="cell-actions">
+              <a class="btn secondary" href="/finansije/kartica/{{ c.customer_id }}">{{ t('fin.cards', 'Kartica') }}</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="muted" style="padding:1.25rem">Nema kartica — fiskalizuj fakture s PIB-om kupca.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="plan-card">
+    <div class="plan-head">
+      <div>
+        <h2>{{ t('fin.statements', 'Bankovni izvodi') }}</h2>
+        <div class="cell-secondary">
+          {% if mail_enabled %}IMAP povezan{% else %}IMAP nije podešen{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="plan-table-wrap">
+      <table class="soft-table">
+        <thead>
+          <tr>
+            <th>Dan</th>
+            <th>Predmet</th>
+            <th>Izvor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in statements %}
+          <tr>
+            <td>{{ s.statement_day or '—' }}</td>
+            <td><div class="cell-secondary" style="margin:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ s.subject or '' }}">{{ s.subject or '—' }}</div></td>
+            <td><span class="pill-tag">{{ s.source }}</span></td>
+            <td class="cell-actions">
+              {% if s.file_path %}
+              <a class="btn secondary" href="/finansije/izvodi/{{ s.id }}/fajl" target="_blank">Otvori</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema uvezenih izvoda. Povuci s maila ili podesi IMAP.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

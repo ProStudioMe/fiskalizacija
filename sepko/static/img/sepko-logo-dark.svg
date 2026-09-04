@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none" role="img" aria-label="SEPKO">
+  <defs>
+    <clipPath id="m"><rect width="48" height="48" rx="14"/></clipPath>
+  </defs>
+  <g>
+    <rect width="48" height="48" rx="14" fill="#1a0f3d"/>
+    <g clip-path="url(#m)">
+      <path d="M0 0h28c6 0 10 4 10 10v8H14C6 18 0 12 0 4V0z" fill="#3d2499"/>
+      <path d="M20 18h28v12c0 8-6 14-14 14H20V18z" fill="#5a32d6"/>
+      <path d="M0 28h22v20H14C6 48 0 42 0 34V28z" fill="#4a2bb8"/>
+      <rect x="22" y="18" width="14" height="14" rx="3" fill="#1740e8"/>
+      <path d="M14 15c7.5 0 12 3.5 12 9s-4.5 9-12 9c-3 0-5.5-.8-7.2-2.2" stroke="#fff" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+    </g>
+  </g>
+  <text x="60" y="34" font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif" font-size="27" font-weight="800" letter-spacing="0.5">
+    <tspan fill="#141428">SEP</tspan><tspan fill="#5a32d6">KO</tspan>
+  </text>
+</svg>

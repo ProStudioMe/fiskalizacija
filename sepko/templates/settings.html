@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.podesavanja', 'Podešavanja') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.podesavanja', 'Podešavanja') }}{% endblock %}
+{% block content %}
+<div class="settings-layout">
+  <nav class="settings-nav">
+    <a href="/podesavanja" class="{% if section == 'osnovna' %}active{% endif %}">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/stampa" class="{% if section == 'stampa' %}active{% endif %}">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail', 'Mail') }} (izvodi / SMTP) <span class="chevron">›</span></a>
+    <a href="/podesavanja/artikli" class="{% if section == 'artikli' %}active{% endif %}">{{ t('settings.articles', 'Artikli') }} <span class="chevron">›</span></a>
+    <a href="/kupci">{{ t('nav.komitenti', 'Komitenti') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/operateri" class="{% if section == 'operateri' %}active{% endif %}">{{ t('settings.operators', 'Operateri') }} <span class="chevron">›</span></a>
+  </nav>
+
+  <div class="settings-panel card">
+    {% if section == 'osnovna' %}
+    <h2>{{ t('settings.basic', 'Osnovna podešavanja') }}</h2>
+    <form method="post" action="/podesavanja">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="section" value="osnovna">
+
+      <div class="field">
+        <label>{{ t('label.language', 'Jezik') }}</label>
+        <select name="language">
+          {% for code, label in ui_languages %}
+          <option value="{{ code }}" {% if ui.language == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <label class="toggle-row">
+        <span>Automatsko logovanje</span>
+        <input type="checkbox" name="auto_login" value="1" {% if ui.auto_login %}checked{% endif %}>
+      </label>
+      <div class="field">
+        <label>Maksimalni iznos računa</label>
+        <input name="max_invoice_amount" value="{{ ui.max_invoice_amount }}">
+      </div>
+      <div class="field">
+        <label>Dužina PIN koda</label>
+        <select name="pin_length">
+          {% for n in [4,5,6] %}
+          <option value="{{ n }}" {% if ui.pin_length == n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <label class="toggle-row">
+        <span>Logovanje samo sa PIN kodom</span>
+        <input type="checkbox" name="pin_only_login" value="1" {% if ui.pin_only_login %}checked{% endif %}>
+      </label>
+      <label class="toggle-row">
+        <span>Prikaži naziv artikla u posebnoj liniji na A4 računu</span>
+        <input type="checkbox" name="a4_item_name_own_line" value="1" {% if ui.a4_item_name_own_line %}checked{% endif %}>
+      </label>
+      <label class="toggle-row">
+        <span>Prikaži linije za potpis na A4 računu</span>
+        <input type="checkbox" name="a4_signature_lines" value="1" {% if ui.a4_signature_lines %}checked{% endif %}>
+      </label>
+      <label class="toggle-row">
+        <span>Prikaz količina na fakturama bez decimala</span>
+        <input type="checkbox" name="qty_no_decimals" value="1" {% if ui.qty_no_decimals %}checked{% endif %}>
+      </label>
+
+      <hr class="settings-hr">
+      <h2>Firma / EFI</h2>
+      <div class="field"><label>Naziv</label><input name="name" value="{{ tenant.name }}" required></div>
+      <div class="field"><label>PIB (TIN)</label><input name="pib" value="{{ tenant.pib }}" required></div>
+      <div class="field"><label>Adresa (linija 1)</label><input name="company_address" value="{{ company.address }}" placeholder="npr. BUL. 21. MAJ BR. 24, Podgorica"></div>
+      <div class="field"><label>Adresa (linija 2)</label><input name="company_address2" value="{{ company.address2 }}"></div>
+      <div class="field"><label>PDV broj</label><input name="company_pdv_number" value="{{ company.pdv_number }}"></div>
+      <div class="field"><label>Žiro / HB račun</label><input name="company_bank_account" value="{{ company.bank_account }}" placeholder="npr. 520-45519-94"></div>
+      <div class="field"><label>Web (footer PDF)</label><input name="company_website" value="{{ company.website }}" placeholder="www.primjer.me"></div>
+      <div class="field">
+        <label>Režim</label>
+        <select name="mode">
+          <option value="test" {% if tenant.mode == 'test' %}selected{% endif %}>Test (efitest)</option>
+          <option value="prod" {% if tenant.mode == 'prod' %}selected{% endif %}>Produkcija (mapr)</option>
+        </select>
+      </div>
+      <div class="field"><label>BusinUnitCode</label><input name="busin_unit_code" value="{{ fiscal.busin_unit_code }}" maxlength="10"></div>
+      <div class="field"><label>TCRCode (ENU)</label><input name="tcr_code" value="{{ fiscal.tcr_code }}" maxlength="10"></div>
+      <div class="field"><label>SoftCode</label><input name="soft_code" value="{{ fiscal.soft_code }}" maxlength="10"></div>
+      <div class="field"><label>OperatorCode (default)</label><input name="operator_code" value="{{ fiscal.operator_code }}" maxlength="10"></div>
+      <div class="field">
+        <label>IsIssuerInVAT</label>
+        <select name="is_issuer_in_vat">
+          <option value="true" {% if fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.yes', 'Da') }}</option>
+          <option value="false" {% if not fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.no', 'Ne') }}</option>
+        </select>
+      </div>
+
+      <hr class="settings-hr">
+      <h2>Token za fiskalizaciju</h2>
+      <p class="muted">Ako firma ima token od Telekoma ili Pošte, unesi ga ovdje. Koristi se prema fiskalizacionom partneru umjesto (ili pored) PKCS#12 certifikata.</p>
+      <div class="field">
+        <label>Aktivan kanal</label>
+        <select name="token_provider">
+          {% for code, label in token_providers %}
+          <option value="{{ code }}" {% if fiscal.token_provider == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Crnogorski Telekom — token</label>
+        <input type="password" name="telekom_token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_telekom_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}">
+        {% if fiscal.has_telekom_token() %}
+        <label class="toggle-row" style="margin-top:0.4rem">
+          <span>Ukloni Telekom token</span>
+          <input type="checkbox" name="clear_telekom_token" value="1">
+        </label>
+        {% endif %}
+      </div>
+      <div class="field">
+        <label>Pošta Crne Gore — token</label>
+        <input type="password" name="posta_token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_posta_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}">
+        {% if fiscal.has_posta_token() %}
+        <label class="toggle-row" style="margin-top:0.4rem">
+          <span>Ukloni Pošta token</span>
+          <input type="checkbox" name="clear_posta_token" value="1">
+        </label>
+        {% endif %}
+      </div>
+
+      <p class="muted">Partner: {{ partner_mode }} · API: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}nema ključa{% endfor %}</p>
+      <div class="row">
+        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+        <a class="btn secondary" href="/">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+
+    {% elif section == 'stampa' %}
+    <h2>{{ t('settings.print', 'Štampanje računa') }}</h2>
+    <form method="post" action="/podesavanja/stampa">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="toggle-row">
+        <span>Štampanje računa</span>
+        <input type="checkbox" name="print_enabled" value="1" {% if ui.print_enabled %}checked{% endif %}>
+      </label>
+      <div class="field">
+        <label>Broj štampača</label>
+        <select name="printer_number">
+          {% for n in ['1','2','3'] %}
+          <option value="{{ n }}" {% if ui.printer_number == n %}selected{% endif %}>Štampač {{ n }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Izbor štampača</label><input name="printer_name" value="{{ ui.printer_name }}" placeholder="npr. POS-80"></div>
+      <div class="field">
+        <label>Izbor tipa štampača</label>
+        <select name="printer_type">
+          <option value="" {% if not ui.printer_type %}selected{% endif %}>—</option>
+          <option value="thermal" {% if ui.printer_type == 'thermal' %}selected{% endif %}>Termalni</option>
+          <option value="a4" {% if ui.printer_type == 'a4' %}selected{% endif %}>A4</option>
+          <option value="browser" {% if ui.printer_type == 'browser' %}selected{% endif %}>Preglednik</option>
+        </select>
+      </div>
+      <div class="field"><label>Širina računa u pikselima</label><input name="receipt_width_px" value="{{ ui.receipt_width_px }}"></div>
+      <div class="field"><label>Veličina teksta</label><input name="text_size" value="{{ ui.text_size }}"></div>
+      <div class="field"><label>Širina QR koda u pikselima</label><input name="qr_width_px" value="{{ ui.qr_width_px }}"></div>
+      <div class="field"><label>Broj praznih linija na početku računa</label><input name="blank_lines_start" value="{{ ui.blank_lines_start }}"></div>
+      <div class="field"><label>Broj praznih linija na kraju računa</label><input name="blank_lines_end" value="{{ ui.blank_lines_end }}"></div>
+      <div class="field"><label>Maksimalna visina štampe</label><input name="max_print_height" value="{{ ui.max_print_height }}"></div>
+      <div class="field">
+        <label>Siječenje papira</label>
+        <select name="paper_cut">
+          <option value="none" {% if ui.paper_cut == 'none' %}selected{% endif %}>Ne</option>
+          <option value="partial" {% if ui.paper_cut == 'partial' %}selected{% endif %}>Djelimično</option>
+          <option value="full" {% if ui.paper_cut == 'full' %}selected{% endif %}>Potpuno</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Otvaranje fioke</label>
+        <select name="open_drawer">
+          <option value="never" {% if ui.open_drawer == 'never' %}selected{% endif %}>Nikad</option>
+          <option value="cash" {% if ui.open_drawer == 'cash' %}selected{% endif %}>Samo gotovina</option>
+          <option value="always" {% if ui.open_drawer == 'always' %}selected{% endif %}>Uvijek</option>
+        </select>
+      </div>
+      <div class="field"><label>Pauza između štampe (sekunde)</label><input name="print_pause_sec" value="{{ ui.print_pause_sec }}"></div>
+      <div class="field">
+        <label>Lokalni agent (WebSocket)</label>
+        <input name="print_agent_url" value="{{ ui.print_agent_url }}" placeholder="ws://127.0.0.1:17890/ws">
+        <p class="muted">Preglednik nema USB. Za ESC/POS na kasi: <code>python -m sepko.print_agent</code>. Ako agent nije pokrenut, koristi se window.print().</p>
+      </div>
+      <div class="row">
+        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+        <a class="btn secondary" href="/podesavanja">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+
+    {% elif section == 'operateri' %}
+    <h2>{{ t('settings.operators', 'Operateri') }}</h2>
+    <p class="muted">Korisnici tenanta — kasir / admin. PIN dolazi kasnije.</p>
+    <div class="plan-card" style="box-shadow:none;border:1px solid var(--line)">
+      <table class="soft-table">
+        <thead>
+          <tr><th>Operater</th><th>Uloga</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for op in operators %}
+          <tr>
+            <td>
+              <div class="cell-primary">{{ op.full_name or op.email }}</div>
+              <div class="cell-secondary">{{ op.email }}</div>
+            </td>
+            <td>
+              <span class="pill-tag">{{ op.role }}</span>
+              {% if not op.active %}<span class="pill-tag bad">neaktivan</span>{% endif %}
+            </td>
+            <td class="cell-actions">
+              {% set edit_href = '/podesavanja/operateri?edit=' ~ op.id %}
+              {% include "_row_actions.html" %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted" style="padding:1.25rem">Nema operatera.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if editing_op %}
+    <form method="post" action="/podesavanja/operateri/{{ editing_op.id }}" class="card" style="margin-top:1rem;box-shadow:none">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h2>{{ t('btn.edit', 'Izmijeni') }} · {{ editing_op.email }}</h2>
+      <div class="field"><label>Ime</label><input name="full_name" value="{{ editing_op.full_name or '' }}" required></div>
+      <div class="field">
+        <label>Uloga</label>
+        <select name="role">
+          <option value="admin" {% if editing_op.role == 'admin' %}selected{% endif %}>admin</option>
+          <option value="kasir" {% if editing_op.role == 'kasir' %}selected{% endif %}>kasir</option>
+        </select>
+      </div>
+      <label class="toggle-row">
+        <span>{{ t('common.active', 'Aktivan') }}</span>
+        <input type="checkbox" name="active" value="1" {% if editing_op.active %}checked{% endif %}>
+      </label>
+      <div class="row">
+        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+        <a class="btn secondary" href="/podesavanja/operateri">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

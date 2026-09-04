@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ t('login.title', 'Prijava') }} — Sepko{% endblock %}
+{% block auth %}
+<div class="login-wrap">
+  <div class="card login-card">
+    <div class="brand">
+      <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=3" alt="SEPKO" width="190" height="48">
+    </div>
+    <p class="muted">{{ t('login.title', 'Prijava') }}</p>
+    {% if flash %}
+      <div class="flash {% if flash_type == 'error' %}error{% endif %}">{{ flash }}</div>
+    {% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label for="email">{{ t('login.email', 'Email') }}</label>
+        <input id="email" name="email" type="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">{{ t('login.password', 'Lozinka') }}</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
+      <button type="submit">{{ t('login.submit', 'Prijavi se') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

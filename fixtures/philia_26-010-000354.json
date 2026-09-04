@@ -1,0 +1,44 @@
+{
+  "external_id": "26-010-000354",
+  "issue_datetime": "2026-08-27T14:30:00+02:00",
+  "invoice_type": "non_cash",
+  "payment_method": "transfer",
+  "currency": "EUR",
+  "notes": "MTSA1269; 07.09.2026-08.09.2026; 16 twin, 1 dsu, 2 single",
+  "buyer": {
+    "pib": "MNE02-02235-7",
+    "name": "Montenegro tourist service",
+    "address": "Moskovska 105, Podgorica"
+  },
+  "lines": [
+    {
+      "code": "GROUP-DBL",
+      "name": "GROUP - DOUBLE",
+      "quantity": 16,
+      "unit_price_net": 68.7,
+      "vat_rate": 15,
+      "total_gross": 1264.0
+    },
+    {
+      "code": "GROUP-DBU",
+      "name": "GROUP - DOUBLE SU",
+      "quantity": 1,
+      "unit_price_net": 60.0,
+      "vat_rate": 15,
+      "total_gross": 69.0
+    },
+    {
+      "code": "GROUP-SIN",
+      "name": "GROUP - SINGLE",
+      "quantity": 2,
+      "unit_price_net": 51.3,
+      "vat_rate": 15,
+      "total_gross": 118.0
+    }
+  ],
+  "totals": {
+    "net": 1261.74,
+    "vat": 189.26,
+    "gross": 1451.0
+  }
+}

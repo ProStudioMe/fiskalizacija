@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Audit — Sepko admin{% endblock %}
+{% block page_title %}Audit / dnevnik{% endblock %}
+{% block content %}
+<div class="tabs" style="margin-bottom:1rem">
+  <a class="tab {% if source == 'platform' %}active{% endif %}" href="/admin/audit?source=platform{% if tenant_id %}&tenant_id={{ tenant_id }}{% endif %}">Platforma</a>
+  <a class="tab {% if source == 'tenant' %}active{% endif %}" href="/admin/audit?source=tenant{% if tenant_id %}&tenant_id={{ tenant_id }}{% endif %}">Aktivnost tenanata</a>
+</div>
+
+<form method="get" action="/admin/audit" class="inv-filter-toolbar" style="margin-bottom:1rem">
+  <input type="hidden" name="source" value="{{ source }}">
+  <div class="inv-filter-field">
+    <div class="inv-filter-body">
+      <label class="inv-filter-label" for="audit-tenant">Tenant</label>
+      <select id="audit-tenant" name="tenant_id" onchange="this.form.submit()">
+        <option value="">Svi tenanti</option>
+        {% for t in tenants_all %}
+        <option value="{{ t.id }}" {% if tenant_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.pib }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</form>
+
+<p class="muted" style="margin-top:0">
+  {% if source == 'tenant' %}
+  Ko je u firmi izdao račun, mijenjao cijene, radio blagajnu — zadnjih 300 zapisa.
+  {% else %}
+  Šta je platform admin radio (tenanti, licence, prevodi) — zadnjih 300 zapisa.
+  {% endif %}
+</p>
+
+{% if not rows %}
+<p class="muted">Još nema zapisa.</p>
+{% else %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Vrijeme</th>
+      <th>Ko</th>
+      {% if source == 'tenant' %}<th>IP</th>{% endif %}
+      <th>Akcija</th>
+      <th>Tenant</th>
+      <th>Detalj</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.created_at.strftime('%d.%m.%Y %H:%M:%S') if r.created_at else r.created_at }}</td>
+      <td>{{ r.actor_email or '—' }}</td>
+      {% if source == 'tenant' %}
+      <td class="cell-secondary">{{ r.ip or '—' }}</td>
+      {% endif %}
+      <td><code>{{ r.action }}</code></td>
+      <td>
+        {% if r.tenant_id and tenants.get(r.tenant_id) %}
+          <a href="/admin/tenanti/{{ r.tenant_id }}">{{ tenants[r.tenant_id].name }}</a>
+        {% elif r.tenant_id %}
+          #{{ r.tenant_id }}
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td class="cell-secondary">{{ r.detail or '' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

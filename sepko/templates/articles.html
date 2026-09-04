@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.artikli', 'Artikli') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.artikli', 'Artikli') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/podesavanja/artikli">← Hub</a>
+  <a class="btn" href="/artikli">+ {{ t('btn.add', 'Novi') }}</a>
+{% endblock %}
+{% block content %}
+<form method="get" action="/artikli" class="filter-bar">
+  <div class="search-bar" style="margin:0;flex:1;min-width:200px">
+    <svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm8.7 13.3-3.8-3.8"/></svg>
+    <input name="q" value="{{ q }}" placeholder="Pretraga naziv / šifra / barkod…">
+  </div>
+  {% include "_per_page.html" %}
+</form>
+
+<div class="grid grid-2">
+  <div class="card">
+    {% if editing %}
+    <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
+    <form method="post" action="/artikli/{{ editing.id }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field"><label>Šifra artikla</label><input value="{{ editing.code }}" disabled></div>
+      <div class="field"><label>Naziv</label><input name="name" value="{{ editing.name }}" required maxlength="255"></div>
+      <div class="field"><label>Jedinica mjere</label><input name="unit" value="{{ editing.unit }}"></div>
+      <div class="row">
+        <div class="field"><label>Maloprodajna cijena</label><input name="price_retail" type="number" step="0.0001" min="0" value="{{ editing.price_retail or '' }}"></div>
+        <div class="field"><label>Veleprodajna cijena (VP)</label><input name="price_gross" type="number" step="0.0001" min="0" value="{{ editing.price_gross }}" required></div>
+      </div>
+      <div class="field"><label>Količina na lageru</label><input name="stock_qty" type="number" step="0.0001" value="{{ editing.stock_qty or '' }}"></div>
+      <div class="field"><label>Barkod</label><input name="barcode" value="{{ editing.barcode or '' }}"></div>
+      <div class="field">
+        <label>Poreska stopa</label>
+        <select name="tax_rate_code">
+          {% for tax_rate in tax_rates %}
+          <option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Kategorija</label>
+        <select name="category_id">
+          <option value="">—</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Opis</label><textarea name="description" rows="3">{{ editing.description or '' }}</textarea></div>
+      <div class="field">
+        <label>Izaberite boju</label>
+        <div class="color-row">
+          {% for col in colors %}
+          <label class="color-dot" style="background:{{ col }}">
+            <input type="radio" name="color" value="{{ col }}" {% if (editing.color or '#c62828') == col %}checked{% endif %}>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit">OK · {{ t('btn.save', 'Sačuvaj') }}</button>
+        <a class="btn secondary" href="/artikli">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    <form method="post" action="/artikli/{{ editing.id }}/obrisi" style="margin-top:0.75rem">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="danger" type="submit">{{ t('btn.delete', 'Obriši') }} (deaktiviraj)</button>
+    </form>
+    {% else %}
+    <h2>{{ t('btn.add', 'Novi') }}</h2>
+    <form method="post" action="/artikli">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field"><label>Šifra artikla</label><input name="code" required maxlength="64"></div>
+      <div class="field"><label>Naziv</label><input name="name" required maxlength="255"></div>
+      <div class="field"><label>Jedinica mjere</label><input name="unit" value="kom"></div>
+      <div class="row">
+        <div class="field"><label>Maloprodajna cijena</label><input name="price_retail" type="number" step="0.0001" min="0" value="0"></div>
+        <div class="field"><label>Veleprodajna cijena (VP)</label><input name="price_gross" type="number" step="0.0001" min="0" value="1" required></div>
+      </div>
+      <div class="field"><label>Količina na lageru</label><input name="stock_qty" type="number" step="0.0001"></div>
+      <div class="field"><label>Barkod</label><input name="barcode"></div>
+      <div class="field">
+        <label>Poreska stopa</label>
+        <select name="tax_rate_code">
+          {% for tax_rate in tax_rates %}
+          <option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Kategorija</label>
+        <select name="category_id">
+          <option value="">—</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Opis</label><textarea name="description" rows="3"></textarea></div>
+      <div class="field">
+        <label>Izaberite boju</label>
+        <div class="color-row">
+          {% for col in colors %}
+          <label class="color-dot" style="background:{{ col }}">
+            <input type="radio" name="color" value="{{ col }}" {% if loop.first %}checked{% endif %}>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <button type="submit">OK · {{ t('btn.add', 'Dodaj') }}</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="plan-card">
+    <div class="plan-head">
+      <div>
+        <h2>{{ t('page.artikli', 'Artikli') }} ({{ articles|length }} od {{ total }})</h2>
+        <div class="cell-secondary">Dodaj / izmijeni</div>
+      </div>
+    </div>
+    <table class="soft-table">
+      <thead>
+        <tr>
+          <th>Artikal</th>
+          <th class="num">VP cijena</th>
+          <th>PDV</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in articles %}
+        <tr>
+          <td>
+            <div class="cell-primary">
+              <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#c62828' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
+              {{ a.name }}{% if not a.active %} <span class="pill-tag bad">off</span>{% endif %}
+            </div>
+            <div class="cell-secondary">Šifra {{ a.code }} · {{ a.unit }}</div>
+          </td>
+          <td class="num"><strong>{{ "%.2f"|format(a.price_gross) }} €</strong></td>
+          <td><span class="pill-tag">{{ "%.0f"|format(a.vat_rate) }}%</span></td>
+          <td class="cell-actions">
+            {% set edit_href = '/artikli?edit=' ~ a.id %}
+            {% include "_row_actions.html" %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema artikala.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% set pager_qs = 'q=' ~ q ~ '&per_page=' ~ per_page %}
+    {% include "_pager.html" %}
+  </div>
+</div>
+{% endblock %}

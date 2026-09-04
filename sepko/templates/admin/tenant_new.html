@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Novi tenant — Sepko admin{% endblock %}
+{% block page_title %}Novi tenant{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/admin/tenanti">Lista</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:40rem">
+  <form method="post" action="/admin/tenanti">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Firma</h2>
+    <div class="field"><label>Naziv</label><input name="name" required></div>
+    <div class="field"><label>PIB</label><input name="pib" required></div>
+    <div class="field"><label>Slug</label><input name="slug" placeholder="automatski iz naziva"></div>
+    <div class="field">
+      <label>Režim</label>
+      <select name="mode">
+        <option value="test">Test</option>
+        <option value="prod">Produkcija</option>
+      </select>
+    </div>
+    <h2>Licenca</h2>
+    <div class="field">
+      <label>Tip</label>
+      <select name="license_type">
+        {% for code in license_types %}
+        <option value="{{ code }}" {% if code == 'trial' %}selected{% endif %}>{{ license_labels[code] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row">
+      <div class="field"><label>Od</label><input type="date" name="license_from" value="{{ license_from }}"></div>
+      <div class="field"><label>Do</label><input type="date" name="license_until" value="{{ license_until }}"></div>
+    </div>
+    <h2>Prvi admin</h2>
+    <div class="field"><label>Email</label><input name="admin_email" type="email" required></div>
+    <div class="field"><label>Ime</label><input name="admin_name"></div>
+    <div class="field"><label>Privremena lozinka</label><input name="admin_password" type="password" required minlength="8"></div>
+    <div class="row">
+      <button type="submit">Kreiraj</button>
+      <a class="btn secondary" href="/admin/tenanti">Odustani</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

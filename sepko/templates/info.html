@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.info', 'Info') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.info', 'Info') }}{% endblock %}
+{% block content %}
+<div class="info-grid">
+  <section class="card info-profile">
+    {% set _name = user.full_name or user.email %}
+    {% set _parts = _name.split() %}
+    {% set initials = ((_parts[0][0] if _parts else 'S') ~ (_parts[1][0] if _parts|length > 1 else ''))|upper %}
+    <div class="big-avatar">{{ initials }}</div>
+    <h2 style="margin:0.75rem 0 0.25rem;color:var(--ink)">{{ _name }}</h2>
+    <p class="muted" style="margin:0">{{ user.email }} · {{ user.role }}</p>
+    <div class="row" style="margin-top:1rem">
+      <form method="post" action="/logout" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn">{{ t('nav.odjava', 'Odjavi se') }}</button>
+      </form>
+      <a class="btn secondary" href="/podesavanja">{{ t('nav.podesavanja', 'Podešavanja') }}</a>
+    </div>
+  </section>
+
+  <section class="info-blocks">
+    <div class="info-block">
+      <h3>SEPKO</h3>
+      <p>verzija: {{ version }} · partner: {{ partner_mode }}</p>
+    </div>
+    <div class="info-block">
+      <h3>Firma</h3>
+      <p><strong>{{ tenant.name }}</strong><br>
+      PIB: {{ tenant.pib }} · režim: {{ tenant.mode }} · status: {{ tenant.status }}</p>
+    </div>
+    <div class="info-block">
+      <h3>Licenca</h3>
+      {% if license_alert == 'expired' %}
+      <p class="license-warn expired">Licenca je istekla{% if tenant.license_until %} ({{ tenant.license_until }}){% endif %}. Kontaktirajte podršku.</p>
+      {% elif license_alert == 'expiring' %}
+      <p class="license-warn">Licenca ističe za {{ license_days }} dana ({{ tenant.license_until }}).</p>
+      {% endif %}
+      <p>
+        Tip: <strong>{{ license_label }}</strong><br>
+        Važi:
+        {% if tenant.license_from %}{{ tenant.license_from }}{% else %}—{% endif %}
+        –
+        {% if tenant.license_until %}{{ tenant.license_until }}{% else %}—{% endif %}
+      </p>
+    </div>
+    <div class="info-block">
+      <h3>Sertifikat / EFI kodovi</h3>
+      <p>
+        Poslovna jedinica: <code>{{ fiscal.busin_unit_code or '—' }}</code><br>
+        Kod ENU-a: <code>{{ fiscal.tcr_code or '—' }}</code><br>
+        SoftCode: <code>{{ fiscal.soft_code or '—' }}</code><br>
+        Operator: <code>{{ fiscal.operator_code or '—' }}</code><br>
+        U PDV-u: {{ 'Da' if fiscal.is_issuer_in_vat else 'Ne' }}<br>
+        Token kanal: <code>{{ fiscal.token_provider or '—' }}</code>
+        · Telekom: {{ 'da' if fiscal.has_telekom_token() else 'ne' }}
+        · Pošta: {{ 'da' if fiscal.has_posta_token() else 'ne' }}
+      </p>
+    </div>
+    <div class="info-block">
+      <h3>Uređaj</h3>
+      <p>Model: Sepko Cloud back-office<br>Okruženje: {{ 'Produkcija' if tenant.mode == 'prod' else 'Test' }}</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

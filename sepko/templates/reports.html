@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.izvjestaji', 'Izvještaji') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.izvjestaji', 'Izvještaji') }}{% endblock %}
+{% block content %}
+<nav class="menu-list" style="max-width:560px">
+  <a href="/racuni">Pregled računa <span class="chevron">›</span></a>
+  <a href="/blagajna">Rekapitulacija / blagajna <span class="chevron">›</span></a>
+  <a href="/artikli">Presjek po artiklima <span class="chevron">›</span></a>
+  <a href="/kupci">Presjek po komitentima <span class="chevron">›</span></a>
+  <span class="menu-item muted">Periodični fiskalni izvještaj <span class="chevron">›</span></span>
+  <span class="menu-item muted">Presjek po operaterima <span class="chevron">›</span></span>
+  <span class="menu-item muted">Presjek po kategorijama <span class="chevron">›</span></span>
+  <span class="menu-item muted">Transakcije <span class="chevron">›</span></span>
+  <span class="menu-item muted">Avansni računi <span class="chevron">›</span></span>
+</nav>
+<p class="muted" style="margin-top:1rem;max-width:560px">Sivi redovi dolaze u narednoj fazi. Aktivni linkovi vode na postojeće module.</p>
+{% endblock %}

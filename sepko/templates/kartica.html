@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ t('fin.card', 'Kartica') }} — {{ customer.name }} — Sepko{% endblock %}
+{% block page_title %}{{ t('fin.card', 'Finansijska kartica') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/finansije">← Lista</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/print" target="_blank">{{ t('btn.print', 'Štampa') }}</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:1rem">
+  <div class="row" style="align-items:flex-start">
+    <div style="flex:1.5">
+      <h2 style="margin:0;color:var(--ink);font-size:1.15rem">{{ customer.name }}</h2>
+      <div class="cell-secondary">PIB {{ customer.pib }}{% if customer.email %} · {{ customer.email }}{% endif %}</div>
+    </div>
+    <div class="totals-bar" style="margin:0;flex:1">
+      <div><span class="muted">{{ t('fin.invoiced', 'Fakturisano') }}</span><strong>{{ "%.2f"|format(summary.fakturisano) }} €</strong></div>
+      <div><span class="muted">{{ t('fin.paid', 'Uplaćeno') }}</span><strong>{{ "%.2f"|format(summary.uplaceno) }} €</strong></div>
+      <div><span class="muted">{{ t('fin.debt', 'Dug') }}</span><strong>{{ "%.2f"|format(summary.dug) }} €</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="plan-card" style="margin-bottom:1rem">
+  <div class="plan-head"><h2>{{ t('fin.cards', 'Kartica') }}</h2></div>
+  <div class="plan-table-wrap">
+    <table class="soft-table">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Vrsta</th>
+          <th>Dokument</th>
+          <th>Opis</th>
+          <th class="num">Duguje</th>
+          <th class="num">Potražuje</th>
+          <th class="num">Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in ledger %}
+        <tr>
+          <td>{{ r.Datum or '—' }}</td>
+          <td>{{ r.Vrsta }}</td>
+          <td>
+            {% if r.invoice_id and r.Vrsta == 'Faktura' %}
+              <a href="/racuni/{{ r.invoice_id }}">{{ r.Dokument }}</a>
+            {% else %}
+              {{ r.Dokument }}
+            {% endif %}
+          </td>
+          <td>{{ r.Opis }}</td>
+          <td class="num">{% if r.Duguje %}{{ "%.2f"|format(r.Duguje) }}{% endif %}</td>
+          <td class="num">{% if r['Potražuje'] %}{{ "%.2f"|format(r['Potražuje']) }}{% endif %}</td>
+          <td class="num"><strong>{{ "%.2f"|format(r.Saldo) }}</strong></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="muted" style="padding:1.25rem">Nema stavki na kartici.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-2" style="gap:1rem;align-items:start">
+  <div class="card">
+    <h2>Evidentiraj uplatu</h2>
+    <form method="post" action="/finansije/kartica/{{ customer.id }}/uplata">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="row">
+        <div class="field"><label>Iznos €</label><input name="amount" type="number" step="0.01" min="0.01" required></div>
+        <div class="field"><label>Datum</label><input name="paid_at" type="date" value="{{ '' }}"></div>
+      </div>
+      <div class="field"><label>Napomena</label><input name="note" placeholder="npr. virman / izvod"></div>
+      <div class="field">
+        <label>Veži na fakturu (opciono)</label>
+        <select name="invoice_id">
+          <option value="">—</option>
+          {% for inv in invoices %}
+          <option value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ "%.2f"|format(inv.total_gross) }} €</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn">Sačuvaj uplatu</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Pošalji karticu / fakture</h2>
+    <form method="post" action="/finansije/kartica/{{ customer.id }}/posalji">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label>Za (e-mail)</label>
+        <input name="to_email" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required>
+      </div>
+      <div class="field">
+        <label>Naslov</label>
+        <input name="subject" value="Finansijska kartica — {{ customer.name }}">
+      </div>
+      <div class="field">
+        <label>Poruka</label>
+        <textarea name="body" rows="4">Poštovani,
+
+u prilogu je finansijska kartica za {{ customer.name }}.
+
+Srdačan pozdrav</textarea>
+      </div>
+      <label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
+        <input type="checkbox" name="attach_kartica" value="1" checked style="width:auto">
+        Priloži finansijsku karticu (HTML)
+      </label>
+      {% if invoices %}
+      <div class="field">
+        <label>Priloži fakture</label>
+        <div style="max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:0.5rem">
+          {% for inv in invoices %}
+          <label style="display:flex;align-items:center;gap:0.45rem;margin:0.25rem 0;font-size:0.88rem">
+            <input type="checkbox" name="invoice_ids" value="{{ inv.id }}" style="width:auto">
+            {{ inv|display_inv_num }} · {{ "%.2f"|format(inv.total_gross) }} €
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn">Pošalji mail</button>
+      <p class="cell-secondary" style="margin-top:0.65rem">SMTP iz Podešavanja → Mail ili `.env` (SMTP_* / IMAP_*).</p>
+    </form>
+  </div>
+</div>
+{% endblock %}

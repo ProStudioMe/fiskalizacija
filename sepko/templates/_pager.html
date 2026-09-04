@@ -1,0 +1,11 @@
+{% if pages and pages > 1 %}
+<nav class="pager">
+  {% if page > 1 %}
+  <a class="btn secondary" href="{{ list_path|default('') }}?{% if qs is defined %}{{ qs(page=page - 1) }}{% else %}{{ pager_qs }}&page={{ page - 1 }}{% endif %}">← {{ t('btn.prev', 'Prethodna') }}</a>
+  {% endif %}
+  <span class="muted">{{ t('label.page', 'Strana') }} {{ page }} / {{ pages }}</span>
+  {% if page < pages %}
+  <a class="btn secondary" href="{{ list_path|default('') }}?{% if qs is defined %}{{ qs(page=page + 1) }}{% else %}{{ pager_qs }}&page={{ page + 1 }}{% endif %}">{{ t('btn.next', 'Sljedeća') }} →</a>
+  {% endif %}
+</nav>
+{% endif %}

@@ -1,0 +1,17 @@
+-- App role: SELECT/INSERT/UPDATE/DELETE, bez DDL (CREATE/DROP/ALTER).
+-- Radi samo na praznom volume-u (docker-entrypoint-initdb.d).
+-- Postojeća baza: psql -f deploy/postgres/harden.sql
+
+CREATE USER sepko_app WITH PASSWORD 'sepko_app'
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
+
+GRANT CONNECT ON DATABASE sepko TO sepko_app;
+GRANT USAGE ON SCHEMA public TO sepko_app;
+
+ALTER DEFAULT PRIVILEGES FOR USER sepko IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sepko_app;
+ALTER DEFAULT PRIVILEGES FOR USER sepko IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO sepko_app;
+
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE CREATE ON SCHEMA public FROM sepko_app;

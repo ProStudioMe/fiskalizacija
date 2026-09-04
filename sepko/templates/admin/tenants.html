@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Tenanti — Sepko admin{% endblock %}
+{% block page_title %}Tenanti{% endblock %}
+{% block page_actions %}
+  <a class="btn" href="/admin/tenanti/novi">+ Novi tenant</a>
+{% endblock %}
+{% block content %}
+<form class="inv-filter-toolbar" method="get" action="/admin/tenanti" style="margin-bottom:1rem">
+  <input type="search" name="q" value="{{ q }}" placeholder="PIB, naziv ili slug…">
+  <select name="status">
+    <option value="">Svi statusi</option>
+    <option value="trial" {% if status == 'trial' %}selected{% endif %}>Proba</option>
+    <option value="active" {% if status == 'active' %}selected{% endif %}>Aktivan</option>
+    <option value="suspended" {% if status == 'suspended' %}selected{% endif %}>Suspendovan</option>
+  </select>
+  <button type="submit" class="btn secondary">Traži</button>
+</form>
+
+{% if not rows %}
+<p class="muted">Nema tenanata.</p>
+{% else %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Firma</th>
+      <th>PIB</th>
+      <th>Status</th>
+      <th>Licenca</th>
+      <th>Važi do</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    {% set t = row.tenant %}
+    <tr class="{% if row.alert == 'expired' %}license-expired{% elif row.alert == 'expiring' %}license-expiring{% endif %}">
+      <td>
+        <strong>{{ t.name }}</strong>
+        <div class="cell-secondary">{{ t.slug }} · {{ t.mode }}</div>
+      </td>
+      <td>{{ t.pib }}</td>
+      <td><span class="badge {{ t.status }}">{{ t.status }}</span></td>
+      <td>{{ row.license_label }}</td>
+      <td>
+        {% if t.license_until %}
+          {{ t.license_until }}
+          {% if row.days is not none %}
+            {% if row.alert == 'expired' %}
+              <span class="pill-tag bad">istekla</span>
+            {% elif row.alert == 'expiring' %}
+              <span class="pill-tag warn">{{ row.days }} d</span>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td><a class="btn secondary" href="/admin/tenanti/{{ t.id }}">Otvori</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
