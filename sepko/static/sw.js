@@ -3,7 +3,7 @@ const CACHE = "sepko-shell-v4";
 const PRECACHE = [
   "/app",
   "/app/kasa",
-  "/static/style.css?v=107",
+  "/static/style.css?v=109",
   "/static/pos.js?v=7",
   "/manifest.webmanifest",
   "/manifest-kasa.webmanifest",
