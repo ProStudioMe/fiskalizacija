@@ -27,6 +27,8 @@
 
       <wa-checkbox name="auto_login" value="1" {% if ui.auto_login %}checked{% endif %}>Automatsko logovanje</wa-checkbox>
       <wa-input name="max_invoice_amount" label="Maksimalni iznos računa" value="{{ ui.max_invoice_amount }}"></wa-input>
+      <wa-input name="default_opening_cash" label="Početni depozit (default)" value="{{ ui.default_opening_cash|money }}" placeholder="0,00"></wa-input>
+      <wa-checkbox name="allow_opening_cash_override" value="1" {% if ui.allow_opening_cash_override %}checked{% endif %}>Dozvoli izmjenu / veći početni depozit (override)</wa-checkbox>
       <wa-select name="pin_length" label="Dužina PIN koda" value="{{ ui.pin_length }}">
         {% for n in [4,5,6] %}
         <wa-option value="{{ n }}" {% if ui.pin_length == n %}selected{% endif %}>{{ n }}</wa-option>

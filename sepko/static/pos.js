@@ -325,7 +325,58 @@
         e.preventDefault();
         var blag = form.getAttribute("data-blagajna") || "/blagajna";
         window.location.href = blag;
+        return;
       }
+      e.preventDefault();
+      if (submitBtn) submitBtn.disabled = true;
+      // Otvori tab u istom gestu (klik) — inače browser blokira popup
+      var receiptWin = window.open("about:blank", "sepko-racun");
+      var fd = new FormData(form);
+      fetch(form.getAttribute("action") || "/kasa/fiskalizuj", {
+        method: "POST",
+        body: fd,
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      })
+        .then(function (r) {
+          return r.json().then(function (data) {
+            return { okHttp: r.ok, data: data };
+          });
+        })
+        .then(function (res) {
+          var data = res.data || {};
+          if (data.redirect) {
+            if (receiptWin) receiptWin.close();
+            window.location.href = data.redirect;
+            return;
+          }
+          if (!data.ok) {
+            if (receiptWin) receiptWin.close();
+            window.alert(data.error || "Fiskalizacija nije uspjela.");
+            if (submitBtn) submitBtn.disabled = cart.length === 0;
+            return;
+          }
+          if (data.receipt_url) {
+            if (receiptWin && !receiptWin.closed) {
+              receiptWin.location.href = data.receipt_url;
+            } else {
+              window.open(data.receipt_url, "sepko-racun", "noopener");
+            }
+          } else if (receiptWin) {
+            receiptWin.close();
+          }
+          cart = [];
+          justAddedKey = null;
+          renderCart();
+          updateTileBadges();
+          // Osveži stanje blagajne / broj računa
+          window.location.reload();
+        })
+        .catch(function () {
+          if (receiptWin) receiptWin.close();
+          window.alert("Greška pri fiskalizaciji. Pokušaj ponovo.");
+          if (submitBtn) submitBtn.disabled = cart.length === 0;
+        });
     });
   }
 

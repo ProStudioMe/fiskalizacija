@@ -4,28 +4,35 @@
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
 {% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — Sepko{% endblock %}
 {% block page_title %}
-  <span class="inv-page-title">
-    {% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
+  <span class="inv-page-title{% if is_template %} inv-page-title--template{% endif %}">
     {% if is_template %}
-    <span class="badge draft">Šablon</span>
-    {% else %}
-    <span class="badge draft">{{ t('status.pending', 'U pripremi') }}</span>
+    <nav class="inv-crumb" aria-label="Lokacija">
+      <a href="/racuni/raspored">Automatske fakture</a>
+      <span class="inv-crumb-sep" aria-hidden="true">/</span>
+      <span class="inv-crumb-current">{% if is_edit %}Šablon{% else %}Novi šablon{% endif %}</span>
+    </nav>
+    {% endif %}
+    <span class="inv-page-heading">
+      {% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
+      {% if is_template %}
+      <span class="badge template">Šablon</span>
+      {% else %}
+      <span class="badge draft">{{ t('status.pending', 'U pripremi') }}</span>
+      {% endif %}
+    </span>
+    {% if is_template %}
+    <span class="inv-page-sub">Kupac i fiksne stavke · broj fakture pri izdavanju</span>
     {% endif %}
   </span>
 {% endblock %}
 {% block page_actions %}
-  {% if is_template %}
-  <a class="btn secondary" href="/racuni/raspored">Automatske fakture</a>
-  {% elif not is_edit %}
+  {% if not is_template and not is_edit %}
   <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="Šablon za automatsku fakturu">+ Nova Automatska faktura</a>
   {% endif %}
 {% endblock %}
 {% block content %}
-{% if is_template %}
-<p class="muted inv-template-hint">Šablon za automatsku (mjesečnu) fakturu — kupac i stavke fiksnog iznosa. Nakon čuvanja vratićeš se na listu.</p>
-{% endif %}
 
-<form method="post" action="{{ form_action or '/racuni/novi' }}" id="invoice-form" class="inv-form inv-compose-form">
+<form method="post" action="{{ form_action or '/racuni/novi' }}" id="invoice-form" class="inv-form inv-compose-form{% if is_template %} is-template{% endif %}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="customer_id" id="customer_id" value="{{ (prefill.customer_id if prefill else '') }}">
   <input type="hidden" name="discount_pct" id="discount_pct" value="{{ (prefill.discount_pct if prefill else 0) }}">
@@ -51,12 +58,13 @@
       <div class="card inv-compose-card inv-lines-compose">
         <div class="inv-lines-head-row">
           <div class="inv-section-title" style="margin:0">Stavke</div>
-          <span class="muted inv-lines-count" id="lines-count-label">0</span>
+          <span class="inv-lines-count" id="lines-count-label">0 stavki</span>
         </div>
 
         <div class="inv-quick-add" id="inv-quick-add">
           <wa-input type="search" id="art-inline" placeholder="Traži artikal… Enter dodaje" with-clear size="medium" class="inv-art-input" autocomplete="off"></wa-input>
           <div class="inv-suggest" id="art-suggest" hidden></div>
+          <p class="inv-art-block" id="inv-art-block" hidden role="alert"></p>
         </div>
 
         <div class="lines-empty" id="lines-empty" hidden>
@@ -79,51 +87,63 @@
             <tbody id="lines-body"></tbody>
           </table>
         </div>
-      </div>
 
-      <div class="inv-dock" role="toolbar" aria-label="Akcije fakture">
-        <wa-button href="{% if return_to %}{{ return_to }}{% elif is_edit %}/racuni/{{ editing.id }}{% else %}/racuni{% endif %}" variant="neutral" appearance="outlined" class="inv-dock-cancel">{{ t('btn.cancel', 'Odustani') }}</wa-button>
-        <div class="inv-dock-primary">
-          {% if not is_template %}
-          <wa-button type="submit" data-action="save" data-template="1" variant="neutral" appearance="plain" class="inv-dock-quiet" title="Sačuvaj kao šablon za automatsku fakturu">Kao automatsku</wa-button>
-          {% endif %}
-          <wa-button type="submit" data-action="save" variant="{% if is_template %}brand{% else %}neutral{% endif %}" {% if not is_template %}appearance="outlined"{% endif %}>{{ t('btn.save', 'Sačuvaj') }}{% if is_template %} šablon{% endif %}</wa-button>
-          {% if not is_template %}
-          <wa-button type="submit" data-action="fiscalize" variant="brand">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
-          {% endif %}
+        <div class="inv-dock inv-dock--foot" role="toolbar" aria-label="Akcije fakture">
+          <wa-button href="{% if return_to %}{{ return_to }}{% elif is_template %}/racuni/raspored{% elif is_edit %}/racuni/{{ editing.id }}{% else %}/racuni{% endif %}" variant="neutral" appearance="outlined" class="inv-dock-cancel">{{ t('btn.cancel', 'Odustani') }}</wa-button>
+          <div class="inv-dock-primary">
+            {% if not is_template %}
+            <wa-button type="submit" data-action="save" data-template="1" variant="neutral" appearance="plain" class="inv-dock-quiet" title="Sačuvaj kao šablon za automatsku fakturu">Kao automatsku</wa-button>
+            {% endif %}
+            <wa-button type="submit" data-action="save" variant="{% if is_template %}brand{% else %}neutral{% endif %}" {% if not is_template %}appearance="outlined"{% endif %}>{{ t('btn.save', 'Sačuvaj') }}{% if is_template %} šablon{% endif %}</wa-button>
+            {% if not is_template %}
+            <wa-button type="submit" data-action="fiscalize" variant="brand">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
+            {% endif %}
+          </div>
         </div>
       </div>
     </div>
 
     <aside class="inv-compose-side">
       <div class="card fb-table-card inv-compose-totals" id="totals-bar">
-        <div class="fb-table-wrap">
-          <table class="fb-table fb-table--compact fb-table--totals">
-            <tbody>
-              <tr>
-                <th scope="row">Bez PDV-a</th>
-                <td class="num"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></td>
-              </tr>
-              <tr>
-                <th scope="row">PDV</th>
-                <td class="num"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></td>
-              </tr>
-              <tr>
-                <th scope="row">Popust</th>
-                <td class="num">
-                  <button type="button" class="linkish" id="btn-discount"><span id="sum-disc">0,00</span><span class="totals-cur"> €</span></button>
-                </td>
-              </tr>
-              <tr class="is-total">
-                <th scope="row">Za uplatu</th>
-                <td class="num"><span id="sum-gross">0,00</span><span class="totals-cur"> €</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="inv-totals-hero">
+          <span class="inv-totals-hero-label">{% if is_template %}Iznos šablona{% else %}Za uplatu{% endif %}</span>
+          <span class="inv-totals-hero-value"><span id="sum-gross">0,00</span><span class="totals-cur"> €</span></span>
         </div>
+        <details class="inv-totals-break"{% if not is_template %} open{% endif %}>
+          <summary>Raspored iznosa</summary>
+          <div class="fb-table-wrap">
+            <table class="fb-table fb-table--compact fb-table--totals">
+              <tbody>
+                <tr>
+                  <th scope="row">Bez PDV-a</th>
+                  <td class="num"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">PDV</th>
+                  <td class="num"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Popust</th>
+                  <td class="num">
+                    <button type="button" class="linkish" id="btn-discount"><span id="sum-disc">0,00</span><span class="totals-cur"> €</span></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
-      <div class="card inv-meta-card">
+      <div class="card inv-meta-card{% if is_template %} inv-meta-card--template{% endif %}">
+        {% if is_template %}
+        <div class="inv-meta-num inv-meta-num--soft">
+          <span class="inv-meta-label">Tip</span>
+          <div class="inv-num-stack">
+            <span class="inv-status-rail template" aria-hidden="true"></span>
+            <span class="inv-num-local">Šablon · ponavlja se</span>
+          </div>
+        </div>
+        {% else %}
         <div class="inv-meta-num">
           <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
           <div class="inv-num-stack">
@@ -131,8 +151,9 @@
             <span class="inv-num-local">{{ next_display_num }}</span>
           </div>
         </div>
+        {% endif %}
         <div class="inv-meta-body wa-form-stack">
-          <wa-input type="date" name="due_date" id="due_date" label="Rok" value="{{ due_date_default }}"></wa-input>
+          <wa-input type="date" name="due_date" id="due_date" label="{% if is_template %}Zadani rok{% else %}Rok{% endif %}" value="{{ due_date_default }}"></wa-input>
           <wa-select name="payment_method" id="payment_method" label="Plaćanje" value="{{ pay }}">
             <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>Gotovina</wa-option>
             <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>Kartica (fizičko lice)</wa-option>
@@ -148,15 +169,19 @@
               <span class="inv-meta-plain">EUR</span>
             </div>
             <div>
-              <span class="inv-meta-label">Izdao</span>
+              <span class="inv-meta-label">{% if is_template %}Uredio{% else %}Izdao{% endif %}</span>
               <span class="inv-meta-plain" title="{{ user.full_name or user.email }}">{{ user.full_name or user.email }}</span>
             </div>
           </div>
           <details class="inv-notes-soft"{% if prefill and (prefill.fiscal_note or prefill.notes) %} open{% endif %}>
             <summary>Napomene <span class="muted">opciono</span></summary>
             <div class="wa-form-stack inv-notes-stack">
+              {% if not is_template %}
               <wa-textarea name="fiscal_note" id="fiscal_note" label="Za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
-              <wa-textarea name="notes" id="inv-notes" label="Za račun" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
+              {% else %}
+              <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
+              {% endif %}
+              <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
             </div>
           </details>
         </div>
@@ -197,7 +222,7 @@
 <script>
 const ARTICLES = [
   {% for a in articles %}
-  {id:{{ a.id }}, code:{{ a.code|tojson }}, name:{{ a.name|tojson }}, unit:{{ a.unit|tojson }}, price:{{ a.price_gross }}, vat:{{ a.vat_rate }}}{% if not loop.last %},{% endif %}
+  {id:{{ a.id }}, code:{{ a.code|tojson }}, name:{{ a.name|tojson }}, unit:{{ a.unit|tojson }}, price:{{ a.price_gross }}, vat:{{ a.vat_rate }}, tax:{{ (a.tax_rate_code or '')|tojson }}}{% if not loop.last %},{% endif %}
   {% endfor %}
 ];
 const CUSTOMERS = [
@@ -307,7 +332,10 @@ function recalc(){
   document.getElementById('sum-disc').textContent = money(netBefore - net);
   document.getElementById('discount_pct').value = invDiscount;
   const countEl = document.getElementById('lines-count-label');
-  if (countEl) countEl.textContent = String(lines.length);
+  if (countEl) {
+    const n = lines.length;
+    countEl.textContent = n === 1 ? '1 stavka' : (n >= 2 && n <= 4 ? n + ' stavke' : n + ' stavki');
+  }
   renderLines();
 }
 
@@ -345,13 +373,51 @@ function markJustAdded(id){
   }, 900);
 }
 
+function articleBlockReason(a){
+  if (!a) return 'Artikal nije pronađen';
+  const price = Number(a.price);
+  const vat = Number(a.vat);
+  const tax = String(a.tax || '').trim();
+  const problems = [];
+  if (!(isFinite(price) && price > 0)) problems.push('bez cijene');
+  if (!tax || !isFinite(vat) || vat < 0) problems.push('bez PDV stope');
+  return problems.length ? problems.join(' i ') : '';
+}
+
+function lineBlockReason(l){
+  if (!l) return 'Nepoznata stavka';
+  const price = Number(l.price);
+  const vat = Number(l.vat);
+  const problems = [];
+  if (!(isFinite(price) && price > 0)) problems.push('bez cijene');
+  if (!isFinite(vat) || vat < 0) problems.push('bez PDV-a');
+  return problems.length ? (l.name || l.code || 'Stavka') + ': ' + problems.join(' i ') : '';
+}
+
+function showArtBlock(msg){
+  const box = document.getElementById('inv-art-block');
+  if (box) {
+    box.textContent = msg;
+    box.hidden = false;
+    clearTimeout(showArtBlock._t);
+    showArtBlock._t = setTimeout(() => { box.hidden = true; }, 3200);
+  } else {
+    alert(msg);
+  }
+}
+
 function addArticle(a){
   if (!a) return;
+  const block = articleBlockReason(a);
+  if (block) {
+    showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + block + '). Dopuni artikal u šifrarniku.');
+    return;
+  }
   const existing = lines.find(l => l.id === a.id);
   if (existing) {
     existing.qty = (parseFloat(existing.qty)||0) + 1;
   } else {
-    lines.push({id:a.id, code:a.code, name:a.name, unit:a.unit, qty:1, price:+a.price, vat:+a.vat, discount:0, open:false});
+    lines.push({id:a.id, code:a.code, name:a.name, unit:a.unit, qty:1, price:+a.price, vat:+a.vat, tax:a.tax||'', discount:0, open:false});
   }
   bumpFreq(a.id);
   pushRecent(a.id);
@@ -425,13 +491,15 @@ function renderSuggest(q){
       const qtyOnInv = lineQtyForArticle(a.id);
       const isOnInv = qtyOnInv > 0;
       const isFlash = suggestFlashId === a.id;
-      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${isFlash?' is-added':''}" data-si="${idx}" data-aid="${a.id}">
+      const block = articleBlockReason(a);
+      const disabled = !!block;
+      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${isFlash?' is-added':''}${disabled?' is-blocked':''}" data-si="${idx}" data-aid="${a.id}" ${disabled?'aria-disabled="true"':''} title="${disabled ? esc('Ne može se dodati — ' + block) : ''}">
         <span class="modal-code">${esc(a.code)}</span>
-        <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}</span></span>
-        ${isOnInv ? `<span class="inv-suggest-added${isFlash?' is-pulse':''}" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>'}
+        <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}${disabled ? ' · ' + esc(block) : ''}</span></span>
+        ${isOnInv ? `<span class="inv-suggest-added${isFlash?' is-pulse':''}" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : (disabled ? `<span class="inv-suggest-blocked">${esc(block)}</span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>')}
         <span class="modal-row-side">
           <span class="modal-row-price">${money(a.price)} €</span>
-          <span class="modal-row-vat">PDV ${a.vat}%</span>
+          <span class="modal-row-vat">${a.tax ? ('PDV ' + a.vat + '%') : 'Bez PDV'}</span>
         </span>
       </button>`;
       idx += 1;
@@ -441,7 +509,15 @@ function renderSuggest(q){
   artSuggest.hidden = false;
   if (window.sepkoIcons) window.sepkoIcons();
   artSuggest.querySelectorAll('[data-si]').forEach(btn=>{
-    btn.addEventListener('mousedown', e=>{ e.preventDefault(); addArticle(suggestItems[+btn.dataset.si]); });
+    btn.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      const a = suggestItems[+btn.dataset.si];
+      if (articleBlockReason(a)) {
+        showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + articleBlockReason(a) + '). Dopuni artikal u šifrarniku.');
+        return;
+      }
+      addArticle(a);
+    });
   });
 }
 
@@ -455,7 +531,8 @@ function renderLines(){
   lines.forEach((l, i)=>{
     const a = lineAmounts(l);
     const main = document.createElement('tr');
-    main.className = 'inv-line' + (l.open ? ' is-open' : '') + (justAddedId === l.id ? ' is-just-added' : '');
+    const isZero = Math.abs(a.gross) < 0.005;
+    main.className = 'inv-line' + (l.open ? ' is-open' : '') + (justAddedId === l.id ? ' is-just-added' : '') + (isZero ? ' is-zero' : '');
     main.innerHTML = `
       <td class="inv-line-art">
         <input type="hidden" name="line_article_id" value="${l.id}">
@@ -486,7 +563,9 @@ function renderLines(){
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
         </div>
       </td>
-      <td class="num inv-line-total">${money(a.gross)} €</td>
+      <td class="num inv-line-total">${isZero
+        ? '<span class="inv-line-zero-tag" title="Cijena je 0 — proširi red i unesi VP cijenu">bez cijene</span>'
+        : (money(a.gross) + ' €')}</td>
       <td class="inv-line-actions">
         <button type="button" class="inv-line-del" data-del="${i}" aria-label="Ukloni" title="Ukloni">
           <i data-lucide="x"></i>
@@ -555,6 +634,7 @@ function applyPrefill(){
       unit: l.unit || 'kom',
       price: parseMoney(l.price)||0,
       vat: parseMoney(l.vat)||0,
+      tax: l.tax || '',
       qty: parseMoney(l.qty)||1,
       discount: parseMoney(l.discount)||0,
       open: false,
@@ -756,21 +836,28 @@ function renderArticles(filter=''){
   const dlg = document.getElementById('modal-articles');
   if (dlg) dlg.label = 'Artikli (' + list.length + ')';
   const box = document.getElementById('art-list');
-  box.innerHTML = list.map(a=>`
-    <button type="button" class="modal-row" data-aid="${a.id}">
+  box.innerHTML = list.map(a=>{
+    const block = articleBlockReason(a);
+    return `
+    <button type="button" class="modal-row${block?' is-blocked':''}" data-aid="${a.id}" ${block?'aria-disabled="true"':''} title="${block ? esc('Ne može se dodati — ' + block) : ''}">
       <span class="modal-code">${esc(a.code)}</span>
       <span class="modal-row-body">
         <strong>${esc(a.name)}</strong>
-        <span class="modal-row-meta">${esc(a.unit || 'kom')}</span>
+        <span class="modal-row-meta">${esc(a.unit || 'kom')}${block ? ' · ' + esc(block) : ''}</span>
       </span>
       <span class="modal-row-side">
         <span class="modal-row-price">${money(a.price)} €</span>
-        <span class="modal-row-vat">PDV ${a.vat}%</span>
+        <span class="modal-row-vat">${a.tax ? ('PDV ' + a.vat + '%') : 'Bez PDV'}</span>
       </span>
-    </button>`).join('') || '<div class="muted" style="padding:1rem">Nema rezultata</div>';
+    </button>`;
+  }).join('') || '<div class="muted" style="padding:1rem">Nema rezultata</div>';
   box.querySelectorAll('[data-aid]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const a = ARTICLES.find(x=>x.id==btn.dataset.aid);
+      if (articleBlockReason(a)) {
+        showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + articleBlockReason(a) + '). Dopuni artikal u šifrarniku.');
+        return;
+      }
       closeWaDialog('modal-articles');
       addArticle(a);
     });
@@ -823,7 +910,10 @@ artInline.addEventListener('keydown', e=>{
   } else if (e.key === 'Enter') {
     e.preventDefault();
     e.stopPropagation();
-    const pick = suggestIndex >= 0 ? suggestItems[suggestIndex] : suggestItems[0];
+    let pick = suggestIndex >= 0 ? suggestItems[suggestIndex] : null;
+    if (!pick || articleBlockReason(pick)) {
+      pick = suggestItems.find(a => !articleBlockReason(a)) || pick;
+    }
     if (pick) addArticle(pick);
   } else if (e.key === 'Escape') {
     hideSuggest();
@@ -843,7 +933,13 @@ document.getElementById('discount-ok').addEventListener('click', ()=>{
 });
 
 document.getElementById('invoice-form').addEventListener('submit', e=>{
-  if(!lines.length){ e.preventDefault(); alert('Dodajte barem jednu stavku.'); artInline.focus(); }
+  if(!lines.length){ e.preventDefault(); alert('Dodajte barem jednu stavku.'); artInline.focus(); return; }
+  const bad = lines.map(lineBlockReason).filter(Boolean);
+  if (bad.length) {
+    e.preventDefault();
+    showArtBlock('Ispravi stavke prije čuvanja: ' + bad.join('; '));
+    return;
+  }
 });
 document.querySelectorAll('[data-action]').forEach(btn=>{
   btn.addEventListener('click', ()=>{

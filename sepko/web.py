@@ -1165,6 +1165,33 @@ def cash_page(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     fiscal = load_tenant_fiscal(tenant)
+    ui = load_tenant_ui(tenant)
+    from decimal import Decimal
+    from sepko.money import format_amount, parse_nonneg_money
+
+    default_initial = parse_nonneg_money(ui.default_opening_cash, quantize="0.01") or Decimal("0")
+    override = bool(ui.allow_opening_cash_override)
+    initial_locked = (
+        day.has_initial
+        and day.initial == default_initial
+        and not override
+    )
+    allow_initial = (not day.has_initial) or override or (day.has_initial and day.initial != default_initial)
+    allow_withdraw = day.banknote_sales > 0
+    suggested_withdraw = day.banknote_sales - day.withdrawals
+    if suggested_withdraw < 0:
+        suggested_withdraw = Decimal("0")
+
+    if allow_withdraw and (day.has_initial or not allow_initial):
+        default_op = "WITHDRAW"
+        default_amount = suggested_withdraw
+    elif allow_initial:
+        default_op = "INITIAL"
+        default_amount = default_initial
+    else:
+        default_op = ""
+        default_amount = Decimal("0")
+
     from_pwa = (request.query_params.get("from") or "").strip().lower() == "pwa"
     return render(
         request,
@@ -1177,6 +1204,15 @@ def cash_page(request: Request, db: Session = Depends(get_db)):
             "fiscal": fiscal,
             "from_pwa": from_pwa,
             "kasa_url": "/app/kasa" if from_pwa else "/kasa",
+            "default_op": default_op,
+            "default_amount": format_amount(default_amount),
+            "suggest_initial": format_amount(default_initial),
+            "suggest_withdraw": format_amount(suggested_withdraw),
+            "allow_initial": allow_initial,
+            "allow_withdraw": allow_withdraw,
+            "initial_locked": initial_locked,
+            "opening_override": override,
+            "max_initial": format_amount(default_initial) if not override else "",
         },
     )
 
@@ -1205,14 +1241,51 @@ def cash_submit(
     except Exception:
         flash(request, "Neispravan iznos.", "error")
         return redirect(back)
+
+    op = (operation or "").strip().upper()
+    if op not in ("INITIAL", "WITHDRAW"):
+        flash(request, "Nepoznata operacija.", "error")
+        return redirect(back)
+
+    day = cash_day_summary(db, tenant)
+    ui = load_tenant_ui(tenant)
+    from decimal import Decimal
+    from sepko.money import format_amount, parse_nonneg_money
+
+    default_initial = parse_nonneg_money(ui.default_opening_cash, quantize="0.01") or Decimal("0")
+    override = bool(ui.allow_opening_cash_override)
+
+    if op == "WITHDRAW":
+        if day.banknote_sales <= 0:
+            flash(request, "Nema gotovinske prodaje za podizanje.", "error")
+            return redirect(back)
+    else:
+        initial_locked = (
+            day.has_initial
+            and day.initial == default_initial
+            and not override
+        )
+        if initial_locked:
+            flash(
+                request,
+                "Početni depozit je već na default iznosu. Uključi override u Podešavanjima za izmjenu.",
+                "error",
+            )
+            return redirect(back)
+        if not override and amt > default_initial:
+            flash(
+                request,
+                f"Bez override-a početni depozit ne smije biti veći od {format_amount(default_initial)} €.",
+                "error",
+            )
+            return redirect(back)
+
     result = register_cash_deposit(
         db,
         tenant,
-        CashDepositRequest(operation=operation, amount=amt),
+        CashDepositRequest(operation=op, amount=amt),
     )
     if result.status == "registered":
-        from sepko.money import format_amount
-
         flash(request, f"{result.operation} {format_amount(result.amount)} € — registrovano.")
         if (return_to or "").startswith("/app/kasa"):
             return redirect("/app/kasa")
@@ -1613,6 +1686,34 @@ def schedules_delete(
     return redirect("/racuni/raspored")
 
 
+@router.post("/racuni/raspored/{schedule_id:int}/aktiviraj")
+def schedules_activate(
+    request: Request,
+    schedule_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni/raspored")
+    sch = (
+        db.query(InvoiceSchedule)
+        .filter(InvoiceSchedule.tenant_id == tenant.id, InvoiceSchedule.id == schedule_id)
+        .first()
+    )
+    if not sch:
+        flash(request, "Automatska faktura nije pronađena.", "error")
+        return redirect("/racuni/raspored")
+    sch.active = True
+    db.commit()
+    flash(request, "Automatska faktura aktivirana.")
+    return redirect("/racuni/raspored")
+
+
 @router.get("/racuni/kopiraj")
 @router.get("/racuni/bulk-obrisi")
 @router.get("/racuni/obrisi-odabrane")
@@ -1886,6 +1987,10 @@ def _build_fiscalize_request_from_form(
             vat_rate = article.vat_rate
             code = article.code
             name = article.name
+            if unit_net <= 0:
+                return None, f"Artikal „{article.name}” nema cijenu. Unesi VP cijenu u šifrarniku."
+            if not (article.tax_rate_code or "").strip():
+                return None, f"Artikal „{article.name}” nema dodijeljenu PDV stopu."
         else:
             code = (line_codes[i] if i < len(line_codes) else "") or ""
             name = (line_names[i] if i < len(line_names) else "") or ""
@@ -1896,9 +2001,14 @@ def _build_fiscalize_request_from_form(
                 quantize=None,
             ) or Decimal("0")
             vat_rate = parse_amount(
-                line_vats[i] if i < len(line_vats) and line_vats[i] else "21",
+                line_vats[i] if i < len(line_vats) and line_vats[i] else "",
                 quantize="0.01",
-            ) or Decimal("21")
+            )
+            if unit_net <= 0:
+                return None, f"Stavka „{name or code}” nema cijenu."
+            if vat_rate is None or vat_rate < 0:
+                return None, f"Stavka „{name or code}” nema dodijeljen PDV."
+            vat_rate = vat_rate
 
         rate = vat_rate / Decimal("100")
         line_net = (unit_net * qty * (Decimal("1") - disc / Decimal("100"))).quantize(
@@ -2071,6 +2181,7 @@ def _invoice_editor_context(
                     "unit": (art.unit if art else "kom"),
                     "price": float(ln.unit_price_net),
                     "vat": float(ln.vat_rate),
+                    "tax": (art.tax_rate_code if art else "") or "",
                     "qty": float(ln.quantity),
                     "discount": 0,
                 }
@@ -2903,6 +3014,8 @@ def settings_save_basic(
     clear_posta_token: str = Form(""),
     language: str = Form("cnr"),
     max_invoice_amount: str = Form("1000000.00"),
+    default_opening_cash: str = Form("0,00"),
+    allow_opening_cash_override: str = Form(""),
     pin_length: str = Form("4"),
     auto_login: str = Form(""),
     pin_only_login: str = Form(""),
@@ -2955,6 +3068,12 @@ def settings_save_basic(
     ui = load_tenant_ui(tenant)
     ui.language = normalize_ui_language(language)
     ui.max_invoice_amount = max_invoice_amount.strip() or "1000000.00"
+    from decimal import Decimal
+    from sepko.money import parse_nonneg_money
+
+    opening = parse_nonneg_money(default_opening_cash, quantize="0.01")
+    ui.default_opening_cash = f"{(opening if opening is not None else Decimal('0')):.2f}"
+    ui.allow_opening_cash_override = allow_opening_cash_override in ("1", "on", "true")
     try:
         ui.pin_length = int(pin_length)
     except ValueError:

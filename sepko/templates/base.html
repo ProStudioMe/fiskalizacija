@@ -26,8 +26,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=109">
-  <link rel="stylesheet" href="/static/fb-table.css?v=2">
+  <link rel="stylesheet" href="/static/style.css?v=127">
+  <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=9">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
   {% block head_extra %}{% endblock %}
@@ -116,17 +116,32 @@
         </div>
           {% else %}
           <div class="nav-label">{{ t('nav.racuni', 'Računi') }}</div>
-          <a href="/racuni/novi" class="nav-cta {% if path.startswith('/racuni/novi') %}active{% endif %}">
+          <a href="/racuni/novi" class="nav-cta {% if path.startswith('/racuni/novi') and not (is_template is defined and is_template) %}active{% endif %}">
             <i data-lucide="plus" aria-hidden="true"></i>
             {{ t('page.invoice_new', 'Nova faktura') }}
           </a>
-          <a href="/racuni" class="nav-item {% if path.startswith('/racuni') and '/novi' not in path and '/raspored' not in path %}active{% endif %}">
+          <a href="/racuni" class="nav-item {% if path.startswith('/racuni') and '/novi' not in path and '/raspored' not in path and not (is_template is defined and is_template) %}active{% endif %}">
             <i data-lucide="file-text" aria-hidden="true"></i>
             {{ t('nav.izlazne', 'Izlazne') }}
           </a>
-          <a href="/racuni/raspored" class="nav-item {% if path.startswith('/racuni/raspored') %}active{% endif %}">
+          <a href="/racuni/raspored" class="nav-item {% if path.startswith('/racuni/raspored') or (is_template is defined and is_template) %}active{% endif %}">
             <i data-lucide="calendar-clock" aria-hidden="true"></i>
             {{ t('nav.raspored', 'Automatske fakture') }}
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-label">{{ t('nav.ulazno', 'Ulazno') }}</div>
+          <a href="/ulazne/nova" class="nav-add {% if path.startswith('/ulazne/nova') %}active{% endif %}">
+            <i data-lucide="plus" aria-hidden="true"></i>
+            {{ t('page.ulazne_new', 'Nova ulazna faktura') }}
+          </a>
+          <a href="/ulazne" class="nav-item {% if path.startswith('/ulazne') and '/nova' not in path %}active{% endif %}">
+            <i data-lucide="inbox" aria-hidden="true"></i>
+            {{ t('nav.ulazne', 'Ulazne') }}
+          </a>
+          <a href="/finansije" class="nav-item {% if path.startswith('/finansije') %}active{% endif %}">
+            <i data-lucide="landmark" aria-hidden="true"></i>
+            {{ t('nav.finansije', 'Finansije') }}
           </a>
         </div>
         <div class="nav-group">
@@ -150,21 +165,9 @@
             <i data-lucide="home" aria-hidden="true"></i>
             {{ t('nav.pregled', 'Pregled') }}
           </a>
-          <a href="/ulazne" class="nav-item {% if path.startswith('/ulazne') %}active{% endif %}">
-            <i data-lucide="inbox" aria-hidden="true"></i>
-            {{ t('nav.ulazne', 'Ulazne') }}
-          </a>
-          <a href="/troskovi" class="nav-item {% if path.startswith('/troskovi') %}active{% endif %}">
-            <i data-lucide="receipt" aria-hidden="true"></i>
-            {{ t('nav.troskovi', 'Troškovnik') }}
-          </a>
           <a href="/izvjestaji" class="nav-item {% if path.startswith('/izvjestaji') %}active{% endif %}">
             <i data-lucide="bar-chart-3" aria-hidden="true"></i>
             {{ t('nav.izvjestaji', 'Izvještaji') }}
-          </a>
-          <a href="/finansije" class="nav-item {% if path.startswith('/finansije') %}active{% endif %}">
-            <i data-lucide="landmark" aria-hidden="true"></i>
-            {{ t('nav.finansije', 'Finansije') }}
           </a>
         </div>
         <div class="nav-group">
@@ -234,7 +237,7 @@
     toggle.addEventListener('click', toggleNav);
     if (closeBtn) closeBtn.addEventListener('click', closeNav);
     if (backdrop) backdrop.addEventListener('click', closeNav);
-    sidebar.querySelectorAll('a.nav-item, a.nav-cta').forEach(function (a) {
+    sidebar.querySelectorAll('a.nav-item, a.nav-cta, a.nav-add').forEach(function (a) {
       a.addEventListener('click', closeNav);
     });
     window.addEventListener('keydown', function (e) {

@@ -95,6 +95,18 @@ STRINGS_SEED: list[dict] = [
         },
     },
     {
+        "key": "nav.ulazno",
+        "category": "nav",
+        "description": "Sekcija Ulazno (ulazne + finansije)",
+        "values": {
+            "cnr": "Ulazno",
+            "cnr-cyrl": "Улазно",
+            "sr": "Ulazno",
+            "sr-cyrl": "Улазно",
+            "en": "Incoming",
+        },
+    },
+    {
         "key": "nav.troskovi",
         "category": "nav",
         "description": "Meni Troškovnik",
@@ -104,6 +116,18 @@ STRINGS_SEED: list[dict] = [
             "sr": "Troškovnik",
             "sr-cyrl": "Трошковник",
             "en": "Expenses",
+        },
+    },
+    {
+        "key": "page.ulazne_new",
+        "category": "page",
+        "description": "Nova ulazna faktura",
+        "values": {
+            "cnr": "Nova ulazna faktura",
+            "cnr-cyrl": "Нова улазна фактура",
+            "sr": "Nova ulazna faktura",
+            "sr-cyrl": "Нова улазна фактура",
+            "en": "New incoming invoice",
         },
     },
     {
@@ -2104,17 +2128,33 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "sched.days",
         "category": "sched",
-        "description": "Dani",
+        "description": "Dan u mjesecu",
         "values": {
-            "cnr": "Dani",
-            "cnr-cyrl": "Дани",
-            "sr": "Dani",
-            "sr-cyrl": "Дани",
-            "sq": "Ditët",
-            "tr": "Günler",
-            "ru": "Дни",
-            "uk": "Дні",
-            "en": "Days",
+            "cnr": "Dan u mjesecu",
+            "cnr-cyrl": "Дан у мјесецу",
+            "sr": "Dan u mesecu",
+            "sr-cyrl": "Дан у месецу",
+            "sq": "Dita e muajit",
+            "tr": "Ayın günü",
+            "ru": "День месяца",
+            "uk": "День місяця",
+            "en": "Day of month",
+        },
+    },
+    {
+        "key": "sched.days_col",
+        "category": "sched",
+        "description": "Dan (kolona)",
+        "values": {
+            "cnr": "Dan",
+            "cnr-cyrl": "Дан",
+            "sr": "Dan",
+            "sr-cyrl": "Дан",
+            "sq": "Dita",
+            "tr": "Gün",
+            "ru": "День",
+            "uk": "День",
+            "en": "Day",
         },
     },
     {
@@ -2131,6 +2171,54 @@ STRINGS_SEED: list[dict] = [
             "ru": "Шаблон",
             "uk": "Шаблон",
             "en": "Template",
+        },
+    },
+    {
+        "key": "sched.edit_title",
+        "category": "sched",
+        "description": "Naslov edit forme",
+        "values": {
+            "cnr": "Izmijeni automatsku fakturu",
+            "cnr-cyrl": "Измијени аутоматску фактуру",
+            "sr": "Izmeni automatsku fakturu",
+            "sr-cyrl": "Измени аутоматску фактуру",
+            "sq": "Ndrysho faturën automatike",
+            "tr": "Otomatik faturayı düzenle",
+            "ru": "Изменить автоматический счёт",
+            "uk": "Змінити автоматичний рахунок",
+            "en": "Edit automatic invoice",
+        },
+    },
+    {
+        "key": "sched.add_title",
+        "category": "sched",
+        "description": "Naslov add forme",
+        "values": {
+            "cnr": "Nova automatska faktura",
+            "cnr-cyrl": "Нова аутоматска фактура",
+            "sr": "Nova automatska faktura",
+            "sr-cyrl": "Нова аутоматска фактура",
+            "sq": "Faturë automatike e re",
+            "tr": "Yeni otomatik fatura",
+            "ru": "Новый автоматический счёт",
+            "uk": "Новий автоматичний рахунок",
+            "en": "New automatic invoice",
+        },
+    },
+    {
+        "key": "sched.list_title",
+        "category": "sched",
+        "description": "Naslov liste",
+        "values": {
+            "cnr": "Raspored",
+            "cnr-cyrl": "Распоред",
+            "sr": "Raspored",
+            "sr-cyrl": "Распоред",
+            "sq": "Orari",
+            "tr": "Program",
+            "ru": "Расписание",
+            "uk": "Розклад",
+            "en": "Schedule",
         },
     },
     # --- settings ---
@@ -2415,7 +2503,16 @@ def ensure_languages(db: Session) -> list[Language]:
 
 
 # Ključevi koje seed uvijek usklađuje (npr. rename Trajne → Automatske fakture).
-_FORCE_SEED_KEYS = frozenset({"nav.raspored", "page.raspored", "sched.title"})
+_FORCE_SEED_KEYS = frozenset({
+    "nav.raspored",
+    "page.raspored",
+    "sched.title",
+    "sched.days",
+    "sched.days_col",
+    "sched.edit_title",
+    "sched.add_title",
+    "sched.list_title",
+})
 
 
 def ensure_translations(db: Session) -> int:

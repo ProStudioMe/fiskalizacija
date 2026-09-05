@@ -1,82 +1,192 @@
 {% extends "base.html" %}
 {% block title %}{{ t('page.blagajna', 'Blagajna') }} — Sepko{% endblock %}
 {% block page_title %}{{ t('page.blagajna', 'Blagajna') }}{% endblock %}
-{% block content %}
-<p class="muted" style="margin-top:0">EFI RegisterCashDeposit — INITIAL prije prvog gotovinskog računa na kasi, WITHDRAW za podizanje gotovine.</p>
-<p class="row" style="margin:0.35rem 0 0.75rem; gap:0.5rem; flex-wrap:wrap">
+{% block page_actions %}
+<nav class="cash-switcher" aria-label="Maloprodaja">
   {% if from_pwa %}
-  <a class="btn" href="/app/kasa">{{ t('page.kasa', 'Kasa') }}</a>
-  <a class="btn secondary" href="/maloprodaja/promet">{{ t('nav.pos_day', 'Dnevni promet') }}</a>
+  <a href="/app/kasa"><i data-lucide="monitor" aria-hidden="true"></i>{{ t('page.kasa', 'Kasa') }}</a>
+  <a href="/maloprodaja/promet"><i data-lucide="shopping-bag" aria-hidden="true"></i>{{ t('nav.pos_day', 'Dnevni promet') }}</a>
   {% else %}
-  <a class="btn" href="/kasa">{{ t('page.kasa', 'Kasa') }}</a>
-  <a class="btn secondary" href="/app/kasa">{{ t('pwa.kasa_app', 'Kasa (PWA)') }}</a>
-  <a class="btn secondary" href="/maloprodaja/promet">{{ t('nav.pos_day', 'Dnevni promet') }}</a>
+  <a href="/kasa"><i data-lucide="monitor" aria-hidden="true"></i>{{ t('page.kasa', 'Kasa') }}</a>
+  <a href="/maloprodaja/promet"><i data-lucide="shopping-bag" aria-hidden="true"></i>{{ t('nav.pos_day', 'Dnevni promet') }}</a>
   {% endif %}
-</p>
-<div class="grid grid-3" style="margin-top:0.5rem">
-  <div class="card">
-    <div class="stat">{{ day.initial|money }} €<small>INITIAL depozit</small></div>
+</nav>
+{% endblock %}
+{% block content %}
+{% set op_labels = {'INITIAL': 'Početni depozit', 'WITHDRAW': 'Podizanje'} %}
+{% set status_labels = {
+  'registered': 'Evidentirano',
+  'failed': 'Neuspješno',
+  'superseded': 'Zamijenjeno'
+} %}
+<div class="cash-page">
+  {% if not day.has_initial %}
+  <div class="flash warn cash-alert">
+    Nema početnog depozita za danas — unesi ga prije gotovinskih računa (smije biti 0,00).
   </div>
-  <div class="card">
-    <div class="stat">{{ day.banknote_sales|money }} €<small>BANKNOTE prodaja</small></div>
+  {% elif initial_locked %}
+  <div class="flash ok cash-alert">
+    Početni depozit je zaključan na {{ suggest_initial }} € (default). Za veći iznos uključi override u Podešavanjima.
   </div>
-  <div class="card">
-    <div class="stat">{{ day.cash_in_drawer|money }} €<small>Gotovina u kasi</small></div>
-  </div>
-</div>
-<p class="muted" style="margin-top:0.75rem">
-  Podignuto (WITHDRAW): {{ day.withdrawals|money }} € ·
-  Računa danas: {{ day.invoice_count }} ·
-  ENU: <code>{{ fiscal.tcr_code or '—' }}</code>
-</p>
-{% if not day.has_initial %}
-<div class="flash error">Nema INITIAL za danas — unesi početni depozit prije CASH računa (smije biti 0,00).</div>
-{% endif %}
-<div class="grid grid-2" style="margin-top:1rem">
-  <div class="card">
-    <h2>Nova promjena</h2>
-    <form method="post" action="/blagajna" class="wa-form-stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% if from_pwa %}
-      <input type="hidden" name="return_to" value="/app/kasa">
-      {% endif %}
-      <wa-select name="operation" label="Operacija" value="INITIAL">
-        <wa-option value="INITIAL" selected>INITIAL — početni depozit</wa-option>
-        <wa-option value="WITHDRAW">WITHDRAW — podizanje gotovine</wa-option>
-      </wa-select>
-      <wa-input name="amount" label="Iznos (€)" inputmode="decimal" placeholder="0,00" value="0,00" required></wa-input>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">Registruj</wa-button>
+  {% endif %}
+
+  <section class="cash-hero" aria-label="Stanje blagajne">
+    <div class="cash-hero-main">
+      <p class="cash-hero-label">Gotovina u kasi</p>
+      <p class="cash-hero-value">{{ day.cash_in_drawer|money }} <span>€</span></p>
+      <div class="cash-meta">
+        <span class="cash-chip">ENU <code>{{ fiscal.tcr_code or '—' }}</code></span>
+        <span class="cash-chip">Računa · {{ day.invoice_count }}</span>
+        {% if day.has_initial %}
+        <span class="cash-chip ok">{% if initial_locked %}Depozit zaključan{% else %}Depozit ok{% endif %}</span>
+        {% else %}
+        <span class="cash-chip warn">Čeka depozit</span>
+        {% endif %}
       </div>
-    </form>
-  </div>
-  <div class="plan-card">
-    <div class="plan-head"><h2>Danas</h2></div>
-    <table class="soft-table">
-      <thead><tr><th>Vrijeme</th><th>Op</th><th class="num">Iznos</th><th>Status</th></tr></thead>
-      <tbody>
-      {% for d in deposits %}
-        <tr>
-          <td>
-            <div class="cell-primary">{{ d.change_datetime.strftime('%H:%M') if d.change_datetime else '—' }}</div>
-          </td>
-          <td><span class="pill-tag">{{ d.operation }}</span></td>
-          <td class="num">{{ d.amount|money }} €</td>
-          <td>
-            {% if d.status == 'failed' %}
-              <span class="pill-tag bad">{{ d.status }}</span>
-            {% elif d.status == 'superseded' %}
-              <span class="pill-tag warn">{{ d.status }}</span>
-            {% else %}
-              <span class="pill-tag ok">{{ d.status }}</span>
-            {% endif %}
-          </td>
-        </tr>
+    </div>
+    <div class="cash-strip" role="list">
+      <div class="cash-strip-item" role="listitem">
+        <span class="cash-metric-label">Početni depozit</span>
+        <strong class="cash-metric-value">{{ day.initial|money }} €</strong>
+      </div>
+      <div class="cash-strip-item" role="listitem">
+        <span class="cash-metric-label">Gotovinska prodaja</span>
+        <strong class="cash-metric-value">{{ day.banknote_sales|money }} €</strong>
+      </div>
+      <div class="cash-strip-item" role="listitem">
+        <span class="cash-metric-label">Podignuto</span>
+        <strong class="cash-metric-value">{{ day.withdrawals|money }} €</strong>
+      </div>
+    </div>
+  </section>
+
+  <div class="cash-workspace">
+    <div class="cash-form-pane">
+      <div class="cash-card-head">
+        <h2>Nova promjena</h2>
+        {% if allow_initial or allow_withdraw %}
+        <p class="cash-hint" id="cash-hint">
+          {% if default_op == 'WITHDRAW' %}
+          Predloženo podizanje = gotovinska prodaja (minus već podignuto).
+          {% elif not opening_override %}
+          Predloženi depozit iz podešavanja · bez override-a max {{ suggest_initial }} €.
+          {% else %}
+          Predloženi depozit iz podešavanja · override je uključen.
+          {% endif %}
+        </p>
+        {% else %}
+        <p class="cash-hint">Nema dostupnih operacija — sačekaj gotovinsku prodaju ili uključi override za depozit.</p>
+        {% endif %}
+      </div>
+      {% if allow_initial or allow_withdraw %}
+      <form method="post" action="/blagajna" class="wa-form-stack cash-form"
+            id="cash-form"
+            data-suggest-initial="{{ suggest_initial }}"
+            data-suggest-withdraw="{{ suggest_withdraw }}"
+            data-max-initial="{{ max_initial }}"
+            data-hint-initial="{% if opening_override %}Predloženi depozit iz podešavanja · override je uključen.{% else %}Predloženi depozit iz podešavanja · bez override-a max {{ suggest_initial }} €.{% endif %}"
+            data-hint-withdraw="Predloženo podizanje = gotovinska prodaja (minus već podignuto).">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if from_pwa %}
+        <input type="hidden" name="return_to" value="/app/kasa">
+        {% endif %}
+        {% if allow_initial and allow_withdraw %}
+        <wa-select name="operation" id="cash-operation" label="Operacija" value="{{ default_op }}">
+          <wa-option value="INITIAL" {% if default_op == 'INITIAL' %}selected{% endif %}>Početni depozit</wa-option>
+          <wa-option value="WITHDRAW" {% if default_op == 'WITHDRAW' %}selected{% endif %}>Podizanje gotovine</wa-option>
+        </wa-select>
+        {% elif allow_initial %}
+        <input type="hidden" name="operation" value="INITIAL">
+        <wa-input label="Operacija" value="Početni depozit" readonly></wa-input>
+        {% else %}
+        <input type="hidden" name="operation" value="WITHDRAW">
+        <wa-input label="Operacija" value="Podizanje gotovine" readonly></wa-input>
+        {% endif %}
+        <wa-input name="amount" id="cash-amount" label="Iznos (€)" inputmode="decimal" placeholder="0,00" value="{{ default_amount }}" required></wa-input>
+        <div class="wa-form-actions cash-form-actions">
+          <wa-button type="submit" variant="brand">Registruj</wa-button>
+        </div>
+      </form>
       {% else %}
-        <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema promjena danas.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+      <div class="cash-form cash-form-idle">
+        <p class="muted" style="margin:0">Blagajna je otvorena. Podizanje će biti dostupno kad bude gotovinske prodaje.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="cash-ledger-pane">
+      <div class="cash-card-head cash-ledger-head">
+        <h2>Danas</h2>
+        <span class="cash-ledger-count">{{ deposits|length }}</span>
+      </div>
+      <table class="soft-table cash-table">
+        <thead>
+          <tr>
+            <th>Vrijeme</th>
+            <th>Operacija</th>
+            <th class="num">Iznos</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for d in deposits %}
+          <tr>
+            <td>
+              <div class="cell-primary">{{ d.change_datetime.strftime('%H:%M') if d.change_datetime else '—' }}</div>
+            </td>
+            <td>
+              <span class="cash-op {% if d.operation == 'WITHDRAW' %}is-withdraw{% endif %}">
+                {{ op_labels.get(d.operation, d.operation) }}
+              </span>
+            </td>
+            <td class="num">{{ d.amount|money }} €</td>
+            <td>
+              {% if d.status == 'failed' %}
+                <span class="pill-tag bad">{{ status_labels.get(d.status, d.status) }}</span>
+              {% elif d.status == 'superseded' %}
+                <span class="pill-tag warn">{{ status_labels.get(d.status, d.status) }}</span>
+              {% else %}
+                <span class="pill-tag ok">{{ status_labels.get(d.status, d.status) }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="cash-empty">
+              Nema promjena danas.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
+{% if allow_initial and allow_withdraw %}
+<script>
+(function () {
+  var form = document.getElementById('cash-form');
+  var op = document.getElementById('cash-operation');
+  var amount = document.getElementById('cash-amount');
+  var hint = document.getElementById('cash-hint');
+  if (!form || !op || !amount) return;
+
+  function applySuggest() {
+    var v = op.value || 'INITIAL';
+    var next = v === 'WITHDRAW'
+      ? (form.getAttribute('data-suggest-withdraw') || '0,00')
+      : (form.getAttribute('data-suggest-initial') || '0,00');
+    amount.value = next;
+    if (hint) {
+      hint.textContent = v === 'WITHDRAW'
+        ? (form.getAttribute('data-hint-withdraw') || '')
+        : (form.getAttribute('data-hint-initial') || '');
+    }
+  }
+
+  op.addEventListener('change', applySuggest);
+  op.addEventListener('wa-change', applySuggest);
+})();
+</script>
+{% endif %}
 {% endblock %}

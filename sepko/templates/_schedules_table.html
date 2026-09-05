@@ -1,71 +1,127 @@
 <div class="plan-table-wrap">
-  <table class="soft-table">
+  <table class="soft-table sched-table">
     <thead>
       <tr>
         <th>{{ t('col.name', 'Naziv') }}</th>
-        <th>Ugovor / period</th>
-        <th>{{ t('sched.days', 'Dani') }}</th>
-        <th>Šablon</th>
-        <th>Opcije</th>
-        <th>Zadnji put</th>
-        <th></th>
+        <th>{{ t('col.client', 'Kupac') }}</th>
+        <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+        <th>{{ t('sched.period_col', 'Period') }}</th>
+        <th>{{ t('sched.days_col', 'Dan') }}</th>
+        <th>{{ t('sched.template', 'Šablon') }}</th>
+        <th>{{ t('sched.last_run', 'Zadnji put') }}</th>
+        <th class="sched-actions-col"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>
       </tr>
     </thead>
     <tbody>
     {% for s in schedules %}
-      <tr>
+      <tr class="sched-row{% if not s.active %} is-off{% endif %}{% if editing and editing.id == s.id %} is-editing{% endif %}">
         <td>
-          <div class="cell-primary">{{ s.name }}</div>
-          {% if not s.active %}<span class="pill-tag bad">off</span>{% endif %}
-          {% if s.last_error %}<div class="cell-secondary" style="color:var(--danger)">{{ s.last_error }}</div>{% endif %}
+          <div class="sched-name">
+            <span class="cell-primary">{{ s.name }}</span>
+            {% if not s.active %}
+            <span class="pill-tag sched-status">{{ t('common.inactive', 'Neaktivan') }}</span>
+            {% endif %}
+          </div>
+          {% if s.contract_number %}
+          <div class="cell-secondary">{{ s.contract_number }}</div>
+          {% endif %}
+          <div class="sched-flags">
+            {% if s.auto_fiscalize %}<span class="pill-tag ok">{{ t('sched.flag_fiscal', 'Fiskal') }}</span>{% endif %}
+            {% if s.auto_email %}<span class="pill-tag">{{ t('sched.flag_mail', 'Mail') }}</span>{% endif %}
+            {% if not s.auto_fiscalize and not s.auto_email %}
+            <span class="cell-secondary">{{ t('sched.no_flags', 'Bez autom. akcija') }}</span>
+            {% endif %}
+          </div>
+          {% if s.last_error %}<div class="sched-error">{{ s.last_error }}</div>{% endif %}
         </td>
         <td>
-          <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ s.contract_number or '—' }}</div>
-          <div class="cell-secondary">{% if s.period_mode == 'current' %}tekući mjesec{% else %}prethodni mjesec{% endif %}</div>
+          {% if s.template_invoice and s.template_invoice.buyer_name %}
+          <div class="cell-client">{{ s.template_invoice.buyer_name }}</div>
+          {% else %}
+          <span class="cell-empty">—</span>
+          {% endif %}
         </td>
-        <td>{{ s.days_of_month }}</td>
+        <td class="num">
+          {% if s.template_invoice %}
+          <span class="sched-amount">{{ s.template_invoice.total_gross|money }} €</span>
+          {% else %}
+          <span class="cell-empty">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="cell-primary sched-period">
+            {% if s.period_mode == 'current' %}{{ t('sched.period_curr_short', 'Tekući mjesec') }}{% else %}{{ t('sched.period_prev_short', 'Prethodni mjesec') }}{% endif %}
+          </div>
+        </td>
+        <td>
+          <span class="sched-days" title="{{ t('sched.days', 'Dan u mjesecu') }}">{{ s.days_of_month or '—' }}</span>
+        </td>
         <td>
           {% if s.template_invoice %}
-          <a href="/racuni/{{ s.template_invoice_id }}">{{ s.template_invoice|display_inv_num }}</a>
-          <div class="cell-secondary">{{ s.template_invoice.buyer_name or '' }} · {{ s.template_invoice.total_gross|money }} €</div>
-          {% if s.template_invoice.status != 'fiscalized' %}
-          <a class="cell-secondary" href="/racuni/{{ s.template_invoice_id }}/izmijeni?as_template=1&return_to=/racuni/raspored">Izmijeni šablon</a>
+          <div class="sched-tmpl">
+            {% if s.template_invoice.status != 'fiscalized' and not s.template_invoice.inv_ord_num %}
+            <span class="pill-tag warn sched-tmpl-status">{{ t('status.draft', 'Nacrt') }}</span>
+            {% else %}
+            <a class="sched-tmpl-link" href="/racuni/{{ s.template_invoice_id }}">{{ s.template_invoice|display_inv_num }}</a>
+            {% endif %}
+            {% if s.template_invoice.status != 'fiscalized' %}
+            <a class="btn-icon-row sched-tmpl-ico" href="/racuni/{{ s.template_invoice_id }}/izmijeni?as_template=1&return_to=/racuni/raspored" title="{{ t('sched.edit_template', 'Uredi šablon') }}" aria-label="{{ t('sched.edit_template', 'Uredi šablon') }}">
+              <i data-lucide="file-pen-line" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+          </div>
+          {% else %}
+          <span class="cell-empty">#{{ s.template_invoice_id }}</span>
           {% endif %}
-          {% else %}#{{ s.template_invoice_id }}{% endif %}
-        </td>
-        <td>
-          {% if s.auto_fiscalize %}<span class="pill-tag ok">fiskal</span>{% endif %}
-          {% if s.auto_email %}<span class="pill-tag">mail</span>{% endif %}
         </td>
         <td>
           <div class="cell-secondary" style="margin:0">{{ s.last_run_key or '—' }}</div>
           {% if s.last_invoice_id %}
-          <a href="/racuni/{{ s.last_invoice_id }}">#{{ s.last_invoice_id }}</a>
+          <a class="sched-last-inv" href="/racuni/{{ s.last_invoice_id }}">#{{ s.last_invoice_id }}</a>
           {% endif %}
         </td>
         <td class="cell-actions">
-          <a class="btn secondary" href="/racuni/raspored?edit={{ s.id }}">{{ t('btn.edit', 'Izmijeni') }}</a>
-          <form method="post" action="/racuni/raspored/{{ s.id }}/pokreni" style="display:inline;margin:0">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <wa-button type="submit" size="small" variant="neutral" appearance="outlined">Sada</wa-button>
-          </form>
-          <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi" style="display:inline;margin:0"
-                data-confirm="Deaktivirati automatsku fakturu?"
-                data-confirm-title="Automatske fakture"
-                data-confirm-tone="danger"
-                data-confirm-ok="Deaktiviraj">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <wa-button type="submit" size="small" variant="danger">Off</wa-button>
-          </form>
+          <div class="row-actions sched-row-actions">
+            <a class="btn-icon-row" href="/racuni/raspored?edit={{ s.id }}" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+              <i data-lucide="pencil" aria-hidden="true"></i>
+            </a>
+            <form method="post" action="/racuni/raspored/{{ s.id }}/pokreni">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn-icon-row btn-icon-row-accent" title="{{ t('sched.run_now', 'Pokreni sada') }}" aria-label="{{ t('sched.run_now', 'Pokreni sada') }}">
+                <i data-lucide="play" aria-hidden="true"></i>
+              </button>
+            </form>
+            {% if s.active %}
+            <form method="post" action="/racuni/raspored/{{ s.id }}/obrisi"
+                  data-confirm="{{ t('sched.deactivate_confirm', 'Deaktivirati automatsku fakturu?') }}"
+                  data-confirm-title="{{ t('sched.title', 'Automatske fakture') }}"
+                  data-confirm-tone="danger"
+                  data-confirm-ok="{{ t('sched.deactivate', 'Deaktiviraj') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn-icon-row btn-icon-row-danger" title="{{ t('sched.deactivate', 'Deaktiviraj') }}" aria-label="{{ t('sched.deactivate', 'Deaktiviraj') }}">
+                <i data-lucide="power" aria-hidden="true"></i>
+              </button>
+            </form>
+            {% else %}
+            <form method="post" action="/racuni/raspored/{{ s.id }}/aktiviraj">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn-icon-row btn-icon-row-accent" title="{{ t('sched.activate', 'Aktiviraj') }}" aria-label="{{ t('sched.activate', 'Aktiviraj') }}">
+                <i data-lucide="power" aria-hidden="true"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
         </td>
       </tr>
     {% else %}
       <tr>
-        <td colspan="7" class="muted" style="padding:1.25rem">
-          Nema automatskih faktura.
-          <a href="/racuni/raspored?new=1">Dodaj novu</a>
-          ili prvo
-          <a href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}">napravi šablon</a>.
+        <td colspan="8" class="sched-empty">
+          <strong>{{ t('sched.empty_title', 'Nema automatskih faktura') }}</strong>
+          <p>
+            <a href="/racuni/raspored?new=1">{{ t('sched.empty_add', 'Dodaj novu') }}</a>
+            {{ t('sched.empty_or', 'ili prvo') }}
+            <a href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}">{{ t('sched.empty_tpl', 'napravi šablon') }}</a>.
+          </p>
         </td>
       </tr>
     {% endfor %}

@@ -245,6 +245,8 @@ class TenantUiSettings:
     language: str = "cnr"
     auto_login: bool = False
     max_invoice_amount: str = "1000000.00"
+    default_opening_cash: str = "0.00"
+    allow_opening_cash_override: bool = False
     pin_length: int = 4
     pin_only_login: bool = False
     a4_item_name_own_line: bool = False

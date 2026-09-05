@@ -172,29 +172,43 @@ def pos_fiscalize(
     return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    wants_json = "application/json" in (request.headers.get("accept") or "")
+
+    def fail(msg: str, *, status: int = 400, loc: str | None = None):
+        if wants_json:
+            return JSONResponse({"ok": False, "error": msg}, status_code=status)
+        flash(request, msg, "error")
+        return redirect(loc or back)
+
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
+        if wants_json:
+            return JSONResponse({"ok": False, "error": "Prijava je istekla."}, status_code=401)
         return redirect("/login")
 
     pwa = (return_to or "").startswith("/app/kasa")
     back = _safe_return(return_to, pwa=pwa)
 
     if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect(back)
+        return fail("Nevažeći CSRF token.")
 
     from sepko.money import parse_amount, parse_nonneg_money
 
     pay = (payment_method or "BANKNOTE").strip().upper()
     if pay not in CASH_PAY_METHODS:
-        flash(request, "Kasa prihvata samo gotovinu, karticu ili ostalo-gotovina.", "error")
-        return redirect(back)
+        return fail("Kasa prihvata samo gotovinu, karticu ili ostalo-gotovina.")
 
     day = cash_day_summary(db, tenant)
     if not day.has_initial:
+        blag = "/blagajna" + ("?from=pwa" if pwa else "")
+        if wants_json:
+            return JSONResponse(
+                {"ok": False, "error": "Prvo otvori blagajnu (INITIAL) za danas.", "redirect": blag},
+                status_code=400,
+            )
         flash(request, "Prvo otvori blagajnu (INITIAL) za danas.", "error")
-        return redirect("/blagajna" + ("?from=pwa" if pwa else ""))
+        return redirect(blag)
 
     lines: list[InvoiceLineIn] = []
     for i, aid in enumerate(line_article_id):
@@ -242,8 +256,7 @@ def pos_fiscalize(
         )
 
     if not lines:
-        flash(request, "Korpa je prazna.", "error")
-        return redirect(back)
+        return fail("Korpa je prazna.")
 
     total_gross = sum((ln.total_gross for ln in lines), Decimal("0"))
     total_net = Decimal("0")
@@ -265,7 +278,6 @@ def pos_fiscalize(
     )
     result = fiscalize_invoice(db, tenant, req)
     if result.status == "fiscalized":
-        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
         inv = (
             db.query(Invoice)
             .filter(
@@ -274,12 +286,24 @@ def pos_fiscalize(
             )
             .first()
         )
+        msg = f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}"
+        receipt = None
         if inv:
-            qs = urlencode({"fmt": "thermal", "auto": "1", "back": back})
-            return redirect(f"/racuni/{inv.id}/stampa?{qs}")
+            receipt = f"/racuni/{inv.id}/stampa?{urlencode({'fmt': 'thermal', 'auto': '1'})}"
+        if wants_json:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "message": msg,
+                    "receipt_url": receipt,
+                    "inv_num": result.inv_num,
+                }
+            )
+        flash(request, msg)
+        if receipt:
+            return redirect(receipt)
         return redirect(back)
-    flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
-    return redirect(back)
+    return fail(result.error_message or "Fiskalizacija nije uspjela.")
 
 
 @router.get("/maloprodaja/promet", response_class=HTMLResponse)

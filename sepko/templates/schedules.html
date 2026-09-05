@@ -1,92 +1,165 @@
 {% extends "base.html" %}
-{% block title %}{{ t('page.raspored', 'Automatske fakture') }} — Sepko{% endblock %}
-{% block page_title %}{{ t('sched.title', 'Automatske fakture') }}{% endblock %}
+{% block title %}{% if show_form %}{% if editing %}{{ t('sched.edit_title', 'Izmijeni automatsku fakturu') }}{% else %}{{ t('sched.add_title', 'Nova automatska faktura') }}{% endif %}{% else %}{{ t('page.raspored', 'Automatske fakture') }}{% endif %} — Sepko{% endblock %}
+{% block page_title %}
+<span class="inv-page-title">
+  <a class="btn secondary inv-actions-icon inv-title-back"
+     href="{% if show_form %}/racuni/raspored{% else %}/racuni{% endif %}"
+     title="{{ t('btn.back', 'Nazad') }}"
+     aria-label="{{ t('btn.back', 'Nazad') }}">
+    <i data-lucide="arrow-left" aria-hidden="true"></i>
+  </a>
+  <span>{% if show_form %}{% if editing %}{{ t('sched.edit_title', 'Izmijeni automatsku fakturu') }}{% else %}{{ t('sched.add_title', 'Nova automatska faktura') }}{% endif %}{% else %}{{ t('sched.title', 'Automatske fakture') }}{% endif %}</span>
+</span>
+{% endblock %}
 {% block page_actions %}
-  <form method="post" action="/racuni/raspored/pokreni" style="margin:0;display:inline">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('sched.run_due', 'Pokreni dospjele') }}</wa-button>
-  </form>
   {% if not show_form %}
-  <a class="btn" href="/racuni/raspored?new=1">+ {{ t('btn.add', 'Nova') }}</a>
+  <form method="post" action="/racuni/raspored/pokreni" class="sched-run-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <wa-button type="submit" variant="brand">{{ t('sched.run_due', 'Pokreni dospjele') }}</wa-button>
+  </form>
+  <a class="btn secondary" href="/racuni/raspored?new=1">+ {{ t('btn.add', 'Dodaj') }}</a>
   {% endif %}
-  <a class="btn secondary" href="/racuni">← {{ t('nav.fakture', 'Fakture') }}</a>
 {% endblock %}
 {% block content %}
-<p class="muted" style="margin-top:0">
-  Automatske (mjesečne) fakture fiksnog iznosa iz šablona (kupac + stavke), sa brojem ugovora i periodom.
-  Automatski se šalju e-mailom; za produkciju podesi cron na <code>/cron/raspored?token=…</code>.
+{% if not show_form %}
+<p class="sched-lead">
+  {{ t('sched.lead', 'Mjesečne fakture fiksnog iznosa iz šablona — kupac, stavke, ugovor i period. Šalju se automatski e-mailom na odabrani dan.') }}
 </p>
+{% endif %}
 
 {% if show_form %}
-<div class="grid grid-2" style="align-items:start;gap:1rem">
-  <div class="card">
-    <h2>{% if editing %}{{ t('btn.edit', 'Izmijeni') }}{% else %}{{ t('btn.add', 'Nova') }}{% endif %} automatska faktura</h2>
-    <form method="post" action="{% if editing %}/racuni/raspored/{{ editing.id }}{% else %}/racuni/raspored{% endif %}" class="wa-form-stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="name" label="{{ t('col.name', 'Naziv') }}" value="{{ editing.name if editing else '' }}" placeholder="npr. Hosting — ugovor 12/2024" required></wa-input>
-      <div>
-        {% set tmpl_val = editing.template_invoice_id if editing else '' %}
-        <wa-select name="template_invoice_id" id="template_invoice_id" label="{{ t('sched.template', 'Šablon fakture') }}" value="{{ tmpl_val }}" required>
-          <wa-option value="">— izaberi —</wa-option>
-          {% for inv in templates %}
-          <wa-option value="{{ inv.id }}"
-            data-editable="{% if inv.status != 'fiscalized' %}1{% else %}0{% endif %}"
-            {% if editing and editing.template_invoice_id == inv.id %}selected{% endif %}>
-            {% if inv.is_template %}★ {% endif %}{{ inv|display_inv_num }} · {{ inv.buyer_name or 'bez kupca' }} · {{ inv.total_gross|money }} €
-          </wa-option>
-          {% endfor %}
-        </wa-select>
-        <div class="row" style="margin-top:0.5rem;gap:0.45rem;flex-wrap:wrap">
-          <a class="btn secondary" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}">+ Novi šablon</a>
-          <a class="btn secondary" id="btn-edit-template" href="#" hidden>{{ t('btn.edit', 'Izmijeni') }} šablon</a>
-        </div>
-        <div class="cell-secondary" style="margin-top:0.35rem">Fiksan mjesečni iznos = stavke šablona. ★ = šablon.</div>
-      </div>
-      <wa-input name="contract_number" label="Broj ugovora" value="{{ editing.contract_number if editing and editing.contract_number else '' }}" placeholder="npr. UG-12/2024"></wa-input>
-      {% set pmode = (editing.period_mode if editing else 'previous') or 'previous' %}
-      <wa-select name="period_mode" label="Period fakturisanja" value="{{ pmode }}">
-        <wa-option value="previous" {% if pmode == 'previous' %}selected{% endif %}>Prethodni mjesec (npr. 1.9. → avgust)</wa-option>
-        <wa-option value="current" {% if pmode == 'current' %}selected{% endif %}>Tekući mjesec (npr. 1.9. → septembar)</wa-option>
-      </wa-select>
-      <wa-input name="days_of_month" label="{{ t('sched.days', 'Dani u mjesecu') }}" value="{{ editing.days_of_month if editing else '1' }}" placeholder="1" required hint="Npr. 1 ili 1,15"></wa-input>
-      <wa-input name="email_to" type="email" label="E-mail (opciono)" value="{{ editing.email_to if editing and editing.email_to else '' }}" placeholder="Ako prazno — e-mail komitenta"></wa-input>
-      <wa-checkbox name="auto_fiscalize" value="1" {% if editing and editing.auto_fiscalize %}checked{% endif %}>Automatski fiskalizuj</wa-checkbox>
-      <wa-checkbox name="auto_email" value="1" {% if not editing or editing.auto_email %}checked{% endif %}>Pošalji e-mail</wa-checkbox>
-      <wa-checkbox name="active" value="1" {% if not editing or editing.active %}checked{% endif %}>{{ t('common.active', 'Aktivan') }}</wa-checkbox>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
-        <a class="btn secondary" href="/racuni/raspored">{{ t('btn.cancel', 'Poništi') }}</a>
-      </div>
-    </form>
-  </div>
+{% set return_path = ('/racuni/raspored?edit=' ~ editing.id) if editing else '/racuni/raspored?new=1' %}
+{% set sel = namespace(inv=none) %}
+{% if editing and editing.template_invoice_id %}
+  {% for inv in templates %}
+    {% if inv.id == editing.template_invoice_id %}{% set sel.inv = inv %}{% endif %}
+  {% endfor %}
+{% endif %}
+{% set selected_inv = sel.inv %}
+<div class="sched-form-wrap">
+<div class="card sched-form-card sched-form-solo">
+  <p class="sched-form-sub">{{ t('sched.form_sub', 'Šablon određuje kupca i iznos; ovdje biraš kada i kako se šalje.') }}</p>
+  <form method="post" action="{% if editing %}/racuni/raspored/{{ editing.id }}{% else %}/racuni/raspored{% endif %}" class="wa-form-stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <wa-input name="name" label="{{ t('col.name', 'Naziv') }}" value="{{ editing.name if editing else '' }}" placeholder="npr. Hosting — ugovor 12/2024" required></wa-input>
 
-  <div class="plan-card">
-    <div class="plan-head">
-      <div>
-        <h2>{{ t('sched.title', 'Automatske fakture') }}</h2>
-        <div class="cell-secondary">{{ schedules|length }} ukupno</div>
+    <div class="sched-tmpl-field">
+      {% set tmpl_val = editing.template_invoice_id if editing else '' %}
+      <wa-select name="template_invoice_id" id="template_invoice_id" label="{{ t('sched.template', 'Šablon') }}" value="{{ tmpl_val }}" required>
+        <wa-option value="">— {{ t('sched.pick_template', 'izaberi šablon') }} —</wa-option>
+        {% for inv in templates %}
+        <wa-option value="{{ inv.id }}"
+          data-editable="{% if inv.status != 'fiscalized' %}1{% else %}0{% endif %}"
+          data-buyer="{{ inv.buyer_name or t('inv.no_buyer', 'Bez kupca') }}"
+          data-amount="{{ inv.total_gross|money }} €"
+          data-status="{% if inv.status == 'fiscalized' %}{{ t('status.fiscalized', 'Fiskalizovan') }}{% elif inv.is_template %}{{ t('sched.tpl_badge', 'Šablon') }}{% else %}{{ t('status.draft', 'Nacrt') }}{% endif %}"
+          data-status-tone="{% if inv.status == 'fiscalized' %}ok{% elif inv.is_template %}{% else %}warn{% endif %}"
+          {% if editing and editing.template_invoice_id == inv.id %}selected{% endif %}>
+          {% if inv.is_template %}★ {% endif %}{{ inv.buyer_name or t('inv.no_buyer', 'Bez kupca') }}
+        </wa-option>
+        {% endfor %}
+      </wa-select>
+
+      <div class="sched-tmpl-preview" id="tmpl-preview" {% if not selected_inv %}hidden{% endif %}>
+        <div class="sched-tmpl-preview-body">
+          <div class="sched-tmpl-preview-buyer" id="tmpl-preview-buyer">{% if selected_inv %}{{ selected_inv.buyer_name or t('inv.no_buyer', 'Bez kupca') }}{% endif %}</div>
+          <div class="sched-tmpl-preview-amount" id="tmpl-preview-amount">{% if selected_inv %}{{ selected_inv.total_gross|money }} €{% endif %}</div>
+        </div>
+        {% if selected_inv %}
+        <span class="pill-tag{% if selected_inv.status == 'fiscalized' %} ok{% elif not selected_inv.is_template %} warn{% endif %}" id="tmpl-preview-status">{% if selected_inv.status == 'fiscalized' %}{{ t('status.fiscalized', 'Fiskalizovan') }}{% elif selected_inv.is_template %}{{ t('sched.tpl_badge', 'Šablon') }}{% else %}{{ t('status.draft', 'Nacrt') }}{% endif %}</span>
+        {% else %}
+        <span class="pill-tag" id="tmpl-preview-status"></span>
+        {% endif %}
+      </div>
+
+      <div class="sched-tmpl-actions">
+        <a class="linkish" href="/racuni/novi?as_template=1&return_to={{ return_path|urlencode }}">+ {{ t('sched.new_template', 'Novi šablon') }}</a>
+        <a class="linkish" id="btn-edit-template"
+           {% if selected_inv and selected_inv.status != 'fiscalized' %}
+           href="/racuni/{{ selected_inv.id }}/izmijeni?as_template=1&return_to={{ return_path|urlencode }}"
+           {% else %}
+           href="#" hidden
+           {% endif %}>{{ t('sched.edit_template', 'Uredi šablon') }}</a>
       </div>
     </div>
-    {% include "_schedules_table.html" %}
-  </div>
+
+    <wa-input name="contract_number" label="{{ t('sched.contract', 'Broj ugovora') }}" value="{{ editing.contract_number if editing and editing.contract_number else '' }}" placeholder="npr. UG-12/2024"></wa-input>
+
+    {% set pmode = (editing.period_mode if editing else 'previous') or 'previous' %}
+    <wa-select name="period_mode" label="{{ t('sched.period_label', 'Period fakturisanja') }}" value="{{ pmode }}">
+      <wa-option value="previous" {% if pmode == 'previous' %}selected{% endif %}>{{ t('sched.period_prev', 'Prethodni mjesec (npr. 1.9. → avgust)') }}</wa-option>
+      <wa-option value="current" {% if pmode == 'current' %}selected{% endif %}>{{ t('sched.period_curr', 'Tekući mjesec (npr. 1.9. → septembar)') }}</wa-option>
+    </wa-select>
+
+    <div class="sched-field-grid">
+      <wa-input name="days_of_month" label="{{ t('sched.days', 'Dan u mjesecu') }}" value="{{ editing.days_of_month if editing else '1' }}" placeholder="1" required hint="{{ t('sched.days_hint', 'Npr. 1 ili 1,15') }}"></wa-input>
+      <wa-input name="email_to" type="email" label="{{ t('sched.email', 'E-mail') }}" value="{{ editing.email_to if editing and editing.email_to else '' }}" placeholder="{{ t('sched.email_ph', 'Prazno = e-mail komitenta') }}"></wa-input>
+    </div>
+
+    <fieldset class="sched-options">
+      <legend>{{ t('sched.options', 'Automatizacija') }}</legend>
+      <wa-checkbox name="auto_fiscalize" value="1" {% if editing and editing.auto_fiscalize %}checked{% endif %}>{{ t('sched.auto_fiscal', 'Automatski fiskalizuj') }}</wa-checkbox>
+      <wa-checkbox name="auto_email" value="1" {% if not editing or editing.auto_email %}checked{% endif %}>{{ t('sched.auto_email', 'Pošalji e-mail') }}</wa-checkbox>
+      <wa-checkbox name="active" value="1" {% if not editing or editing.active %}checked{% endif %}>{{ t('common.active', 'Aktivan') }}</wa-checkbox>
+    </fieldset>
+
+    <div class="wa-form-actions">
+      <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+      <a class="btn secondary" href="/racuni/raspored">{{ t('btn.cancel', 'Odustani') }}</a>
+    </div>
+  </form>
+</div>
 </div>
 <script>
 (function () {
   var sel = document.getElementById('template_invoice_id');
   var btn = document.getElementById('btn-edit-template');
+  var preview = document.getElementById('tmpl-preview');
+  var buyerEl = document.getElementById('tmpl-preview-buyer');
+  var amountEl = document.getElementById('tmpl-preview-amount');
+  var statusEl = document.getElementById('tmpl-preview-status');
+  var returnTo = {{ return_path|tojson }};
+  var initialId = {{ (selected_inv.id if selected_inv else '')|tojson }};
   if (!sel || !btn) return;
+
+  function optionFor(id) {
+    if (!id) return null;
+    return sel.querySelector('wa-option[value="' + id + '"]');
+  }
+
+  function currentId() {
+    var v = sel.value;
+    if (v == null || v === '') {
+      v = sel.getAttribute('value') || initialId || '';
+    }
+    return String(v);
+  }
+
   function sync() {
-    var id = sel.value == null ? '' : String(sel.value);
-    var opt = id ? sel.querySelector('wa-option[value="' + id + '"]') : null;
+    var id = currentId();
+    var opt = optionFor(id);
     var editable = opt && opt.getAttribute('data-editable') === '1';
+
     if (id && editable) {
       btn.hidden = false;
-      btn.href = '/racuni/' + id + '/izmijeni?as_template=1&return_to=' + encodeURIComponent('/racuni/raspored?new=1');
+      btn.href = '/racuni/' + id + '/izmijeni?as_template=1&return_to=' + encodeURIComponent(returnTo);
     } else {
       btn.hidden = true;
       btn.href = '#';
     }
+
+    if (preview && opt && id) {
+      buyerEl.textContent = opt.getAttribute('data-buyer') || '';
+      amountEl.textContent = opt.getAttribute('data-amount') || '';
+      statusEl.textContent = opt.getAttribute('data-status') || '';
+      var tone = opt.getAttribute('data-status-tone') || '';
+      statusEl.className = 'pill-tag' + (tone ? ' ' + tone : '');
+      preview.hidden = false;
+    } else if (preview && !id) {
+      preview.hidden = true;
+    }
   }
+
   sel.addEventListener('change', sync);
   sel.addEventListener('wa-change', sync);
   sync();
@@ -95,14 +168,11 @@
 
 {% else %}
 
-<div class="plan-card">
+<div class="plan-card sched-list-card">
   <div class="plan-head">
-    <div>
-      <h2>{{ t('sched.title', 'Automatske fakture') }}</h2>
-      <div class="cell-secondary">{{ schedules|length }} ukupno</div>
-    </div>
-    <div class="plan-head-actions">
-      <a class="btn" href="/racuni/raspored?new=1">+ {{ t('btn.add', 'Nova') }}</a>
+    <div class="plan-head-meta">
+      <h2>{{ t('sched.list_title', 'Raspored') }}</h2>
+      <div class="cell-secondary">{{ schedules|length }} {{ t('sched.total', 'ukupno') }}</div>
     </div>
   </div>
   {% include "_schedules_table.html" %}
