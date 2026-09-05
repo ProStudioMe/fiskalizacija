@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.pos_day', 'Dnevni promet') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('nav.pos_day', 'Dnevni promet') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn" href="/kasa">{{ t('page.kasa', 'Kasa') }}</a>
+  <a class="btn secondary" href="/blagajna">{{ t('nav.blagajna', 'Blagajna') }}</a>
+{% endblock %}
+{% block content %}
+<p class="muted" style="margin-top:0">
+  Gotovinski promet danas · ENU <code>{{ fiscal.tcr_code or '—' }}</code>
+  {% if not day.has_initial %} · <span class="pill-tag warn">nema INITIAL</span>{% endif %}
+</p>
+<div class="grid grid-3" style="margin-top:0.5rem">
+  <div class="card">
+    <div class="stat">{{ day.initial|money }} €<small>INITIAL</small></div>
+  </div>
+  <div class="card">
+    <div class="stat">{{ day.banknote_sales|money }} €<small>BANKNOTE</small></div>
+  </div>
+  <div class="card">
+    <div class="stat">{{ day.cash_in_drawer|money }} €<small>{{ t('dash.cash_drawer', 'Gotovina u kasi') }}</small></div>
+  </div>
+</div>
+
+<div class="plan-card" style="margin-top:1rem">
+  <div class="plan-head"><h2>{{ t('pos.cash_invoices', 'Gotovinski računi') }} ({{ invoices|length }})</h2></div>
+  <table class="soft-table">
+    <thead>
+      <tr>
+        <th>{{ t('col.time', 'Vrijeme') }}</th>
+        <th>{{ t('col.number', 'Broj') }}</th>
+        <th>{{ t('col.payment', 'Plaćanje') }}</th>
+        <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td>{{ inv.issue_datetime.strftime('%H:%M') if inv.issue_datetime else '—' }}</td>
+        <td><a href="/racuni/{{ inv.id }}">{{ inv.inv_num or ('#' ~ inv.id) }}</a></td>
+        <td><span class="pill-tag">{{ inv.payment_method }}</span></td>
+        <td class="num">{{ inv.total_gross|money }} €</td>
+        <td><a class="btn secondary" href="/racuni/{{ inv.id }}/stampa" style="padding:0.3rem 0.55rem">Print</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted" style="padding:1.25rem">{{ t('pos.no_cash_today', 'Nema gotovinskih računa danas.') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

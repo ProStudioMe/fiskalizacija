@@ -18,7 +18,7 @@
   <div class="card">
     {% if editing %}
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack">
+    <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <wa-input label="Šifra artikla" value="{{ editing.code }}" disabled></wa-input>
       <wa-input name="name" label="Naziv" value="{{ editing.name }}" required maxlength="255"></wa-input>
@@ -41,6 +41,15 @@
         {% endfor %}
       </wa-select>
       <wa-textarea name="description" label="Opis" rows="3" value="{{ editing.description or '' }}"></wa-textarea>
+      <div class="field logo-field" style="margin-bottom:0">
+        <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
+        {% set preview_src = thumb_url if thumb_url else none %}
+        {% set show_remove = true if editing.thumbnail_filename else false %}
+        {% set input_name = 'thumb' %}
+        {% set input_id = 'thumb-edit' %}
+        {% set remove_name = 'remove_thumb' %}
+        {% include "_thumb_upload.html" %}
+      </div>
       <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
@@ -62,7 +71,7 @@
     </form>
     {% else %}
     <h2>{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/artikli" class="wa-form-stack">
+    <form method="post" action="/artikli" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <wa-input name="code" label="Šifra artikla" required maxlength="64"></wa-input>
       <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
@@ -85,6 +94,14 @@
         {% endfor %}
       </wa-select>
       <wa-textarea name="description" label="Opis" rows="3"></wa-textarea>
+      <div class="field logo-field" style="margin-bottom:0">
+        <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
+        {% set preview_src = none %}
+        {% set show_remove = false %}
+        {% set input_name = 'thumb' %}
+        {% set input_id = 'thumb-new' %}
+        {% include "_thumb_upload.html" %}
+      </div>
       <div class="field" style="margin-bottom:0">
         <label>Izaberite boju</label>
         <div class="color-row">
@@ -123,7 +140,11 @@
         <tr>
           <td>
             <div class="cell-primary">
-              <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#c62828' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
+              {% if a.thumbnail_filename %}
+              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
+              {% else %}
+              <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#7c3aed' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
+              {% endif %}
               {{ a.name }}{% if not a.active %} <span class="pill-tag bad">off</span>{% endif %}
             </div>
             <div class="cell-secondary">Šifra {{ a.code }} · {{ a.unit }}</div>
@@ -144,4 +165,40 @@
     {% include "_pager.html" %}
   </div>
 </div>
+<script>
+(function () {
+  document.querySelectorAll('[data-file-upload]').forEach(function (root) {
+    var input = root.querySelector('[data-file-input]');
+    var zone = root.querySelector('.file-upload-zone');
+    var idle = root.querySelector('[data-file-idle]');
+    var preview = root.querySelector('[data-file-preview]');
+    var previewImg = root.querySelector('[data-file-preview-img]');
+    var nameEl = root.querySelector('[data-file-name]');
+    var noneLabel = nameEl ? nameEl.textContent : '';
+    if (!input || !zone) return;
+    function showFile(file) {
+      if (!file) {
+        if (preview) preview.hidden = true;
+        if (idle) idle.hidden = false;
+        if (nameEl) nameEl.textContent = noneLabel;
+        zone.classList.remove('has-file');
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      zone.classList.add('has-file');
+      if (preview && previewImg && file.type.indexOf('image/') === 0) {
+        var url = URL.createObjectURL(file);
+        previewImg.onload = function () { URL.revokeObjectURL(url); };
+        previewImg.src = url;
+        preview.hidden = false;
+        if (idle) idle.hidden = true;
+      }
+    }
+    input.addEventListener('change', function () {
+      showFile(input.files && input.files[0]);
+    });
+  });
+  if (window.sepkoIcons) window.sepkoIcons();
+})();
+</script>
 {% endblock %}

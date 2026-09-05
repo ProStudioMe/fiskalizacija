@@ -167,6 +167,7 @@ def init_db() -> None:
                 "description": "TEXT",
                 "color": "VARCHAR(16)",
                 "tax_rate_code": "VARCHAR(32)",
+                "thumbnail_filename": "VARCHAR(255)",
             }
             for name, coltype in art_extras.items():
                 if name not in existing:

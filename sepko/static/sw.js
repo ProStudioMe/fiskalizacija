@@ -1,9 +1,12 @@
 /* SEPKO PWA service worker — shell + recent lists; no offline fiscalize */
-const CACHE = "sepko-shell-v3";
+const CACHE = "sepko-shell-v4";
 const PRECACHE = [
   "/app",
-  "/static/style.css?v=94",
+  "/app/kasa",
+  "/static/style.css?v=107",
+  "/static/pos.js?v=7",
   "/manifest.webmanifest",
+  "/manifest-kasa.webmanifest",
   "/static/img/sepko-mark.svg?v=4",
   "/static/img/sepko-logo.svg?v=4",
   "/static/qr-scan.js?v=1",
@@ -44,7 +47,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === "/app" || url.pathname.startsWith("/ulazne") || url.pathname === "/" || url.pathname.startsWith("/racuni")) {
+  if (
+    url.pathname === "/app" ||
+    url.pathname.startsWith("/app/kasa") ||
+    url.pathname.startsWith("/ulazne") ||
+    url.pathname === "/" ||
+    url.pathname.startsWith("/racuni")
+  ) {
     event.respondWith(
       fetch(req)
         .then((res) => {
@@ -52,7 +61,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((c) => c.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match("/app")))
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("/app/kasa") || caches.match("/app")))
     );
   }
 });

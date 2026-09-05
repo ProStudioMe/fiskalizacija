@@ -503,6 +503,11 @@ def articles_page(
         .all()
     )
     tax_rates = ensure_tax_rates(db, tenant)
+    from sepko.uploads import article_thumb_public_url
+
+    thumb_url = None
+    if editing and editing.thumbnail_filename:
+        thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
     resp = render(
         request,
         "articles.html",
@@ -514,6 +519,7 @@ def articles_page(
             "categories": categories,
             "tax_rates": tax_rates,
             "colors": ARTICLE_COLORS,
+            "thumb_url": thumb_url,
             "q": q or "",
             "per_page": size,
             "page_sizes": PAGE_SIZES,
@@ -526,7 +532,7 @@ def articles_page(
 
 
 @router.post("/artikli")
-def articles_create(
+async def articles_create(
     request: Request,
     csrf_token: str = Form(""),
     code: str = Form(...),
@@ -540,6 +546,7 @@ def articles_create(
     category_id: str = Form(""),
     tax_rate_code: str = Form("PDV21"),
     unit: str = Form("KOM"),
+    thumb: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -569,24 +576,34 @@ def articles_create(
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
         return redirect("/artikli")
-    db.add(
-        Article(
-            tenant_id=tenant.id,
-            category_id=cat_id,
-            code=code.strip(),
-            name=name.strip(),
-            unit=unit.strip() or "KOM",
-            price_gross=price,
-            price_retail=retail,
-            stock_qty=stock,
-            barcode=(barcode.strip() or None),
-            description=(description.strip() or None),
-            color=(color.strip() or "#c62828"),
-            vat_rate=vat,
-            tax_rate_code=tax_code,
-            active=True,
-        )
+    article = Article(
+        tenant_id=tenant.id,
+        category_id=cat_id,
+        code=code.strip(),
+        name=name.strip(),
+        unit=unit.strip() or "KOM",
+        price_gross=price,
+        price_retail=retail,
+        stock_qty=stock,
+        barcode=(barcode.strip() or None),
+        description=(description.strip() or None),
+        color=(color.strip() or "#c62828"),
+        vat_rate=vat,
+        tax_rate_code=tax_code,
+        active=True,
     )
+    db.add(article)
+    db.flush()
+    try:
+        from sepko.uploads import save_article_thumb
+
+        article.thumbnail_filename = await save_article_thumb(
+            tenant.id, article.id, thumb, previous=None
+        )
+    except ValueError as exc:
+        db.rollback()
+        flash(request, str(exc), "error")
+        return redirect("/artikli")
     write_audit(
         db,
         "article.create",
@@ -600,7 +617,7 @@ def articles_create(
 
 
 @router.post("/artikli/{article_id}")
-def articles_update(
+async def articles_update(
     request: Request,
     article_id: int,
     csrf_token: str = Form(""),
@@ -614,6 +631,8 @@ def articles_update(
     category_id: str = Form(""),
     tax_rate_code: str = Form("PDV21"),
     unit: str = Form("KOM"),
+    thumb: UploadFile | None = File(None),
+    remove_thumb: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
@@ -650,6 +669,19 @@ def articles_update(
     article.vat_rate = vat
     article.tax_rate_code = tax_code
     article.active = True
+    try:
+        from sepko.uploads import delete_article_thumb, save_article_thumb
+
+        if remove_thumb in ("1", "on", "true"):
+            delete_article_thumb(tenant.id, article.thumbnail_filename)
+            article.thumbnail_filename = None
+        else:
+            article.thumbnail_filename = await save_article_thumb(
+                tenant.id, article.id, thumb, previous=article.thumbnail_filename
+            )
+    except ValueError as exc:
+        flash(request, str(exc), "error")
+        return redirect(f"/artikli?edit={article_id}")
     if old_price != price:
         write_audit(
             db,
@@ -662,6 +694,27 @@ def articles_update(
     db.commit()
     flash(request, f"Artikal {article.code} izmijenjen.")
     return redirect("/artikli")
+
+
+@router.get("/artikli/{article_id:int}/thumb")
+def article_thumb(
+    request: Request,
+    article_id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    article = _get_article(db, tenant, article_id)
+    if not article or not article.thumbnail_filename:
+        return Response(status_code=404)
+    from sepko.uploads import resolve_article_thumb
+
+    path = resolve_article_thumb(tenant.id, article.thumbnail_filename)
+    if not path:
+        return Response(status_code=404)
+    return FileResponse(path)
 
 
 @router.post("/artikli/{article_id}/obrisi")
@@ -1112,6 +1165,7 @@ def cash_page(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     fiscal = load_tenant_fiscal(tenant)
+    from_pwa = (request.query_params.get("from") or "").strip().lower() == "pwa"
     return render(
         request,
         "cash.html",
@@ -1121,6 +1175,8 @@ def cash_page(request: Request, db: Session = Depends(get_db)):
             "day": day,
             "deposits": deposits,
             "fiscal": fiscal,
+            "from_pwa": from_pwa,
+            "kasa_url": "/app/kasa" if from_pwa else "/kasa",
         },
     )
 
@@ -1131,22 +1187,24 @@ def cash_submit(
     csrf_token: str = Form(""),
     operation: str = Form("INITIAL"),
     amount: str = Form(...),
+    return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = "/blagajna?from=pwa" if (return_to or "").startswith("/app/kasa") else "/blagajna"
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/blagajna")
+        return redirect(back)
     try:
         amt = _parse_nonneg_money(amount)
         if amt is None:
             raise ValueError("bad amount")
     except Exception:
         flash(request, "Neispravan iznos.", "error")
-        return redirect("/blagajna")
+        return redirect(back)
     result = register_cash_deposit(
         db,
         tenant,
@@ -1156,9 +1214,11 @@ def cash_submit(
         from sepko.money import format_amount
 
         flash(request, f"{result.operation} {format_amount(result.amount)} € — registrovano.")
+        if (return_to or "").startswith("/app/kasa"):
+            return redirect("/app/kasa")
     else:
         flash(request, result.error_message or "Depozit nije uspio.", "error")
-    return redirect("/blagajna")
+    return redirect(back)
 
 
 # --- Računi ---
@@ -2443,9 +2503,18 @@ def invoice_print(
     request: Request,
     invoice_id: int,
     fmt: str = Query(""),
+    auto: str = Query(""),
+    back: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    return _render_invoice_print(request, invoice_id, db, force=fmt)
+    return _render_invoice_print(
+        request,
+        invoice_id,
+        db,
+        force=fmt,
+        auto_print=auto in ("1", "true", "yes"),
+        back_url=back,
+    )
 
 
 @router.get("/racuni/{invoice_id:int}/escpos")
@@ -2650,7 +2719,15 @@ def _invoice_print_context(request: Request, invoice_id: int, db: Session) -> di
     }
 
 
-def _render_invoice_print(request: Request, invoice_id: int, db: Session, force: str = ""):
+def _render_invoice_print(
+    request: Request,
+    invoice_id: int,
+    db: Session,
+    force: str = "",
+    *,
+    auto_print: bool = False,
+    back_url: str = "",
+):
     ctx = _invoice_print_context(request, invoice_id, db)
     if ctx is None:
         return redirect("/login")
@@ -2663,6 +2740,12 @@ def _render_invoice_print(request: Request, invoice_id: int, db: Session, force:
     ctx["print_agent_url"] = ui.print_agent_url or "ws://127.0.0.1:17890/ws"
     ctx["escpos_url"] = f"/racuni/{invoice_id}/escpos"
     ctx["printer_name"] = ui.printer_name or ""
+    ctx["auto_print"] = auto_print
+    back = (back_url or "").strip()
+    if back.startswith("/") and not back.startswith("//"):
+        ctx["back_url"] = back
+    else:
+        ctx["back_url"] = f"/racuni/{invoice_id}"
     return render(request, template, ctx)
 
 

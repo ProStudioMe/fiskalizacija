@@ -22,6 +22,7 @@ from sepko.web import router as web_router
 from sepko.web_admin import router as admin_router
 from sepko.web_finansije import router as finansije_router
 from sepko.web_izvjestaji import router as izvjestaji_router
+from sepko.web_pos import router as pos_router
 from sepko.web_pwa import router as pwa_router
 from sepko.web_troskovi import router as troskovi_router
 from sepko.web_ulazne import router as ulazne_router
@@ -77,6 +78,7 @@ app.include_router(invoices.router)
 app.include_router(bookkeeping.router)
 app.include_router(settings_router.router)
 app.include_router(web_router)
+app.include_router(pos_router)
 app.include_router(admin_router)
 app.include_router(finansije_router)
 app.include_router(ulazne_router)

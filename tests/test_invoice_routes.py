@@ -33,3 +33,26 @@ def test_pwa_manifest_is_dynamic():
     assert data["display"] == "standalone"
     assert data["launch_handler"]["client_mode"] == "focus-existing"
     assert data["related_applications"]
+
+
+def test_pos_kasa_requires_auth():
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/kasa", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/login" in r.headers.get("location", "")
+
+
+def test_pos_pwa_requires_auth():
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/app/kasa", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/login" in r.headers.get("location", "")
+
+
+def test_pos_kasa_manifest():
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/manifest-kasa.webmanifest")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["start_url"] == "/app/kasa"
+    assert data["short_name"] == "Kasa"

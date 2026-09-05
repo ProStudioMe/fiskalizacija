@@ -90,26 +90,25 @@ def main() -> None:
             print("Web user admin@philia.me already exists.")
 
         samples = [
-            # hotel demo (stari)
-            ("GROUP-DBL", "GROUP - DOUBLE", "KOM", Decimal("79.00"), Decimal("15"), "#c62828"),
-            ("GROUP-DBU", "GROUP - DOUBLE SU", "KOM", Decimal("69.00"), Decimal("15"), "#c62828"),
-            ("GROUP-SIN", "GROUP - SINGLE", "KOM", Decimal("59.00"), Decimal("15"), "#c62828"),
-            ("10000", "Quadruple room", "KOM", Decimal("139.00"), Decimal("21"), "#c62828"),
-            # ProStudio / usluge (VG lista)
-            ("2", "Izrada web sajta", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("3", "B2B sistem", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("7", "Cloudflare + konfiguracija", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("8", "Cloud VPS XL + konfiguracija", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("10", "Izrada API-a", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("11", "Dodatni radovi", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("16", "Cloudflare pretplata", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("17", "Izrada logotipa", "kom", Decimal("300.00"), Decimal("21"), "#c62828"),
-            ("22", "Mail servis", "kom", Decimal("1.00"), Decimal("21"), "#c62828"),
-            ("27", "Izrada aplikacije", "1", Decimal("5000.00"), Decimal("21"), "#c62828"),
-            ("28", "Intranet", "1", Decimal("3305.7851"), Decimal("21"), "#c62828"),
-            ("30", "Flatera", "Kom", Decimal("0.00"), Decimal("21"), "#c62828"),
+            # code, name, unit, price, vat, color, demo_thumb
+            ("GROUP-DBL", "GROUP - DOUBLE", "KOM", Decimal("79.00"), Decimal("15"), "#c62828", "demo/intranet.svg"),
+            ("GROUP-DBU", "GROUP - DOUBLE SU", "KOM", Decimal("69.00"), Decimal("15"), "#c62828", "demo/intranet.svg"),
+            ("GROUP-SIN", "GROUP - SINGLE", "KOM", Decimal("59.00"), Decimal("15"), "#c62828", "demo/intranet.svg"),
+            ("10000", "Quadruple room", "KOM", Decimal("139.00"), Decimal("21"), "#c62828", "demo/intranet.svg"),
+            ("2", "Izrada web sajta", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/web.svg"),
+            ("3", "B2B sistem", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/b2b.svg"),
+            ("7", "Cloudflare + konfiguracija", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/cloud.svg"),
+            ("8", "Cloud VPS XL + konfiguracija", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/vps.svg"),
+            ("10", "Izrada API-a", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/api.svg"),
+            ("11", "Dodatni radovi", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/tools.svg"),
+            ("16", "Cloudflare pretplata", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/cloud.svg"),
+            ("17", "Izrada logotipa", "kom", Decimal("300.00"), Decimal("21"), "#c62828", "demo/logo.svg"),
+            ("22", "Mail servis", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/mail.svg"),
+            ("27", "Izrada aplikacije", "1", Decimal("5000.00"), Decimal("21"), "#c62828", "demo/app.svg"),
+            ("28", "Intranet", "1", Decimal("3305.7851"), Decimal("21"), "#c62828", "demo/intranet.svg"),
+            ("30", "Flatera", "Kom", Decimal("0.00"), Decimal("21"), "#c62828", "demo/tools.svg"),
         ]
-        for code, name, unit, price, vat, color in samples:
+        for code, name, unit, price, vat, color, thumb in samples:
             existing = db.query(Article).filter(Article.tenant_id == tenant.id, Article.code == code).first()
             if not existing:
                 db.add(
@@ -122,6 +121,7 @@ def main() -> None:
                         vat_rate=vat,
                         tax_rate_code="PDV21" if vat == Decimal("21") else "PDV15",
                         color=color,
+                        thumbnail_filename=thumb,
                         active=True,
                     )
                 )
@@ -133,6 +133,8 @@ def main() -> None:
                 existing.vat_rate = vat
                 existing.tax_rate_code = "PDV21" if vat == Decimal("21") else "PDV15"
                 existing.color = color or existing.color
+                if not existing.thumbnail_filename:
+                    existing.thumbnail_filename = thumb
                 existing.active = True
 
         if not db.query(Customer).filter(Customer.tenant_id == tenant.id, Customer.pib == "03010864").first():

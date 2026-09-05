@@ -36,7 +36,7 @@
 <body>
   <div class="receipt">
     <p class="noprint">
-      <a href="/racuni/{{ invoice.id }}">← Nazad</a>
+      <a href="{{ back_url or ('/racuni/' ~ invoice.id) }}">← Nazad</a>
       ·
       <button type="button" id="btn-print">Štampa</button>
       ·
@@ -81,6 +81,11 @@
       };
       var btn = document.getElementById("btn-print");
       if (btn) btn.addEventListener("click", function () { window.SepkoPrint.printPage(opts); });
+      {% if auto_print %}
+      setTimeout(function () {
+        window.SepkoPrint.printPage(opts).catch(function () {});
+      }, 250);
+      {% endif %}
     })();
   </script>
 </body>

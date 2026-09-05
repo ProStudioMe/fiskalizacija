@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block body_class %}pos-mode{% if pwa %} pos-pwa{% endif %}{% endblock %}
+{% block title %}{{ t('page.kasa', 'Kasa') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.kasa', 'Kasa') }}{% endblock %}
+{% block page_actions %}
+  {% if not pwa %}
+  <a class="btn secondary" href="/blagajna">
+    <i data-lucide="wallet" aria-hidden="true"></i>
+    {{ t('nav.blagajna', 'Blagajna') }}
+  </a>
+  <a class="btn secondary" href="/maloprodaja/promet">
+    <i data-lucide="shopping-bag" aria-hidden="true"></i>
+    {{ t('nav.pos_day', 'Dnevni promet') }}
+  </a>
+  {% else %}
+  <a class="btn secondary" href="/blagajna?from=pwa">
+    <i data-lucide="wallet" aria-hidden="true"></i>
+    {{ t('nav.blagajna', 'Blagajna') }}
+  </a>
+  {% endif %}
+  <div class="pos-day-strip" aria-label="{{ t('page.kasa', 'Kasa') }}">
+    <div>
+      <em>{{ day.cash_in_drawer|money }} €</em>
+      <small>{{ t('dash.cash_drawer', 'Stanje blagajne') }}</small>
+    </div>
+    <div>
+      <em>{{ day.invoice_count }}</em>
+      <small>{{ t('dash.today_count', 'Računi danas') }}</small>
+    </div>
+  </div>
+{% endblock %}
+{% block extra_css %}{% endblock %}
+{% block manifest %}
+  {% if pwa %}
+  <link rel="manifest" href="/manifest-kasa.webmanifest">
+  <meta name="apple-mobile-web-app-title" content="SEPKO Kasa">
+  {% else %}
+  {{ super() }}
+  {% endif %}
+{% endblock %}
+{% block content %}
+{% if not day.has_initial %}
+<div class="pos-banner" role="alert">
+  <div class="pos-banner-copy">
+    <strong>{{ t('pos.need_initial_title', 'Blagajna nije otvorena') }}</strong>
+    <span>{{ t('pos.need_initial_msg', 'Prije gotovinskih računa unesi INITIAL depozit za danas (smije biti 0,00).') }}</span>
+  </div>
+  <a class="btn" href="{{ blagajna_url or '/blagajna' }}">{{ t('pos.open_cash', 'Otvori blagajnu') }}</a>
+</div>
+{% endif %}
+
+<div class="pos-shell">
+  <section class="pos-catalog" aria-label="{{ t('nav.artikli', 'Artikli') }}">
+    <div class="pos-toolbar">
+      <label class="pos-search-wrap">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <input type="search" id="pos-search" class="pos-search" placeholder="{{ t('pos.search', 'Pretraga / barkod…') }}" autocomplete="off" autofocus>
+      </label>
+      <button type="button" class="btn secondary pos-custom-btn" id="pos-custom-btn">
+        <i data-lucide="plus" aria-hidden="true"></i>
+        {{ t('pos.custom', 'Slobodan iznos') }}
+      </button>
+    </div>
+    <div class="pos-grid" id="pos-grid"></div>
+    <p class="muted pos-empty" id="pos-empty" hidden>{{ t('pos.no_articles', 'Nema artikala. Dodaj ih u šifrarniku.') }}</p>
+  </section>
+
+  <aside class="pos-cart" aria-label="{{ t('pos.cart', 'Korpa') }}">
+    <div class="pos-cart-top">
+      <div class="pos-cart-head">
+        <strong>{{ t('pos.cart', 'Korpa') }}</strong>
+        <span class="pos-enu">ENU {{ fiscal.tcr_code or '—' }}</span>
+      </div>
+    </div>
+
+    <div class="pos-cart-body">
+      <ul class="pos-lines" id="pos-lines"></ul>
+      <div class="pos-cart-empty" id="pos-cart-empty">
+        <span class="pos-cart-empty-ico" aria-hidden="true"><i data-lucide="scan-barcode"></i></span>
+        <strong>{{ t('pos.cart_empty_title', 'Korpa je prazna') }}</strong>
+        <span>{{ t('pos.cart_empty', 'Klikni artikal ili skeniraj barkod.') }}</span>
+      </div>
+    </div>
+
+    <form method="post" action="{{ form_action or '/kasa/fiskalizuj' }}" id="pos-form" class="pos-cart-foot"
+          data-has-initial="{% if day.has_initial %}1{% else %}0{% endif %}"
+          data-blagajna="{{ blagajna_url or '/blagajna' }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="return_to" value="{{ return_to or '/kasa' }}">
+      <div id="pos-hidden-lines"></div>
+
+      <div class="pos-pay" role="group" aria-label="{{ t('col.payment', 'Plaćanje') }}">
+        <label class="pos-pay-opt">
+          <input type="radio" name="payment_method" value="BANKNOTE" checked>
+          <span>{{ t('pay.banknote', 'Gotovina') }}</span>
+        </label>
+        <label class="pos-pay-opt">
+          <input type="radio" name="payment_method" value="CARD">
+          <span>{{ t('pay.card', 'Kartica') }}</span>
+        </label>
+        <label class="pos-pay-opt">
+          <input type="radio" name="payment_method" value="OTHER-CASH">
+          <span>{{ t('pay.other_cash', 'Ostalo') }}</span>
+        </label>
+      </div>
+
+      <div class="pos-total">
+        <span>{{ t('col.total', 'Ukupno') }}</span>
+        <strong id="pos-total">0,00 €</strong>
+      </div>
+
+      <button type="submit" class="btn pos-fiscalize" id="pos-submit" disabled>
+        {{ t('btn.fiscalize', 'Fiskalizuj') }}
+      </button>
+      <button type="button" class="pos-clear" id="pos-clear" disabled>
+        {{ t('btn.clear', 'Isprazni') }}
+      </button>
+    </form>
+
+    {% if recent and not pwa %}
+    <div class="pos-recent">
+      <div class="pos-recent-head">{{ t('pos.recent', 'Zadnji CASH') }}</div>
+      <ul>
+        {% for inv in recent[:5] %}
+        <li>
+          <a href="/racuni/{{ inv.id }}">{{ inv.inv_num or ('#' ~ inv.id) }}</a>
+          <span>{{ inv.total_gross|money }} €</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{% if pwa %}
+<nav class="pos-pwa-nav" aria-label="Kasa">
+  <a href="/app/kasa" class="active">
+    <i data-lucide="monitor" aria-hidden="true"></i>
+    {{ t('page.kasa', 'Kasa') }}
+  </a>
+  <a href="/blagajna?from=pwa">
+    <i data-lucide="wallet" aria-hidden="true"></i>
+    {{ t('nav.blagajna', 'Blagajna') }}
+  </a>
+  <a href="/maloprodaja/promet">
+    <i data-lucide="shopping-bag" aria-hidden="true"></i>
+    {{ t('nav.pos_day', 'Promet') }}
+  </a>
+  <a href="/app">
+    <i data-lucide="layout-grid" aria-hidden="true"></i>
+    App
+  </a>
+</nav>
+{% endif %}
+
+<script type="application/json" id="pos-articles-data">{{ articles_json|tojson }}</script>
+<script src="/static/pos.js?v=7" defer></script>
+{% endblock %}

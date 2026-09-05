@@ -26,12 +26,16 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=94">
+  <link rel="stylesheet" href="/static/style.css?v=107">
   <link rel="stylesheet" href="/static/fb-table.css?v=2">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=9">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
+  {% block head_extra %}{% endblock %}
+  {% block extra_css %}{% endblock %}
   <link rel="icon" href="/static/img/sepko-mark.svg?v=4" type="image/svg+xml">
+  {% block manifest %}
   <link rel="manifest" href="/manifest.webmanifest">
+  {% endblock %}
   <meta name="theme-color" content="#5b21b6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="SEPKO">
@@ -40,7 +44,7 @@
   <script src="/static/webawesome-init.js?v=1"></script>
   <script src="/static/money.js?v=1"></script>
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div class="confirm-backdrop" id="sepko-dialog" hidden
        data-lbl-cancel="{{ t('btn.cancel', 'Odustani') }}"
        data-lbl-ok="{{ t('btn.ok', 'U redu') }}">
@@ -114,7 +118,7 @@
           <div class="nav-label">{{ t('nav.racuni', 'Računi') }}</div>
           <a href="/racuni/novi" class="nav-cta {% if path.startswith('/racuni/novi') %}active{% endif %}">
             <i data-lucide="plus" aria-hidden="true"></i>
-            {{ t('nav.izdaj', 'Izdaj račun') }}
+            {{ t('page.invoice_new', 'Nova faktura') }}
           </a>
           <a href="/racuni" class="nav-item {% if path.startswith('/racuni') and '/novi' not in path and '/raspored' not in path %}active{% endif %}">
             <i data-lucide="file-text" aria-hidden="true"></i>
@@ -124,9 +128,20 @@
             <i data-lucide="calendar-clock" aria-hidden="true"></i>
             {{ t('nav.raspored', 'Automatske fakture') }}
           </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-label">{{ t('nav.maloprodaja', 'Maloprodaja') }}</div>
+          <a href="/kasa" class="nav-item nav-pos {% if path.startswith('/kasa') %}active{% endif %}">
+            <i data-lucide="monitor" aria-hidden="true"></i>
+            {{ t('page.kasa', 'Kasa') }}
+          </a>
           <a href="/blagajna" class="nav-item {% if path.startswith('/blagajna') %}active{% endif %}">
             <i data-lucide="wallet" aria-hidden="true"></i>
             {{ t('nav.blagajna', 'Blagajna') }}
+          </a>
+          <a href="/maloprodaja/promet" class="nav-item {% if path.startswith('/maloprodaja') %}active{% endif %}">
+            <i data-lucide="shopping-bag" aria-hidden="true"></i>
+            {{ t('nav.pos_day', 'Dnevni promet') }}
           </a>
         </div>
         <div class="nav-group">

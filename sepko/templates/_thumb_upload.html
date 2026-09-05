@@ -1,0 +1,39 @@
+{# Thumbnail picker for articles. Expects: input_name, input_id, preview_src, show_remove #}
+{% set input_name = input_name|default('thumb') %}
+{% set input_id = input_id|default('thumb-input') %}
+{% set show_remove = show_remove|default(false) %}
+{% set remove_name = remove_name|default('remove_thumb') %}
+<div class="file-upload" data-file-upload>
+  {% if preview_src %}
+  <div class="file-upload-current">
+    <img class="article-thumb-preview" src="{{ preview_src }}" alt="" data-file-preview-current>
+    {% if show_remove %}
+    <label class="toggle-row file-upload-remove">
+      <span>{{ t('upload.remove_thumb', 'Ukloni sliku') }}</span>
+      <input type="checkbox" name="{{ remove_name }}" value="1">
+    </label>
+    {% endif %}
+  </div>
+  {% endif %}
+  <label class="file-upload-zone" for="{{ input_id }}">
+    <input
+      type="file"
+      id="{{ input_id }}"
+      name="{{ input_name }}"
+      class="file-upload-input"
+      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+      data-file-input
+    >
+    <span class="file-upload-preview" data-file-preview hidden>
+      <img alt="" data-file-preview-img>
+    </span>
+    <span class="file-upload-idle" data-file-idle>
+      <span class="file-upload-ico" aria-hidden="true">
+        <i data-lucide="image"></i>
+      </span>
+      <span class="file-upload-title">{{ t('upload.choose', 'Odaberi sliku') }}</span>
+      <span class="file-upload-hint">{{ t('upload.hint_thumb', 'PNG, JPG, WEBP, GIF ili SVG · max 2 MB') }}</span>
+      <span class="file-upload-name muted" data-file-name>{{ t('upload.none', 'Nije odabran fajl') }}</span>
+    </span>
+  </label>
+</div>

@@ -131,6 +131,7 @@ class Article(Base):
     barcode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     color: Mapped[str | None] = mapped_column(String(16), nullable=True, default="#c62828")
+    thumbnail_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=Decimal("21"))
     tax_rate_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     active: Mapped[bool] = mapped_column(default=True)

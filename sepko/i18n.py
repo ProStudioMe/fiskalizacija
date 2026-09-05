@@ -252,6 +252,87 @@ STRINGS_SEED: list[dict] = [
         },
     },
     {
+        "key": "nav.maloprodaja",
+        "category": "nav",
+        "description": "Meni Maloprodaja",
+        "values": {
+            "cnr": "Maloprodaja",
+            "en": "Retail",
+        },
+    },
+    {
+        "key": "nav.pos_day",
+        "category": "nav",
+        "description": "Meni Dnevni promet (POS)",
+        "values": {
+            "cnr": "Dnevni promet",
+            "en": "Day sales",
+        },
+    },
+    {
+        "key": "page.kasa",
+        "category": "page",
+        "description": "Stranica Kasa / POS",
+        "values": {
+            "cnr": "Kasa",
+            "en": "POS",
+        },
+    },
+    {
+        "key": "pos.search",
+        "category": "pos",
+        "description": "Pretraga na kasi",
+        "values": {"cnr": "Pretraga / barkod…", "en": "Search / barcode…"},
+    },
+    {
+        "key": "pos.custom",
+        "category": "pos",
+        "description": "Slobodan iznos na kasi",
+        "values": {"cnr": "Slobodan iznos", "en": "Custom amount"},
+    },
+    {
+        "key": "pos.cart",
+        "category": "pos",
+        "description": "Korpa na kasi",
+        "values": {"cnr": "Korpa", "en": "Cart"},
+    },
+    {
+        "key": "pos.cart_empty_title",
+        "category": "pos",
+        "description": "Naslov prazne korpe",
+        "values": {"cnr": "Korpa je prazna", "en": "Cart is empty"},
+    },
+    {
+        "key": "pos.cart_empty",
+        "category": "pos",
+        "description": "Hint prazne korpe",
+        "values": {
+            "cnr": "Klikni artikal ili skeniraj barkod.",
+            "en": "Tap an item or scan a barcode.",
+        },
+    },
+    {
+        "key": "pos.need_initial_title",
+        "category": "pos",
+        "description": "Naslov — blagajna nije otvorena",
+        "values": {"cnr": "Blagajna nije otvorena", "en": "Cash drawer not opened"},
+    },
+    {
+        "key": "pos.need_initial_msg",
+        "category": "pos",
+        "description": "Poruka — treba INITIAL",
+        "values": {
+            "cnr": "Prije gotovinskih računa unesi INITIAL depozit za danas (smije biti 0,00).",
+            "en": "Register INITIAL deposit for today before cash invoices (0.00 allowed).",
+        },
+    },
+    {
+        "key": "dash.pos_hint",
+        "category": "dash",
+        "description": "Hint za kasu na dashboardu",
+        "values": {"cnr": "Maloprodaja i gotovina", "en": "Retail and cash"},
+    },
+    {
         "key": "nav.izvjestaji",
         "category": "nav",
         "description": "Meni Izvještaji",

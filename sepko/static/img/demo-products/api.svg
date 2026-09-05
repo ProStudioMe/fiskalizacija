@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240" role="img" aria-label="API">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="hsl(280,70%,52%)"/>
+      <stop offset="100%" stop-color="hsl(280,65%,32%)"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="240" rx="28" fill="#12121a"/>
+  <rect x="16" y="16" width="288" height="208" rx="22" fill="url(#g)" opacity="0.92"/>
+  <g transform="translate(110,58)" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <circle cx="50" cy="50" r="18"/><path d="M50 18v14M50 68v14M18 50h14M68 50h14M28 28l10 10M62 62l10 10M72 28L62 38M28 72l10-10"/>
+  </g>
+  <text x="160" y="200" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="18" font-weight="700">API</text>
+</svg>

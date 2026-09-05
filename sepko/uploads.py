@@ -1,4 +1,4 @@
-"""Upload logotipa komitenata (lokalni disk, tenant-scoped)."""
+"""Upload logotipa komitenata i thumbnail artikala (lokalni disk, tenant-scoped)."""
 from __future__ import annotations
 
 import re
@@ -9,8 +9,9 @@ from fastapi import UploadFile
 
 from sepko.config import get_settings
 
-ALLOWED_EXT = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
+ALLOWED_EXT = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
 MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+DEMO_PREFIX = "demo/"
 
 
 def uploads_root() -> Path:
@@ -24,8 +25,18 @@ def uploads_root() -> Path:
     return base
 
 
+def demo_products_dir() -> Path:
+    return Path(__file__).resolve().parent / "static" / "img" / "demo-products"
+
+
 def customer_logo_dir(tenant_id: int) -> Path:
     path = uploads_root() / f"t{tenant_id}" / "customers"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def article_thumb_dir(tenant_id: int) -> Path:
+    path = uploads_root() / f"t{tenant_id}" / "articles"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -51,7 +62,7 @@ async def save_customer_logo(
     if upload is None or not upload.filename:
         return previous
     ext = _safe_ext(upload.filename)
-    if not ext:
+    if not ext or ext == ".svg":
         raise ValueError("Dozvoljeni formati loga: PNG, JPG, WEBP, GIF.")
     data = await upload.read()
     if not data:
@@ -90,3 +101,67 @@ def resolve_customer_logo(tenant_id: int, filename: str | None) -> Path | None:
     if path.is_file():
         return path
     return None
+
+
+def is_demo_thumb(filename: str | None) -> bool:
+    return bool(filename and filename.startswith(DEMO_PREFIX))
+
+
+def article_thumb_public_url(article_id: int, filename: str | None) -> str | None:
+    if not filename:
+        return None
+    if is_demo_thumb(filename):
+        name = Path(filename[len(DEMO_PREFIX) :]).name
+        return f"/static/img/demo-products/{name}"
+    return f"/artikli/{article_id}/thumb"
+
+
+async def save_article_thumb(
+    tenant_id: int,
+    article_id: int,
+    upload: UploadFile | None,
+    previous: str | None = None,
+) -> str | None:
+    if upload is None or not upload.filename:
+        return previous
+    ext = _safe_ext(upload.filename)
+    if not ext:
+        raise ValueError("Dozvoljeni formati: PNG, JPG, WEBP, GIF, SVG.")
+    data = await upload.read()
+    if not data:
+        return previous
+    if len(data) > MAX_BYTES:
+        raise ValueError("Slika je prevelika (max 2 MB).")
+    dest_dir = article_thumb_dir(tenant_id)
+    fname = f"{article_id}-{uuid.uuid4().hex[:8]}{ext}"
+    dest = dest_dir / fname
+    dest.write_bytes(data)
+    if previous and not is_demo_thumb(previous):
+        old = dest_dir / Path(previous).name
+        if old.is_file() and old.resolve().parent == dest_dir.resolve():
+            try:
+                old.unlink()
+            except OSError:
+                pass
+    return fname
+
+
+def delete_article_thumb(tenant_id: int, filename: str | None) -> None:
+    if not filename or is_demo_thumb(filename):
+        return
+    path = article_thumb_dir(tenant_id) / Path(filename).name
+    if path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def resolve_article_thumb(tenant_id: int, filename: str | None) -> Path | None:
+    if not filename:
+        return None
+    if is_demo_thumb(filename):
+        path = demo_products_dir() / Path(filename[len(DEMO_PREFIX) :]).name
+        return path if path.is_file() else None
+    path = article_thumb_dir(tenant_id) / Path(filename).name
+    return path if path.is_file() else None

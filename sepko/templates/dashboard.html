@@ -11,17 +11,17 @@
       <i data-lucide="plus"></i>
     </span>
     <span class="dash-primary-copy">
-      <strong>{{ t('nav.izdaj', 'Izdaj račun') }}</strong>
-      <small>{{ t('dash.izdaj_hint', 'Novi račun ili faktura') }}</small>
+      <strong>{{ t('page.invoice_new', 'Nova faktura') }}</strong>
+      <small>{{ t('dash.izdaj_hint', 'Bezgotovinska faktura') }}</small>
     </span>
   </a>
-  <a class="dash-primary-link" href="/racuni">
+  <a class="dash-primary-link" href="/kasa">
     <span class="dash-primary-icon secondary" aria-hidden="true">
-      <i data-lucide="file-text"></i>
+      <i data-lucide="monitor"></i>
     </span>
     <span class="dash-primary-copy">
-      <strong>{{ t('nav.izlazne', 'Izlazne') }}</strong>
-      <small>{{ t('dash.izlazne_hint', 'Pregled i fiskalizacija') }}</small>
+      <strong>{{ t('page.kasa', 'Kasa') }}</strong>
+      <small>{{ t('dash.pos_hint', 'Maloprodaja i gotovina') }}</small>
     </span>
   </a>
 </section>
@@ -41,8 +41,8 @@
 <div class="card" style="margin-top:1rem">
   <h2>{{ t('dash.quick_actions', 'Ostale akcije') }}</h2>
   <div class="row" style="align-items:center">
+    <a class="btn secondary" href="/racuni">{{ t('nav.izlazne', 'Izlazne') }}</a>
     <a class="btn secondary" href="/blagajna">{{ t('nav.blagajna', 'Blagajna') }}</a>
-    <a class="btn secondary" href="/kupci">{{ t('nav.komitenti', 'Komitenti') }}</a>
     <a class="btn secondary" href="/artikli">{{ t('nav.artikli', 'Artikli') }}</a>
   </div>
 </div>

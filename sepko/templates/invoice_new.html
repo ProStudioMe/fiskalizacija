@@ -21,16 +21,6 @@
   {% endif %}
 {% endblock %}
 {% block content %}
-{% if not day.has_initial and not is_template %}
-<div class="inv-cash-banner" role="alert">
-  <span class="inv-cash-banner-ico" aria-hidden="true"><i data-lucide="alert-triangle"></i></span>
-  <div class="inv-cash-banner-body">
-    <strong>Nema početnog depozita</strong>
-    <span>Za gotovinu prvo otvori blagajnu za danas.</span>
-  </div>
-  <a class="btn secondary inv-cash-banner-btn" href="/blagajna">Otvori blagajnu</a>
-</div>
-{% endif %}
 {% if is_template %}
 <p class="muted inv-template-hint">Šablon za automatsku (mjesečnu) fakturu — kupac i stavke fiksnog iznosa. Nakon čuvanja vratićeš se na listu.</p>
 {% endif %}
