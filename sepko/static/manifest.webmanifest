@@ -1,6 +1,7 @@
 {
   "name": "SEPKO",
   "short_name": "SEPKO",
+  "id": "/",
   "description": "Fiskalizacija CG — izlazne, ulazne, troškovnik",
   "start_url": "/app",
   "scope": "/",
@@ -8,6 +9,10 @@
   "background_color": "#0f0a1a",
   "theme_color": "#5b21b6",
   "lang": "sr-ME",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/static/img/sepko-mark.svg?v=4",

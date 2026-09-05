@@ -22,3 +22,14 @@ def test_numeric_invoice_path_still_routes():
     r = client.get("/racuni/123", follow_redirects=False)
     assert r.status_code in (200, 303, 404)
     assert "int_parsing" not in r.text
+
+
+def test_pwa_manifest_is_dynamic():
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/manifest.webmanifest")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["start_url"] == "/app"
+    assert data["display"] == "standalone"
+    assert data["launch_handler"]["client_mode"] == "focus-existing"
+    assert data["related_applications"]

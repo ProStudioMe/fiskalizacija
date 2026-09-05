@@ -142,6 +142,72 @@ STRINGS_SEED: list[dict] = [
         "values": {"cnr": "Brza fiskalizacija", "en": "Quick fiscalize"},
     },
     {
+        "key": "pwa.install",
+        "category": "pwa",
+        "description": "Dugme instalacije PWA",
+        "values": {"cnr": "Instaliraj", "en": "Install"},
+    },
+    {
+        "key": "pwa.install_title",
+        "category": "pwa",
+        "description": "Naslov dijaloga instalacije",
+        "values": {"cnr": "Instaliraj SEPKO", "en": "Install SEPKO"},
+    },
+    {
+        "key": "pwa.install_msg",
+        "category": "pwa",
+        "description": "Tekst dijaloga instalacije",
+        "values": {
+            "cnr": "Dodaj SEPKO na početni ekran — brži pristup računima, bez browser trake.",
+            "en": "Add SEPKO to your home screen — faster invoices, no browser chrome.",
+        },
+    },
+    {
+        "key": "pwa.install_ios",
+        "category": "pwa",
+        "description": "iOS uputstvo za instalaciju",
+        "values": {
+            "cnr": "Na iPhone: Deli → Dodaj na početni ekran.",
+            "en": "On iPhone: Share → Add to Home Screen.",
+        },
+    },
+    {
+        "key": "pwa.open",
+        "category": "pwa",
+        "description": "Dugme otvaranja instalirane PWA",
+        "values": {"cnr": "Otvori app", "en": "Open app"},
+    },
+    {
+        "key": "pwa.open_title",
+        "category": "pwa",
+        "description": "Naslov kad je PWA već instalirana",
+        "values": {"cnr": "SEPKO je instaliran", "en": "SEPKO is installed"},
+    },
+    {
+        "key": "pwa.open_msg",
+        "category": "pwa",
+        "description": "Tekst kad je PWA već instalirana",
+        "values": {
+            "cnr": "Aplikacija je već na uređaju. Otvori je da radi bez browser trake.",
+            "en": "The app is already on this device. Open it to use without the browser bar.",
+        },
+    },
+    {
+        "key": "pwa.open_ios",
+        "category": "pwa",
+        "description": "iOS uputstvo kad je PWA instalirana",
+        "values": {
+            "cnr": "Otvori SEPKO sa početnog ekrana (ikona SEPKO).",
+            "en": "Open SEPKO from your home screen (the SEPKO icon).",
+        },
+    },
+    {
+        "key": "btn.later",
+        "category": "btn",
+        "description": "Odloži PWA dijalog",
+        "values": {"cnr": "Kasnije", "en": "Later"},
+    },
+    {
         "key": "reports.overview",
         "category": "reports",
         "description": "Pregled perioda",

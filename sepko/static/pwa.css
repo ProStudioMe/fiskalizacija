@@ -1,4 +1,20 @@
 /* PWA bottom nav + mobile shell */
+.topbar-install {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.topbar-install:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.topbar-install[hidden] { display: none !important; }
+
 .pwa-bottom-nav {
   display: none;
 }

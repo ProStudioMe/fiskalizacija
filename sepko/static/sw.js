@@ -1,13 +1,13 @@
 /* SEPKO PWA service worker — shell + recent lists; no offline fiscalize */
-const CACHE = "sepko-shell-v2";
+const CACHE = "sepko-shell-v3";
 const PRECACHE = [
   "/app",
-  "/static/style.css?v=43",
-  "/static/manifest.webmanifest",
+  "/static/style.css?v=94",
+  "/manifest.webmanifest",
   "/static/img/sepko-mark.svg?v=4",
   "/static/img/sepko-logo.svg?v=4",
   "/static/qr-scan.js?v=1",
-  "/static/pwa.css?v=1",
+  "/static/pwa.css?v=2",
   "/static/lucide.min.js?v=0.544.0",
   "/static/lucide-init.js?v=1",
 ];

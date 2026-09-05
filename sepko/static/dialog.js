@@ -8,6 +8,7 @@
   var cancelBtn = document.getElementById("sepko-dialog-cancel");
   var okBtn = document.getElementById("sepko-dialog-ok");
   var pendingOk = null;
+  var pendingCancel = null;
   var lastFocus = null;
   var lblCancel = root.getAttribute("data-lbl-cancel") || "Odustani";
   var lblOk = root.getAttribute("data-lbl-ok") || "U redu";
@@ -18,14 +19,22 @@
     return "!";
   }
 
-  function close() {
-    root.hidden = true;
+  function close(accepted) {
+    var fn = pendingOk;
+    var cancel = pendingCancel;
     pendingOk = null;
+    pendingCancel = null;
+    root.hidden = true;
     document.body.classList.remove("sepko-dialog-open");
     if (lastFocus && typeof lastFocus.focus === "function") {
       try { lastFocus.focus(); } catch (e) {}
     }
     lastFocus = null;
+    if (accepted) {
+      if (fn) fn();
+    } else if (cancel) {
+      cancel();
+    }
   }
 
   function open(opts) {
@@ -48,26 +57,23 @@
       cancelBtn.hidden = isAlert;
     }
     pendingOk = opts.onOk || null;
+    pendingCancel = opts.onCancel || null;
     root.hidden = false;
     document.body.classList.add("sepko-dialog-open");
     if (okBtn) okBtn.focus();
   }
 
-  if (cancelBtn) cancelBtn.addEventListener("click", close);
+  if (cancelBtn) cancelBtn.addEventListener("click", function () { close(false); });
   if (okBtn) {
-    okBtn.addEventListener("click", function () {
-      var fn = pendingOk;
-      close();
-      if (fn) fn();
-    });
+    okBtn.addEventListener("click", function () { close(true); });
   }
   root.addEventListener("click", function (e) {
-    if (e.target === root) close();
+    if (e.target === root) close(false);
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !root.hidden) {
       e.preventDefault();
-      close();
+      close(false);
     }
   });
 

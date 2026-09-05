@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -38,6 +38,41 @@ def service_worker():
         path,
         media_type="application/javascript",
         headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+    )
+
+
+@router.get("/manifest.webmanifest")
+def pwa_manifest(request: Request):
+    origin = str(request.base_url).rstrip("/")
+    manifest_url = f"{origin}/manifest.webmanifest"
+    return JSONResponse(
+        {
+            "name": "SEPKO",
+            "short_name": "SEPKO",
+            "id": "/",
+            "description": "Fiskalizacija CG — izlazne, ulazne, troškovnik",
+            "start_url": "/app",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#0f0a1a",
+            "theme_color": "#5b21b6",
+            "lang": "sr-ME",
+            "launch_handler": {"client_mode": "focus-existing"},
+            "prefer_related_applications": False,
+            "related_applications": [
+                {"platform": "webapp", "url": manifest_url},
+            ],
+            "icons": [
+                {
+                    "src": f"{origin}/static/img/sepko-mark.svg?v=4",
+                    "sizes": "any",
+                    "type": "image/svg+xml",
+                    "purpose": "any maskable",
+                }
+            ],
+        },
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
     )
 
 
