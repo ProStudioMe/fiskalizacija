@@ -2,152 +2,266 @@
 {% block title %}{{ t('page.finansije', 'Finansije') }} — Sepko{% endblock %}
 {% block page_title %}{{ t('page.finansije', 'Finansije') }}{% endblock %}
 {% block page_actions %}
-  <form method="post" action="/finansije/izvodi/povuci" style="margin:0;display:inline">
+  {% if mail_enabled %}
+  <form method="post" action="/finansije/izvodi/povuci" class="fin-pull-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <wa-button type="submit" variant="neutral" appearance="outlined" {% if not mail_enabled %}title="Podesi IMAP u Podešavanja → Mail"{% endif %}>
-      Povuci izvode s maila
-    </wa-button>
+    <button type="submit" class="btn">{{ t('fin.pull_statements', 'Povuci izvode') }}</button>
   </form>
-  <a class="btn secondary" href="/podesavanja/mail">{{ t('settings.mail', 'Mail postavke') }}</a>
+  <a class="btn secondary inv-actions-icon" href="/podesavanja/mail" title="{{ t('settings.mail', 'Mail') }}" aria-label="{{ t('settings.mail', 'Mail') }}">
+    <i data-lucide="mail" aria-hidden="true"></i>
+  </a>
+  {% else %}
+  <a class="btn" href="/podesavanja/mail">{{ t('fin.setup_imap', 'Podesi IMAP') }}</a>
+  {% endif %}
 {% endblock %}
 {% block content %}
-<div class="grid grid-2" style="gap:1rem;align-items:start">
-  <div class="plan-card">
-    <div class="plan-head">
-      <div>
-        <h2>{{ t('fin.cards', 'Finansijske kartice') }}</h2>
-        <div class="cell-secondary">Fakture (duguje) − uplate (potražuje)</div>
-      </div>
+<section class="fin-page">
+  <div class="fin-kpis" aria-label="{{ t('page.finansije', 'Finansije') }}">
+    <div class="fin-kpi">
+      <span class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ t('fin.clients', 'Komitenti') }}</span>
+        <i data-lucide="users" class="fin-kpi-ico" aria-hidden="true"></i>
+      </span>
+      <strong class="fin-kpi-value">{{ cards_count }}</strong>
     </div>
-    <div class="plan-table-wrap">
-      <table class="soft-table">
-        <thead>
-          <tr>
-            <th>{{ t('col.client', 'Komitent') }}</th>
-            <th>PIB</th>
-            <th class="num">{{ t('fin.invoiced', 'Fakturisano') }}</th>
-            <th class="num">{{ t('fin.paid', 'Uplaćeno') }}</th>
-            <th class="num">{{ t('fin.debt', 'Dug') }}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for c in cards %}
-          <tr>
-            <td><div class="cell-client">{{ c.naziv }}</div></td>
-            <td>{{ c.pib }}</td>
-            <td class="num">{{ c.fakturisano|money }} €</td>
-            <td class="num">{{ c.uplaceno|money }} €</td>
-            <td class="num"><strong>{{ c.dug|money }} €</strong></td>
-            <td class="cell-actions">
-              <a class="btn secondary" href="/finansije/kartica/{{ c.customer_id }}">{{ t('fin.cards', 'Kartica') }}</a>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted" style="padding:1.25rem">Nema kartica — fiskalizuj fakture s PIB-om kupca.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <div class="fin-kpi">
+      <span class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ t('fin.invoiced', 'Fakturisano') }}</span>
+        <i data-lucide="file-text" class="fin-kpi-ico" aria-hidden="true"></i>
+      </span>
+      <strong class="fin-kpi-value">{{ total_fakturisano|money }} €</strong>
     </div>
+    <div class="fin-kpi">
+      <span class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ t('fin.paid', 'Plaćeno') }}</span>
+        <i data-lucide="circle-check" class="fin-kpi-ico" aria-hidden="true"></i>
+      </span>
+      <strong class="fin-kpi-value">{{ total_uplaceno|money }} €</strong>
+    </div>
+    <div class="fin-kpi fin-kpi--debt{% if total_dug > 0 %} is-due{% elif total_dug < 0 %} is-credit{% endif %}">
+      <span class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ t('fin.total_debt', 'Ukupan dug') }}</span>
+        <i data-lucide="scale" class="fin-kpi-ico" aria-hidden="true"></i>
+      </span>
+      <strong class="fin-kpi-value">{{ total_dug|money }} €</strong>
+    </div>
+    {% if pending_count %}
+    <div class="fin-kpi fin-kpi--pending">
+      <span class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ t('fin.pending_review', 'Za pregled') }}</span>
+        <i data-lucide="scan-search" class="fin-kpi-ico" aria-hidden="true"></i>
+      </span>
+      <strong class="fin-kpi-value">{{ pending_count }}</strong>
+    </div>
+    {% endif %}
   </div>
 
-  <div class="plan-card">
-    <div class="plan-head">
-      <div>
-        <h2>{{ t('fin.statements', 'Bankovni izvodi') }}</h2>
-        <div class="cell-secondary">
-          {% if mail_enabled %}IMAP povezan{% else %}IMAP nije podešen{% endif %}
+  {% if not mail_enabled %}
+  <aside class="fin-alert" role="status">
+    <div class="fin-alert-copy">
+      <strong>{{ t('fin.imap_banner_title', 'Mail za izvode nije podešen') }}</strong>
+      <span>{{ t('fin.imap_banner_body', 'Podesi IMAP da povlačiš bankovne izvode automatski.') }}
+        {{ t('fin.imap_banner_hint', 'Koristi dugme „Podesi IMAP“ gore desno.') }}</span>
+    </div>
+  </aside>
+  {% endif %}
+
+  <div class="fin-panels{% if not statements %} is-sparse{% endif %}">
+    <div class="plan-card fin-panel fin-panel--cards">
+      <div class="plan-head">
+        <div>
+          <h2>{{ t('fin.cards', 'Kartice') }}</h2>
+          <div class="cell-secondary">{{ t('fin.cards_hint', 'Fakture (duguje) − uplate (potražuje)') }}</div>
         </div>
+        <span class="fin-count">{{ cards_count }}</span>
+      </div>
+      <div class="plan-table-wrap">
+        {% if cards %}
+        <table class="soft-table fin-table">
+          <thead>
+            <tr>
+              <th>{{ t('col.client', 'Komitent') }}</th>
+              <th class="num">{{ t('fin.invoiced', 'Fakturisano') }}</th>
+              <th class="num">{{ t('fin.paid', 'Plaćeno') }}</th>
+              <th class="num">{{ t('fin.debt', 'Dug') }}</th>
+              <th class="cell-actions"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for c in cards %}
+            <tr class="inv-row fin-card-row" data-href="/finansije/kartica/{{ c.customer_id }}" tabindex="0" role="link"
+                aria-label="{{ c.naziv }}">
+              <td>
+                <div class="cell-client">{{ c.naziv }}</div>
+                <div class="cell-secondary fin-pib">PIB {{ c.pib }}</div>
+              </td>
+              <td class="num">{{ c.fakturisano|money }} €</td>
+              <td class="num">{{ c.uplaceno|money }} €</td>
+              <td class="num fin-debt{% if c.dug > 0 %} is-due{% elif c.dug < 0 %} is-credit{% endif %}">
+                <strong>{{ c.dug|money }} €</strong>
+              </td>
+              <td class="cell-actions">
+                <a class="btn-icon-row" href="/finansije/kartica/{{ c.customer_id }}" title="{{ t('fin.open', 'Otvori') }}" aria-label="{{ t('fin.open', 'Otvori') }}">
+                  <i data-lucide="arrow-right" aria-hidden="true"></i>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="fin-empty">
+          <strong>{{ t('fin.empty_cards_title', 'Nema finansijskih kartica') }}</strong>
+          <span>{{ t('fin.empty_cards', 'Fiskalizuj fakture s PIB-om kupca da se pojave ovdje.') }}</span>
+          <a class="btn secondary btn-sm" href="/">{{ t('nav.izlazne', 'Izlazne') }}</a>
+        </div>
+        {% endif %}
       </div>
     </div>
+
+    <div class="plan-card fin-panel fin-panel--izvodi{% if not statements %} is-empty{% endif %}">
+      <div class="plan-head">
+        <div>
+          <h2>{{ t('fin.statements', 'Izvodi') }}</h2>
+          <div class="cell-secondary">
+            {% if mail_enabled %}
+              <span class="pill-tag ok">{{ t('fin.imap_ok', 'IMAP povezan') }}</span>
+            {% else %}
+              {{ t('fin.statements_hint', 'Bankovni izvodi s maila') }}
+            {% endif %}
+          </div>
+        </div>
+        <span class="fin-count">{{ statements_count }}</span>
+      </div>
+      <div class="plan-table-wrap">
+        {% if statements %}
+        <table class="soft-table fin-table">
+          <thead>
+            <tr>
+              <th>{{ t('fin.day', 'Dan') }}</th>
+              <th>{{ t('fin.subject', 'Predmet') }}</th>
+              <th>{{ t('fin.source', 'Izvor') }}</th>
+              <th class="cell-actions"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for s in statements %}
+            <tr>
+              <td class="fin-day">{{ s.statement_day or '—' }}</td>
+              <td>
+                <div class="fin-subject" title="{{ s.subject or '' }}">{{ s.subject or '—' }}</div>
+              </td>
+              <td><span class="pill-tag">{{ s.source }}</span></td>
+              <td class="cell-actions">
+                {% if s.file_path %}
+                <a class="btn-icon-row" href="/finansije/izvodi/{{ s.id }}/fajl" target="_blank" title="{{ t('fin.open', 'Otvori') }}" aria-label="{{ t('fin.open', 'Otvori') }}">
+                  <i data-lucide="external-link" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="fin-empty">
+          <strong>{{ t('fin.empty_statements_title', 'Nema uvezenih izvoda') }}</strong>
+          <span>
+            {% if mail_enabled %}
+              {{ t('fin.empty_statements_pull', 'Povuci izvode s maila da se pojave ovdje.') }}
+            {% else %}
+              {{ t('fin.empty_statements', 'Podesi IMAP ili uvezi izvode s maila.') }}
+            {% endif %}
+          </span>
+          {% if mail_enabled %}
+          <form method="post" action="/finansije/izvodi/povuci" class="fin-pull-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm">{{ t('fin.pull_statements', 'Povuci izvode') }}</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if pending_tx %}
+  <div class="plan-card fin-panel fin-panel--wide">
+    <div class="plan-head">
+      <div>
+        <h2>{{ t('fin.match', 'Uparivanje bankovnih stavki') }}</h2>
+        <div class="cell-secondary">{{ t('fin.match_hint', 'needs_review → ulazna faktura ili trošak') }}</div>
+      </div>
+      <span class="fin-count">{{ pending_count }}</span>
+    </div>
     <div class="plan-table-wrap">
-      <table class="soft-table">
+      <table class="soft-table fin-table">
         <thead>
           <tr>
-            <th>Dan</th>
-            <th>Predmet</th>
-            <th>Izvor</th>
-            <th></th>
+            <th>{{ t('fin.day', 'Dan') }}</th>
+            <th>{{ t('fin.description', 'Opis') }}</th>
+            <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+            <th>{{ t('col.actions', 'Akcija') }}</th>
           </tr>
         </thead>
         <tbody>
-        {% for s in statements %}
+        {% for tx in pending_tx %}
           <tr>
-            <td>{{ s.statement_day or '—' }}</td>
-            <td><div class="cell-secondary" style="margin:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ s.subject or '' }}">{{ s.subject or '—' }}</div></td>
-            <td><span class="pill-tag">{{ s.source }}</span></td>
-            <td class="cell-actions">
-              {% if s.file_path %}
-              <a class="btn secondary" href="/finansije/izvodi/{{ s.id }}/fajl" target="_blank">Otvori</a>
-              {% endif %}
+            <td class="fin-day">{{ tx.tx_date or '—' }}</td>
+            <td><div class="fin-subject">{{ tx.description or '—' }}</div></td>
+            <td class="num"><strong>{{ (tx.amount or 0)|money }} €</strong></td>
+            <td>
+              <div class="fin-match-actions">
+                <form method="post" action="/finansije/tx/{{ tx.id }}/match-ulazna" class="fin-match-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <wa-select name="incoming_id" size="small" style="max-width:140px">
+                    <wa-option value="">Ulazna…</wa-option>
+                    {% for inv in incoming_options %}
+                    <wa-option value="{{ inv.id }}">#{{ inv.id }} {{ inv.number or inv.supplier_name }} {{ (inv.total_gross or 0)|money }} €</wa-option>
+                    {% endfor %}
+                  </wa-select>
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">AP</wa-button>
+                </form>
+                <form method="post" action="/finansije/tx/{{ tx.id }}/match-trosak" class="fin-match-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <wa-select name="category_id" size="small" style="max-width:120px">
+                    <wa-option value="">Kat.</wa-option>
+                    {% for c in categories %}
+                    <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
+                    {% endfor %}
+                  </wa-select>
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Trošak</wa-button>
+                </form>
+                <form method="post" action="/finansije/tx/{{ tx.id }}/ignore" class="fin-match-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Ignoriši</wa-button>
+                </form>
+              </div>
             </td>
           </tr>
-        {% else %}
-          <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema uvezenih izvoda. Povuci s maila ili podesi IMAP.</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
-</div>
-
-{% if pending_tx %}
-<div class="plan-card" style="margin-top:1.25rem">
-  <div class="plan-head">
-    <div>
-      <h2>{{ t('fin.match', 'Uparivanje bankovnih stavki') }}</h2>
-      <div class="cell-secondary">needs_review → ulazna faktura ili trošak</div>
-    </div>
-  </div>
-  <div class="plan-table-wrap">
-    <table class="soft-table">
-      <thead>
-        <tr>
-          <th>Dan</th>
-          <th>Opis</th>
-          <th class="num">Iznos</th>
-          <th>Akcija</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for tx in pending_tx %}
-        <tr>
-          <td>{{ tx.tx_date or '—' }}</td>
-          <td><div class="cell-secondary" style="margin:0;max-width:280px">{{ tx.description or '—' }}</div></td>
-          <td class="num"><strong>{{ (tx.amount or 0)|money }} €</strong></td>
-          <td>
-            <div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center">
-              <form method="post" action="/finansije/tx/{{ tx.id }}/match-ulazna" style="display:flex;gap:.25rem;margin:0;align-items:center">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <wa-select name="incoming_id" size="small" style="max-width:140px">
-                  <wa-option value="">Ulazna…</wa-option>
-                  {% for inv in incoming_options %}
-                  <wa-option value="{{ inv.id }}">#{{ inv.id }} {{ inv.number or inv.supplier_name }} {{ (inv.total_gross or 0)|money }} €</wa-option>
-                  {% endfor %}
-                </wa-select>
-                <wa-button type="submit" variant="neutral" appearance="outlined" size="small">AP</wa-button>
-              </form>
-              <form method="post" action="/finansije/tx/{{ tx.id }}/match-trosak" style="display:flex;gap:.25rem;margin:0;align-items:center">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <wa-select name="category_id" size="small" style="max-width:120px">
-                  <wa-option value="">Kat.</wa-option>
-                  {% for c in categories %}
-                  <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
-                  {% endfor %}
-                </wa-select>
-                <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Trošak</wa-button>
-              </form>
-              <form method="post" action="/finansije/tx/{{ tx.id }}/ignore" style="margin:0">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Ignoriši</wa-button>
-              </form>
-            </div>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
+  {% endif %}
+</section>
+<script>
+(function () {
+  document.querySelectorAll('tr.inv-row[data-href]').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, select, label, wa-button, wa-select')) return;
+      var href = row.getAttribute('data-href');
+      if (href) window.location.href = href;
+    });
+    row.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target !== row) return;
+      e.preventDefault();
+      var href = row.getAttribute('data-href');
+      if (href) window.location.href = href;
+    });
+  });
+})();
+</script>
 {% endblock %}

@@ -37,6 +37,13 @@
     </ul>
   </div>
   <div class="card">
+    <h2 style="margin-top:0;font-size:1rem">{{ t('reports.turnover', 'Saldo prometa') }}</h2>
+    <p>Izlazne bruto {{ out_gross|money }} €</p>
+    <p>Ulazne bruto {{ in_gross|money }} €</p>
+    <p><strong>Saldo {{ promet_saldo|money }} €</strong></p>
+    <p class="muted" style="font-size:.85rem">{{ t('reports.turnover_hint', 'Izlazne − ulazne (bruto).') }}</p>
+  </div>
+  <div class="card">
     <h2 style="margin-top:0;font-size:1rem">{{ t('reports.vat', 'PDV pregled') }}</h2>
     <p>Izlazni PDV {{ out_vat|money }} €</p>
     <p>Ulazni PDV {{ in_vat|money }} €</p>

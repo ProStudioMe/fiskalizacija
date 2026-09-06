@@ -1,46 +1,510 @@
 {% extends "base.html" %}
-{% block title %}{{ t('ulazne.add', 'Nova ulazna') }} — Sepko{% endblock %}
-{% block page_title %}{{ t('ulazne.add', 'Nova ulazna faktura') }}{% endblock %}
-{% block page_actions %}
-  <a class="btn secondary" href="/ulazne">← {{ t('nav.ulazne', 'Ulazne') }}</a>
+{% set is_edit = invoice is defined and invoice %}
+{% block title %}{% if is_edit %}{{ t('page.ulazne_edit', 'Izmjena ulazne fakture') }}{% else %}{{ t('page.ulazne_new', 'Nova ulazna faktura') }}{% endif %} — Sepko{% endblock %}
+{% block page_title %}
+  <span class="inv-page-title inv-page-title--with-back">
+    <a class="btn secondary inv-actions-icon inv-title-back" href="{% if is_edit %}/ulazne/{{ invoice.id }}{% else %}/ulazne{% endif %}" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+      <i data-lucide="arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="inv-page-title-body">
+      <span class="inv-page-heading">{% if is_edit %}{{ t('page.ulazne_edit', 'Izmjena ulazne fakture') }}{% else %}{{ t('page.ulazne_new', 'Nova ulazna faktura') }}{% endif %}</span>
+      <span class="inv-page-sub">{% if is_edit %}{{ invoice.number or ('#' ~ invoice.id) }}{% else %}{{ t('ulazne.form_sub', 'Dobavljač, stavka i iznosi') }}{% endif %}</span>
+    </span>
+  </span>
 {% endblock %}
+{% block page_actions %}{% endblock %}
 {% block content %}
-<form method="post" action="/ulazne" class="card wa-form-stack" style="max-width:640px">
+{% set today_dmy = today_dmy|default('') %}
+{% set prefill_date = prefill.issue_date or '' %}
+{% if prefill_date and '-' in prefill_date %}
+  {% set parts = prefill_date.split('-') %}
+  {% set prefill_dmy = parts[2] ~ '.' ~ parts[1] ~ '.' ~ parts[0] if parts|length == 3 else prefill_date %}
+{% else %}
+  {% set prefill_dmy = prefill_date %}
+{% endif %}
+{% set st = prefill.status or 'recorded' %}
+<form method="post" action="{% if is_edit %}/ulazne/{{ invoice.id }}/izmijeni{% else %}/ulazne{% endif %}" id="inc-form" class="inc-form inv-compose-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <div class="row">
-    <wa-input name="number" label="{{ t('col.number', 'Broj') }}" value="{{ prefill.number or '' }}"></wa-input>
-    <wa-input name="issue_date" type="date" label="{{ t('col.date', 'Datum') }}" value="{{ prefill.issue_date or '' }}"></wa-input>
-  </div>
-  <wa-select name="supplier_id" label="{{ t('col.supplier', 'Dobavljač') }}">
-    <wa-option value="">— ručni PIB —</wa-option>
-    {% for s in suppliers %}
-    <wa-option value="{{ s.id }}">{{ s.name }} ({{ s.pib }})</wa-option>
-    {% endfor %}
-  </wa-select>
-  <div class="row">
-    <wa-input name="supplier_pib" label="PIB" value="{{ prefill.supplier_pib or '' }}"></wa-input>
-    <wa-input name="supplier_name" label="Naziv" value="{{ prefill.supplier_name or '' }}"></wa-input>
-  </div>
-  <div class="row">
-    <wa-input name="total_net" label="Neto" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_net or '0' }}"></wa-input>
-    <wa-input name="total_vat" label="PDV" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_vat or '0' }}"></wa-input>
-    <wa-input name="total_gross" label="Bruto" inputmode="decimal" placeholder="0,00" value="{{ prefill.total_gross or '0' }}"></wa-input>
-  </div>
-  <h3 style="margin:0;font-size:.95rem">{{ t('ulazne.line', 'Stavka (opciono)') }}</h3>
-  <wa-input name="line_name" label="Naziv stavke"></wa-input>
-  <div class="row">
-    <wa-input name="line_qty" label="Kol." inputmode="decimal" value="1"></wa-input>
-    <wa-input name="line_price" label="Cijena neto" inputmode="decimal" placeholder="0,00" value="0"></wa-input>
-    <wa-input name="line_vat" label="PDV %" inputmode="decimal" value="21"></wa-input>
-  </div>
-  <wa-select name="status" label="Status" value="recorded">
-    <wa-option value="recorded" selected>recorded</wa-option>
-    <wa-option value="draft">draft</wa-option>
-    <wa-option value="paid">paid</wa-option>
-  </wa-select>
-  <wa-textarea name="notes" label="{{ t('col.notes', 'Napomena') }}" rows="2"></wa-textarea>
-  <div class="wa-form-actions">
-    <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+
+  <div class="inc-compose">
+    <div class="inc-compose-main">
+      <div class="card inv-compose-card inc-card">
+        <div class="inv-section-title">{{ t('ulazne.section_header', 'Zaglavlje') }}</div>
+        <div class="row">
+          <wa-input name="number" label="{{ t('col.number', 'Broj') }}" value="{{ prefill.number or '' }}" placeholder="npr. UF-12/2026"></wa-input>
+          <wa-input name="issue_date" id="issue_date" label="{{ t('col.date', 'Datum') }}" value="{{ prefill_dmy or today_dmy }}" placeholder="dd.mm.yyyy" inputmode="numeric" maxlength="10" class="inc-date-dmy"></wa-input>
+        </div>
+      </div>
+
+      <div class="card inv-compose-card inc-card inc-supplier-card">
+        <div class="inv-section-title">{{ t('col.supplier', 'Dobavljač') }}</div>
+        <div id="supplier-pick-wrap">
+          <wa-select name="supplier_id" id="supplier_id" label="{{ t('ulazne.pick_supplier', 'Iz šifrarnika') }}" value="{{ prefill.supplier_id or '' }}">
+            <wa-option value="" data-pib="" data-name="">{{ t('ulazne.manual_supplier', '— ručni unos PIB / naziv —') }}</wa-option>
+            {% for s in suppliers %}
+            <wa-option value="{{ s.id }}" data-pib="{{ s.pib }}" data-name="{{ s.name }}" {% if prefill.supplier_id == (s.id|string) %}selected{% endif %}>{{ s.name }} ({{ s.pib }})</wa-option>
+            {% endfor %}
+          </wa-select>
+        </div>
+        <div class="inc-supplier-picked" id="supplier-picked" hidden>
+          <div class="inc-supplier-picked-body">
+            <div class="inc-supplier-picked-name" id="supplier-picked-name"></div>
+            <div class="inc-supplier-picked-meta muted" id="supplier-picked-meta"></div>
+          </div>
+          <button type="button" class="btn secondary" id="supplier-clear">{{ t('ulazne.change_supplier_short', 'Promijeni') }}</button>
+        </div>
+        <div class="row inc-supplier-manual" id="supplier-manual">
+          <wa-input name="supplier_pib" id="supplier_pib" label="PIB" value="{{ prefill.supplier_pib or '' }}" placeholder="8 cifara"></wa-input>
+          <wa-input name="supplier_name" id="supplier_name" label="{{ t('col.name', 'Naziv') }}" value="{{ prefill.supplier_name or '' }}"></wa-input>
+        </div>
+      </div>
+
+      <div class="card inv-compose-card inc-card inc-line-card">
+        <div class="inv-section-title">{{ t('ulazne.line', 'Stavka') }}</div>
+        <p class="muted inc-line-hint">{{ t('ulazne.line_required_hint', 'Obavezno — iznosi se računaju iz stavke') }}</p>
+        <div class="inc-line-body wa-form-stack" id="line-body">
+          <div class="inc-line-name-row">
+            <div class="inv-quick-add" id="line-name-wrap">
+              <wa-input type="search" name="line_name" id="line_name" label="{{ t('ulazne.line_name', 'Naziv stavke') }}" value="{{ prefill.line_name or '' }}" placeholder="{{ t('ulazne.line_search_ph', 'Traži ili ukucaj naziv…') }}" with-clear autocomplete="off" required></wa-input>
+              <div class="inv-suggest" id="line-suggest" hidden></div>
+            </div>
+            <button type="button" class="btn secondary" id="line-name-add" title="{{ t('ulazne.line_add_new', 'Dodaj novi naziv u šifrarnik') }}">
+              + {{ t('ulazne.line_add', 'Dodaj') }}
+            </button>
+          </div>
+          <p class="inc-line-dup muted" id="line-dup" hidden role="status"></p>
+          <div class="row">
+            <wa-input name="line_qty" id="line_qty" label="{{ t('col.qty', 'Kol.') }}" inputmode="decimal" value="{{ prefill.line_qty|money if prefill.line_qty is defined and prefill.line_qty is not none else '1' }}" required></wa-input>
+            <wa-input name="line_price" id="line_price" label="{{ t('ulazne.line_price', 'Cijena neto') }}" inputmode="decimal" placeholder="0,00" value="{{ prefill.line_price|money(4) if prefill.line_price is defined and prefill.line_price is not none else '' }}" required></wa-input>
+            <wa-input name="line_vat" id="line_vat" label="PDV %" inputmode="decimal" value="{{ prefill.line_vat|money if prefill.line_vat is defined and prefill.line_vat is not none else '21' }}" required></wa-input>
+          </div>
+          <label class="inc-sync-check">
+            <input type="checkbox" id="sync_from_line" checked>
+            <span>{{ t('ulazne.sync_totals', 'Računaj Neto / PDV / Bruto iz stavke') }}</span>
+          </label>
+          <p class="inc-line-error muted" id="line-error" hidden role="alert"></p>
+        </div>
+      </div>
+
+      <div class="card inv-compose-card inc-card inc-notes-card">
+        <wa-textarea name="notes" label="{{ t('col.notes', 'Napomena') }}" rows="2" value="{{ prefill.notes or '' }}" placeholder="{{ t('ulazne.notes_ph', 'Opciono — interni komentar') }}"></wa-textarea>
+      </div>
+    </div>
+
+    <aside class="inc-compose-side">
+      <div class="card inv-compose-card inv-compose-totals">
+        <div class="inv-totals-hero">
+          <span class="inv-totals-hero-label">{{ t('col.amount', 'Iznos') }}</span>
+          <span class="inv-totals-hero-value" id="totals-hero">0,00<span class="totals-cur">€</span></span>
+        </div>
+        <div class="inc-totals-fields wa-form-stack">
+          <wa-input name="total_net" id="total_net" label="Neto" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_net is defined and prefill.total_net not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_net|money }}{% endif %}"></wa-input>
+          <wa-input name="total_vat" id="total_vat" label="PDV" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_vat is defined and prefill.total_vat not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_vat|money }}{% endif %}"></wa-input>
+          <wa-input name="total_gross" id="total_gross" label="Bruto" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_gross is defined and prefill.total_gross not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_gross|money }}{% endif %}"></wa-input>
+          <wa-select name="status" label="{{ t('col.status', 'Status') }}" value="{{ st }}">
+            <wa-option value="recorded" {% if st == 'recorded' %}selected{% endif %}>{{ t('status.recorded', 'Evidencija') }}</wa-option>
+            <wa-option value="draft" {% if st == 'draft' %}selected{% endif %}>{{ t('status.draft', 'Nacrt') }}</wa-option>
+            <wa-option value="paid" {% if st == 'paid' %}selected{% endif %}>{{ t('status.paid', 'Plaćeno') }}</wa-option>
+            <wa-option value="disputed" {% if st == 'disputed' %}selected{% endif %}>{{ t('status.disputed', 'Sporno') }}</wa-option>
+          </wa-select>
+        </div>
+      </div>
+
+      <div class="inc-side-actions">
+        <wa-button type="submit" variant="brand" class="inc-save-btn">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="{% if is_edit %}/ulazne/{{ invoice.id }}{% else %}/ulazne{% endif %}">{{ t('btn.cancel', 'Odustani') }}</a>
+      </div>
+    </aside>
   </div>
 </form>
+
+<script>
+(function () {
+  var sel = document.getElementById('supplier_id');
+  var pickWrap = document.getElementById('supplier-pick-wrap');
+  var manual = document.getElementById('supplier-manual');
+  var picked = document.getElementById('supplier-picked');
+  var pickedName = document.getElementById('supplier-picked-name');
+  var pickedMeta = document.getElementById('supplier-picked-meta');
+  var clearBtn = document.getElementById('supplier-clear');
+  var pib = document.getElementById('supplier_pib');
+  var nameEl = document.getElementById('supplier_name');
+  var dateEl = document.getElementById('issue_date');
+
+  function fieldVal(el) {
+    if (!el) return '';
+    return (el.value != null ? el.value : '') || '';
+  }
+  function setField(el, v) {
+    if (!el) return;
+    el.value = v;
+  }
+  function selectedOption() {
+    if (!sel) return null;
+    var v = fieldVal(sel);
+    var opts = sel.querySelectorAll('wa-option');
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].getAttribute('value') === v) return opts[i];
+    }
+    return null;
+  }
+  function applySupplier() {
+    var opt = selectedOption();
+    var sid = fieldVal(sel);
+    if (sid && opt) {
+      var sp = opt.getAttribute('data-pib') || '';
+      var sn = opt.getAttribute('data-name') || '';
+      setField(pib, sp);
+      setField(nameEl, sn);
+      if (pickedName) pickedName.textContent = sn;
+      if (pickedMeta) pickedMeta.textContent = sp ? ('PIB ' + sp) : '';
+      if (manual) manual.hidden = true;
+      if (pickWrap) pickWrap.hidden = true;
+      if (picked) picked.hidden = false;
+    } else {
+      if (manual) manual.hidden = false;
+      if (pickWrap) pickWrap.hidden = false;
+      if (picked) picked.hidden = true;
+    }
+  }
+  if (sel) {
+    sel.addEventListener('change', applySupplier);
+    sel.addEventListener('wa-change', applySupplier);
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      setField(sel, '');
+      setField(pib, '');
+      setField(nameEl, '');
+      applySupplier();
+      if (sel && sel.focus) sel.focus();
+    });
+  }
+
+  /* dd.mm.yyyy mask + validation */
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function formatDmyInput(raw) {
+    var digits = String(raw || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return digits.slice(0, 2) + '.' + digits.slice(2);
+    return digits.slice(0, 2) + '.' + digits.slice(2, 4) + '.' + digits.slice(4);
+  }
+  function validDmy(s) {
+    var m = String(s || '').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (!m) return false;
+    var d = +m[1], mo = +m[2], y = +m[3];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+    var dt = new Date(y, mo - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d;
+  }
+  if (dateEl) {
+    dateEl.addEventListener('input', function () {
+      var next = formatDmyInput(fieldVal(dateEl));
+      if (next !== fieldVal(dateEl)) setField(dateEl, next);
+      dateEl.classList.toggle('is-invalid', fieldVal(dateEl).length === 10 && !validDmy(fieldVal(dateEl)));
+    });
+    dateEl.addEventListener('wa-input', function () {
+      var next = formatDmyInput(fieldVal(dateEl));
+      if (next !== fieldVal(dateEl)) setField(dateEl, next);
+    });
+    dateEl.addEventListener('blur', function () {
+      var v = fieldVal(dateEl).trim();
+      if (!v) return;
+      dateEl.classList.toggle('is-invalid', !validDmy(v));
+    });
+  }
+
+  var money = (window.SepkoMoney) || {
+    parse: function (r) {
+      var t = String(r || '').trim();
+      if (!t) return 0;
+      return parseFloat(t.replace(/\./g, '').replace(',', '.')) || 0;
+    },
+    format: function (n) {
+      return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+    }
+  };
+
+  var LINE_NAMES = {{ (line_names_json or [])|tojson }};
+  var CSRF = {{ csrf_token|tojson }};
+  var lineNameEl = document.getElementById('line_name');
+  var lineSuggest = document.getElementById('line-suggest');
+  var lineDup = document.getElementById('line-dup');
+  var lineAddBtn = document.getElementById('line-name-add');
+  var suggestIndex = -1;
+  var suggestItems = [];
+  var hideSuggestTimer = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function normName(s) {
+    return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+  function showDup(msg, isWarn) {
+    if (!lineDup) return;
+    if (!msg) { lineDup.hidden = true; lineDup.textContent = ''; return; }
+    lineDup.hidden = false;
+    lineDup.textContent = msg;
+    lineDup.classList.toggle('is-warn', !!isWarn);
+  }
+  function applyLineItem(item) {
+    if (!item) return;
+    setField(lineNameEl, item.name || '');
+    if (item.last_price != null) setField(document.getElementById('line_price'), money.format(item.last_price));
+    if (item.last_vat != null) setField(document.getElementById('line_vat'), String(item.last_vat).replace('.', ','));
+    hideLineSuggest();
+    showDup('');
+    syncTotals();
+  }
+  function upsertLocal(item) {
+    if (!item || !item.name) return;
+    var n = normName(item.name);
+    var found = false;
+    for (var i = 0; i < LINE_NAMES.length; i++) {
+      if (normName(LINE_NAMES[i].name) === n) {
+        LINE_NAMES[i] = item;
+        found = true;
+        break;
+      }
+    }
+    if (!found) LINE_NAMES.unshift(item);
+  }
+  function filterLineNames(q) {
+    q = normName(q);
+    var list = LINE_NAMES.slice();
+    if (!q) {
+      return list.sort(function (a, b) {
+        return (b.use_count || 0) - (a.use_count || 0) || String(a.name).localeCompare(String(b.name));
+      }).slice(0, 8);
+    }
+    return list.filter(function (x) {
+      return normName(x.name).indexOf(q) !== -1;
+    }).slice(0, 10);
+  }
+  function hideLineSuggest() {
+    if (hideSuggestTimer) { clearTimeout(hideSuggestTimer); hideSuggestTimer = null; }
+    if (lineSuggest) lineSuggest.hidden = true;
+    suggestIndex = -1;
+    suggestItems = [];
+  }
+  function scheduleHideSuggest() {
+    if (hideSuggestTimer) clearTimeout(hideSuggestTimer);
+    hideSuggestTimer = setTimeout(hideLineSuggest, 180);
+  }
+  function renderLineSuggest(q) {
+    if (!lineSuggest) return;
+    if (hideSuggestTimer) { clearTimeout(hideSuggestTimer); hideSuggestTimer = null; }
+    suggestItems = filterLineNames(q);
+    var html = '';
+    if (!suggestItems.length) {
+      html = '<div class="inv-suggest-empty muted">' +
+        (q ? '{{ t("ulazne.line_no_match", "Nema poklapanja — možeš dodati novo") }}' : '{{ t("ulazne.line_empty_catalog", "Nema sačuvanih naziva") }}') +
+        '</div>';
+    } else {
+      suggestItems.forEach(function (it, idx) {
+        var meta = [];
+        if (it.use_count) meta.push(it.use_count + '×');
+        if (it.last_price != null) meta.push(money.format(it.last_price) + ' €');
+        if (it.last_vat != null) meta.push('PDV ' + it.last_vat + '%');
+        html += '<button type="button" class="inv-suggest-row' + (idx === suggestIndex ? ' is-active' : '') + '" data-i="' + idx + '">' +
+          '<span class="modal-row-body"><strong>' + esc(it.name) + '</strong>' +
+          '<span class="modal-row-meta">' + esc(meta.join(' · ') || '—') + '</span></span></button>';
+      });
+    }
+    lineSuggest.innerHTML = html;
+    lineSuggest.hidden = false;
+    lineSuggest.querySelectorAll('[data-i]').forEach(function (btn) {
+      btn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        applyLineItem(suggestItems[+btn.getAttribute('data-i')]);
+      });
+    });
+  }
+  function openLineSuggest() {
+    renderLineSuggest(fieldVal(lineNameEl));
+  }
+  if (lineNameEl) {
+    lineNameEl.addEventListener('focus', openLineSuggest);
+    lineNameEl.addEventListener('click', openLineSuggest);
+    lineNameEl.addEventListener('input', function () {
+      suggestIndex = -1;
+      showDup('');
+      renderLineSuggest(fieldVal(lineNameEl));
+      syncTotals();
+    });
+    lineNameEl.addEventListener('wa-input', function () {
+      suggestIndex = -1;
+      renderLineSuggest(fieldVal(lineNameEl));
+      syncTotals();
+    });
+    lineNameEl.addEventListener('wa-clear', function () {
+      showDup('');
+      openLineSuggest();
+      syncTotals();
+    });
+    lineNameEl.addEventListener('blur', scheduleHideSuggest);
+    lineNameEl.addEventListener('keydown', function (e) {
+      if (lineSuggest && lineSuggest.hidden && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+        renderLineSuggest(fieldVal(lineNameEl));
+      }
+      if (!lineSuggest || lineSuggest.hidden) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!suggestItems.length) return;
+        suggestIndex = (suggestIndex + 1) % suggestItems.length;
+        renderLineSuggest(fieldVal(lineNameEl));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!suggestItems.length) return;
+        suggestIndex = (suggestIndex - 1 + suggestItems.length) % suggestItems.length;
+        renderLineSuggest(fieldVal(lineNameEl));
+      } else if (e.key === 'Enter' && suggestIndex >= 0 && suggestItems[suggestIndex]) {
+        e.preventDefault();
+        applyLineItem(suggestItems[suggestIndex]);
+      } else if (e.key === 'Escape') {
+        hideLineSuggest();
+      }
+    });
+  }
+
+  async function addLineName(force) {
+    var name = fieldVal(lineNameEl).trim();
+    if (!name) {
+      showDup('{{ t("ulazne.line_required", "Unesi naziv stavke.") }}', true);
+      if (lineNameEl && lineNameEl.focus) lineNameEl.focus();
+      return;
+    }
+    var exact = LINE_NAMES.find(function (x) { return normName(x.name) === normName(name); });
+    if (exact && !force) {
+      applyLineItem(exact);
+      showDup('{{ t("ulazne.line_exists", "Naziv već postoji — odabran.") }}', false);
+      return;
+    }
+    try {
+      var res = await fetch('/ulazne/stavke/naziv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ name: name, force: !!force, csrf_token: CSRF })
+      });
+      var data = await res.json();
+      if (data.status === 'similar' && data.similar && data.similar.length) {
+        var names = data.similar.map(function (s) { return s.name; }).join(', ');
+        showDup('{{ t("ulazne.line_similar", "Slični nazivi:") }} ' + names + ' — {{ t("ulazne.line_similar_hint", "odaberi iz liste ili klikni Dodaj ponovo za potvrdu") }}', true);
+        // Offer force on second click
+        lineAddBtn.dataset.forcePending = '1';
+        // Also show similar in suggest
+        data.similar.forEach(function (s) { upsertLocal(s); });
+        renderLineSuggest(name);
+        return;
+      }
+      if (data.ok && data.item) {
+        upsertLocal(data.item);
+        applyLineItem(data.item);
+        showDup(data.message || '{{ t("ulazne.line_added", "Naziv dodat.") }}', false);
+        lineAddBtn.dataset.forcePending = '';
+        return;
+      }
+      showDup(data.message || '{{ t("ulazne.line_add_fail", "Nije sačuvano.") }}', true);
+    } catch (err) {
+      showDup('{{ t("ulazne.line_add_fail", "Nije sačuvano.") }}', true);
+    }
+  }
+  if (lineAddBtn) {
+    lineAddBtn.addEventListener('click', function () {
+      var force = lineAddBtn.dataset.forcePending === '1';
+      addLineName(force);
+    });
+  }
+
+  function syncTotals() {
+    var sync = document.getElementById('sync_from_line');
+    var name = fieldVal(document.getElementById('line_name')).trim();
+    if (!name || (sync && !sync.checked)) {
+      updateHero();
+      return;
+    }
+    var qty = money.parse(fieldVal(document.getElementById('line_qty'))) || 0;
+    var price = money.parse(fieldVal(document.getElementById('line_price'))) || 0;
+    var vatPct = money.parse(fieldVal(document.getElementById('line_vat')));
+    if (isNaN(vatPct) || fieldVal(document.getElementById('line_vat')).trim() === '') vatPct = 21;
+    var net = Math.round(qty * price * 100) / 100;
+    var vat = Math.round(net * (vatPct / 100) * 100) / 100;
+    var gross = Math.round((net + vat) * 100) / 100;
+    setField(document.getElementById('total_net'), money.format(net));
+    setField(document.getElementById('total_vat'), money.format(vat));
+    setField(document.getElementById('total_gross'), money.format(gross));
+    updateHero();
+  }
+  function updateHero() {
+    var el = document.getElementById('totals-hero');
+    if (!el) return;
+    var g = money.parse(fieldVal(document.getElementById('total_gross'))) || 0;
+    el.innerHTML = money.format(g) + '<span class="totals-cur">€</span>';
+  }
+
+  ['line_name', 'line_qty', 'line_price', 'line_vat', 'total_net', 'total_vat', 'total_gross'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', syncTotals);
+    el.addEventListener('change', syncTotals);
+    el.addEventListener('wa-input', syncTotals);
+    el.addEventListener('wa-change', syncTotals);
+  });
+  var syncCb = document.getElementById('sync_from_line');
+  if (syncCb) syncCb.addEventListener('change', syncTotals);
+
+  var form = document.getElementById('inc-form');
+  var lineErr = document.getElementById('line-error');
+  function showLineError(msg) {
+    if (!lineErr) return;
+    if (msg) {
+      lineErr.textContent = msg;
+      lineErr.hidden = false;
+    } else {
+      lineErr.textContent = '';
+      lineErr.hidden = true;
+    }
+  }
+  function validateLine() {
+    var name = fieldVal(document.getElementById('line_name')).trim();
+    var priceRaw = fieldVal(document.getElementById('line_price')).trim();
+    var qty = money.parse(fieldVal(document.getElementById('line_qty')));
+    if (!name) {
+      showLineError('{{ t("ulazne.line_required", "Unesi naziv stavke.") }}');
+      var ln = document.getElementById('line_name');
+      if (ln && ln.focus) ln.focus();
+      return false;
+    }
+    if (!priceRaw || money.parse(priceRaw) < 0) {
+      showLineError('{{ t("ulazne.line_price_required", "Unesi cijenu stavke.") }}');
+      var lp = document.getElementById('line_price');
+      if (lp && lp.focus) lp.focus();
+      return false;
+    }
+    if (!qty || qty <= 0) {
+      showLineError('{{ t("ulazne.line_qty_required", "Količina mora biti veća od 0.") }}');
+      var lq = document.getElementById('line_qty');
+      if (lq && lq.focus) lq.focus();
+      return false;
+    }
+    showLineError('');
+    return true;
+  }
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (!validateLine()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+  }
+
+  applySupplier();
+  syncTotals();
+  updateHero();
+})();
+</script>
 {% endblock %}

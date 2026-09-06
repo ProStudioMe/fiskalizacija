@@ -159,6 +159,7 @@ def izvjestaji_pregled(
             "in_vat": in_vat,
             "exp_total": exp_total,
             "exp_summary": exp_summary,
+            "promet_saldo": (out_gross - in_gross).quantize(Decimal("0.01")),
             "pdv_saldo": (out_vat - in_vat).quantize(Decimal("0.01")),
         },
     )

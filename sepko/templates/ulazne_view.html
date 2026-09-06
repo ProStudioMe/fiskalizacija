@@ -1,61 +1,157 @@
 {% extends "base.html" %}
+{% set st = invoice.status or 'draft' %}
+{% set pill = 'warn' if st == 'draft' else ('ok' if st == 'paid' else ('bad' if st == 'disputed' else '')) %}
+{% set show_code = invoice.lines|map(attribute='code')|select|list|length > 0 %}
+{% set linked_expenses = invoice.expenses or [] %}
+{% set lines_n = invoice.lines|length %}
 {% block title %}{{ invoice.number or ('Ulazna #' ~ invoice.id) }} — Sepko{% endblock %}
-{% block page_title %}{{ invoice.number or ('Ulazna #' ~ invoice.id) }}{% endblock %}
+{% block page_title %}
+  <span class="inv-page-title inv-page-title--with-back">
+    <a class="btn secondary inv-actions-icon inv-title-back" href="/ulazne" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+      <i data-lucide="arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="inv-page-title-body">
+      <span class="inv-page-heading">
+        {{ invoice.number or ('Ulazna #' ~ invoice.id) }}
+      </span>
+      <span class="inv-page-sub">
+        {{ t('source.' ~ invoice.source, invoice.source) }}
+        · #{{ invoice.id }}
+      </span>
+    </span>
+  </span>
+{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/ulazne">← {{ t('nav.ulazne', 'Ulazne') }}</a>
+  <a class="btn secondary inv-actions-icon" href="/ulazne/{{ invoice.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+    <i data-lucide="pencil" aria-hidden="true"></i>
+  </a>
 {% endblock %}
 {% block content %}
-<div class="grid grid-2" style="gap:1rem;align-items:start">
-  <div class="card">
-    <p><span class="pill-tag">{{ invoice.status }}</span> · {{ invoice.source }}</p>
-    <p><strong>{{ invoice.supplier_name or '—' }}</strong><br>
-      <span class="muted">PIB {{ invoice.supplier_pib or '—' }}</span></p>
-    <p>Datum: {{ invoice.issue_date or '—' }}</p>
-    <p>Neto {{ (invoice.total_net or 0)|money }} € · PDV {{ (invoice.total_vat or 0)|money }} € ·
-      <strong>Bruto {{ (invoice.total_gross or 0)|money }} €</strong></p>
-    {% if invoice.ikof %}<p class="muted">IKOF: <code>{{ invoice.ikof }}</code></p>{% endif %}
-    {% if invoice.jikr %}<p class="muted">JIKR: <code>{{ invoice.jikr }}</code></p>{% endif %}
-    {% if invoice.qr_url %}<p><a href="{{ invoice.qr_url }}" target="_blank" rel="noopener">Verify URL</a></p>{% endif %}
-    {% if invoice.notes %}<p>{{ invoice.notes }}</p>{% endif %}
-
-    <form method="post" action="/ulazne/{{ invoice.id }}/status" class="wa-form-stack" style="margin-top:1rem">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-select name="status" label="Status" value="{{ invoice.status }}">
-        {% for s in ['draft','recorded','paid','disputed'] %}
-        <wa-option value="{{ s }}" {% if invoice.status == s %}selected{% endif %}>{{ s }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+{% set dmy = invoice.issue_date.strftime('%d.%m.%Y') if invoice.issue_date else '—' %}
+<div class="inc-compose inc-view">
+  <div class="inc-compose-main">
+    <div class="card inv-compose-card inc-card inc-view-head">
+      <div class="inc-view-head-top">
+        <div class="inc-supplier-block">
+          <span class="inc-fact-label">{{ t('col.supplier', 'Dobavljač') }}</span>
+          <span class="inc-supplier-name">{{ invoice.supplier_name or '—' }}</span>
+          <span class="inc-fact-meta">PIB {{ invoice.supplier_pib or '—' }}</span>
+        </div>
+        <span class="pill-tag{% if pill %} {{ pill }}{% endif %}">{{ t('status.' ~ st, st) }}</span>
       </div>
-    </form>
-
-    <form method="post" action="/ulazne/{{ invoice.id }}/trosak" style="margin-top:1rem">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-button type="submit" variant="brand">{{ t('ulazne.to_expense', 'Kreiraj trošak') }}</wa-button>
-    </form>
-  </div>
-
-  <div class="plan-card">
-    <div class="plan-head"><h2>{{ t('ulazne.lines', 'Stavke') }}</h2></div>
-    <div class="plan-table-wrap">
-      <table class="soft-table">
-        <thead><tr><th>Šifra</th><th>Naziv</th><th class="num">Kol.</th><th class="num">PDV%</th><th class="num">Ukupno</th></tr></thead>
-        <tbody>
-        {% for ln in invoice.lines %}
-          <tr>
-            <td>{{ ln.code or '—' }}</td>
-            <td>{{ ln.name }}</td>
-            <td class="num">{{ ln.quantity }}</td>
-            <td class="num">{{ ln.vat_rate }}</td>
-            <td class="num">{{ (ln.total_gross or 0)|money }} €</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="5" class="muted">Nema stavki</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+      <div class="inc-facts">
+        <div class="inc-fact">
+          <span class="inc-fact-label">{{ t('col.number', 'Broj') }}</span>
+          <span class="inc-fact-value">{{ invoice.number or ('#' ~ invoice.id) }}</span>
+        </div>
+        <div class="inc-fact">
+          <span class="inc-fact-label">{{ t('col.date', 'Datum') }}</span>
+          <span class="inc-fact-value">{{ dmy }}</span>
+        </div>
+        <div class="inc-fact">
+          <span class="inc-fact-label">{{ t('col.source', 'Izvor') }}</span>
+          <span class="inc-fact-value">{{ t('source.' ~ invoice.source, invoice.source) }}</span>
+        </div>
+      </div>
     </div>
+
+    <div class="plan-card inc-lines-panel{% if lines_n <= 3 %} is-compact{% endif %}">
+      <div class="plan-head">
+        <h2>{{ t('ulazne.lines', 'Stavke') }}</h2>
+        <span class="inc-lines-count">{{ lines_n }}</span>
+      </div>
+      <div class="plan-table-wrap">
+        <table class="soft-table inc-lines-table">
+          <thead>
+            <tr>
+              {% if show_code %}<th>{{ t('col.code', 'Šifra') }}</th>{% endif %}
+              <th>{{ t('col.name', 'Naziv') }}</th>
+              <th class="num">{{ t('col.qty', 'Kol.') }}</th>
+              <th class="num">{{ t('ulazne.line_price', 'Cijena neto') }}</th>
+              <th class="num">{{ t('col.vat', 'PDV') }}</th>
+              <th class="num">{{ t('col.total', 'Ukupno') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for ln in invoice.lines %}
+            <tr>
+              {% if show_code %}<td class="inc-line-code">{{ ln.code or '—' }}</td>{% endif %}
+              <td class="inc-line-name">{{ ln.name }}</td>
+              <td class="num">{{ ln.quantity|qty }}</td>
+              <td class="num">{{ (ln.unit_price_net or 0)|money }} €</td>
+              <td class="num">{{ ln.vat_rate|qty }}%</td>
+              <td class="num"><strong>{{ (ln.total_gross or 0)|money }} €</strong></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="{{ 6 if show_code else 5 }}" class="muted inc-lines-empty">{{ t('ulazne.no_lines', 'Nema stavki') }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if invoice.notes or invoice.ikof or invoice.jikr or invoice.qr_url %}
+    <div class="card inv-compose-card inc-card">
+      <div class="inv-section-title">{{ t('col.notes', 'Napomena') }}{% if invoice.ikof or invoice.jikr or invoice.qr_url %} / meta{% endif %}</div>
+      {% if invoice.notes %}<p class="inc-notes-text">{{ invoice.notes }}</p>{% endif %}
+      {% if invoice.ikof %}<p class="muted inc-meta-line">IKOF: <code>{{ invoice.ikof }}</code></p>{% endif %}
+      {% if invoice.jikr %}<p class="muted inc-meta-line">JIKR: <code>{{ invoice.jikr }}</code></p>{% endif %}
+      {% if invoice.qr_url %}
+      <p class="inc-meta-line"><a href="{{ invoice.qr_url }}" target="_blank" rel="noopener">{{ t('ulazne.verify', 'Verify URL') }}</a></p>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
+
+  <aside class="inc-compose-side">
+    <div class="card inv-compose-card inv-compose-totals inc-side-card">
+      <div class="inv-totals-hero">
+        <span class="inv-totals-hero-label">{{ t('col.amount', 'Iznos') }}</span>
+        <span class="inv-totals-hero-value">{{ (invoice.total_gross or 0)|money }}<span class="totals-cur">€</span></span>
+      </div>
+      <div class="inc-totals-break">
+        <div class="inc-tot-row"><span>Neto</span><strong>{{ (invoice.total_net or 0)|money }} €</strong></div>
+        <div class="inc-tot-row"><span>PDV</span><strong>{{ (invoice.total_vat or 0)|money }} €</strong></div>
+        <div class="inc-tot-row inc-tot-row--bruto"><span>Bruto</span><strong>{{ (invoice.total_gross or 0)|money }} €</strong></div>
+      </div>
+
+      <form method="post" action="/ulazne/{{ invoice.id }}/status" class="inc-status-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <wa-select name="status" label="{{ t('col.status', 'Status') }}" value="{{ invoice.status }}" size="small">
+          {% for s in ['draft','recorded','paid','disputed'] %}
+          <wa-option value="{{ s }}" {% if invoice.status == s %}selected{% endif %}>{{ t('status.' ~ s, s) }}</wa-option>
+          {% endfor %}
+        </wa-select>
+        <div class="inc-side-actions">
+          <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        </div>
+      </form>
+    </div>
+
+    {% if linked_expenses %}
+    <div class="card inv-compose-card inc-card inc-expense-linked">
+      <div class="inc-fact-label">{{ t('ulazne.linked_expense', 'Trošak') }}</div>
+      <ul class="inc-expense-list">
+        {% for exp in linked_expenses %}
+        <li>
+          <a href="/troskovi">#{{ exp.id }}</a>
+          <span class="muted">{{ (exp.amount or 0)|money }} €</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/ulazne/{{ invoice.id }}/trosak" class="inc-side-actions"
+          data-confirm="{{ t('ulazne.confirm_expense', 'Kreirati trošak od') }} {{ (invoice.total_gross or 0)|money }} €?"
+          data-confirm-title="{{ t('ulazne.to_expense', 'Kreiraj trošak') }}"
+          data-confirm-tone="warn"
+          data-confirm-ok="{{ t('ulazne.to_expense', 'Kreiraj trošak') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <wa-button type="submit" variant="neutral" appearance="outlined" style="width:100%">
+        {% if linked_expenses %}{{ t('ulazne.to_expense_again', 'Kreiraj još jedan trošak') }}{% else %}{{ t('ulazne.to_expense', 'Kreiraj trošak') }}{% endif %}
+      </wa-button>
+    </form>
+  </aside>
 </div>
 {% endblock %}

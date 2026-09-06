@@ -92,6 +92,9 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     mail = load_mail_settings(tenant)
+    total_fakturisano = round(sum(float(c.get("fakturisano") or 0) for c in cards), 2)
+    total_uplaceno = round(sum(float(c.get("uplaceno") or 0) for c in cards), 2)
+    total_dug = round(sum(float(c.get("dug") or 0) for c in cards), 2)
     return render(
         request,
         "finansije.html",
@@ -104,6 +107,12 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
             "incoming_options": incoming,
             "categories": categories,
             "mail_enabled": mail.enabled,
+            "cards_count": len(cards),
+            "statements_count": len(statements),
+            "pending_count": len(pending_tx),
+            "total_fakturisano": total_fakturisano,
+            "total_uplaceno": total_uplaceno,
+            "total_dug": total_dug,
         },
     )
 

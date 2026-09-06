@@ -2,50 +2,77 @@
 {% block title %}{{ t('nav.ulazne', 'Ulazne') }} — Sepko{% endblock %}
 {% block page_title %}{{ t('nav.ulazne', 'Ulazne fakture') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
+  <a class="btn secondary ulazne-qr-btn" href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
   <a class="btn" href="/ulazne/nova">+ {{ t('ulazne.add', 'Dodaj ulaznu') }}</a>
 {% endblock %}
 {% block content %}
-<form class="filter-bar wa-filter-bar" method="get" action="/ulazne" style="margin-bottom:1rem">
-  <wa-select name="status" label="{{ t('col.status', 'Status') }}" value="{{ filter_status or '' }}" style="min-width:10rem">
+<form class="filter-bar wa-filter-bar ulazne-filters" id="ulazne-filters" method="get" action="/ulazne" style="margin-bottom:1rem">
+  <wa-select name="status" id="ulazne-filter-status" label="{{ t('col.status', 'Status') }}" value="{{ filter_status or '' }}" style="min-width:10rem">
     <wa-option value="" {% if not filter_status %}selected{% endif %}>{{ t('filter.all', 'Sve') }}</wa-option>
     {% for s in ['draft','recorded','paid','disputed'] %}
-    <wa-option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</wa-option>
+    <wa-option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ t('status.' ~ s, s) }}</wa-option>
     {% endfor %}
   </wa-select>
-  <wa-input name="q" label="{{ t('btn.search', 'Pretraga') }}" value="{{ filter_q or '' }}" placeholder="Broj, PIB, naziv, IKOF" style="flex:1;min-width:160px"></wa-input>
-  <wa-button type="submit" variant="neutral" appearance="outlined">{{ t('btn.apply', 'Primijeni') }}</wa-button>
+  <wa-input name="q" id="ulazne-filter-q" label="{{ t('btn.search', 'Pretraga') }}" value="{{ filter_q or '' }}" placeholder="Broj, PIB, naziv, IKOF" style="flex:1;min-width:160px" with-clear></wa-input>
+  <wa-button type="submit" variant="neutral" appearance="outlined" class="ulazne-filter-apply">{{ t('btn.apply', 'Primijeni') }}</wa-button>
 </form>
 
-<div class="plan-card">
+<div class="plan-card ulazne-list-card">
   <div class="plan-table-wrap">
-    <table class="soft-table">
+    <table class="soft-table ulazne-table">
       <thead>
         <tr>
-          <th>{{ t('col.number', 'Broj') }}</th>
-          <th>{{ t('col.status', 'Status') }}</th>
-          <th>{{ t('col.supplier', 'Dobavljač') }}</th>
-          <th>{{ t('col.date', 'Datum') }}</th>
-          <th>{{ t('col.source', 'Izvor') }}</th>
-          <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+          <th class="ulazne-col-num">{{ t('col.number', 'Broj') }}</th>
+          <th class="ulazne-col-status">{{ t('col.status', 'Status') }}</th>
+          <th class="ulazne-col-supplier">{{ t('col.supplier', 'Dobavljač') }}</th>
+          <th class="ulazne-col-date">{{ t('col.date', 'Datum') }}</th>
+          <th class="num ulazne-col-amount">{{ t('col.amount', 'Iznos') }}</th>
+          <th class="cell-actions"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>
         </tr>
       </thead>
       <tbody>
       {% for inv in invoices %}
-        <tr>
-          <td><a href="/ulazne/{{ inv.id }}"><strong>{{ inv.number or ('#' ~ inv.id) }}</strong></a></td>
-          <td><span class="pill-tag">{{ inv.status }}</span></td>
-          <td>
-            <div class="cell-client">{{ inv.supplier_name or '—' }}</div>
-            <div class="cell-secondary">{{ inv.supplier_pib or '' }}</div>
+        {% set st = inv.status or 'draft' %}
+        {% set pill = 'warn' if st == 'draft' else ('ok' if st == 'paid' else ('bad' if st == 'disputed' else '')) %}
+        {% set rail = 'pending' if st == 'draft' else ('ok' if st == 'paid' else ('bad' if st == 'disputed' else 'accent')) %}
+        <tr class="inv-row" data-href="/ulazne/{{ inv.id }}" tabindex="0" role="link"
+            aria-label="{{ inv.number or (t('ulazne.no_number', 'Bez broja') ~ ' #' ~ inv.id) }}">
+          <td class="ulazne-col-num">
+            <div class="inv-num-stack">
+              <span class="inv-status-rail ulazne-rail {{ rail }}" aria-hidden="true"></span>
+              <div class="ulazne-num-body">
+                <span class="inv-num-local{% if not inv.number %} is-empty{% endif %}">
+                  {% if inv.number %}{{ inv.number }}{% else %}{{ t('ulazne.no_number', 'Bez broja') }}{% endif %}
+                </span>
+                <div class="cell-secondary ulazne-id">#{{ inv.id }}</div>
+              </div>
+            </div>
           </td>
-          <td>{{ inv.issue_date or '—' }}</td>
-          <td>{{ inv.source }}</td>
-          <td class="num"><strong>{{ (inv.total_gross or 0)|money }} €</strong></td>
+          <td class="ulazne-col-status">
+            <span class="pill-tag{% if pill %} {{ pill }}{% endif %}">{{ t('status.' ~ st, st) }}</span>
+          </td>
+          <td class="ulazne-col-supplier">
+            <div class="cell-client">{{ inv.supplier_name or '—' }}</div>
+            {% if inv.supplier_pib %}<div class="cell-secondary">{{ inv.supplier_pib }}</div>{% endif %}
+          </td>
+          <td class="ulazne-col-date">
+            <div class="cell-date">{{ inv.issue_date.strftime('%d.%m.%Y') if inv.issue_date else '—' }}</div>
+            <div class="cell-secondary">{{ t('source.' ~ inv.source, inv.source) }}</div>
+          </td>
+          <td class="num cell-amount ulazne-col-amount{% if not inv.total_gross %} is-zero{% endif %}">
+            <strong>{{ (inv.total_gross or 0)|money }} €</strong>
+          </td>
+          <td class="cell-actions">
+            <div class="row-actions">
+              <a class="btn-icon-row" href="/ulazne/{{ inv.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+                <i data-lucide="pencil" aria-hidden="true"></i>
+              </a>
+            </div>
+          </td>
         </tr>
       {% else %}
         <tr>
-          <td colspan="6" class="muted" style="padding:1.5rem">
+          <td colspan="6" class="muted ulazne-empty">
             {{ t('ulazne.empty', 'Nema ulaznih faktura.') }}
             <a href="/ulazne/qr">{{ t('ulazne.scan_qr', 'Skeniraj QR') }}</a>
             ·
@@ -57,4 +84,66 @@
     </table>
   </div>
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById('ulazne-filters');
+  var statusEl = document.getElementById('ulazne-filter-status');
+  var qEl = document.getElementById('ulazne-filter-q');
+  var timer = null;
+  var lastQ = qEl ? (qEl.value || '') : '';
+
+  function submitFilters() {
+    if (form) form.requestSubmit ? form.requestSubmit() : form.submit();
+  }
+
+  if (statusEl) {
+    ['change', 'wa-change'].forEach(function (ev) {
+      statusEl.addEventListener(ev, submitFilters);
+    });
+  }
+
+  function scheduleSearch() {
+    if (!qEl) return;
+    var next = qEl.value || '';
+    if (next === lastQ) return;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      lastQ = next;
+      submitFilters();
+    }, 320);
+  }
+
+  if (qEl) {
+    ['input', 'wa-input', 'wa-clear'].forEach(function (ev) {
+      qEl.addEventListener(ev, scheduleSearch);
+    });
+    qEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(timer);
+        lastQ = qEl.value || '';
+        submitFilters();
+      }
+    });
+  }
+
+  document.querySelectorAll('tr.inv-row[data-href]').forEach(function (row) {
+    function go() {
+      var href = row.getAttribute('data-href');
+      if (href) window.location.href = href;
+    }
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, label, .row-actions')) return;
+      go();
+    });
+    row.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target !== row) return;
+      e.preventDefault();
+      go();
+    });
+  });
+})();
+</script>
 {% endblock %}

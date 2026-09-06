@@ -121,3 +121,18 @@ def parse_discount_pct(raw: Any) -> Decimal:
 def money_filter(value: Any, ndigits: int = 2) -> str:
     """Jinja filter: {{ x|money }} ili {{ x|money(4) }}."""
     return format_amount(value, ndigits=ndigits)
+
+
+def format_qty(value: Any, max_digits: int = 4) -> str:
+    """Količina bez suvišnih nula: 1 → '1', 1.5 → '1,5', 1.2500 → '1,25'."""
+    formatted = format_amount(value, ndigits=max_digits)
+    if "," not in formatted:
+        return formatted
+    int_part, frac = formatted.rsplit(",", 1)
+    frac = frac.rstrip("0")
+    return int_part if not frac else f"{int_part},{frac}"
+
+
+def qty_filter(value: Any, max_digits: int = 4) -> str:
+    """Jinja filter: {{ x|qty }}."""
+    return format_qty(value, max_digits=max_digits)

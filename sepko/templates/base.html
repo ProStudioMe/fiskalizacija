@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=127">
+  <link rel="stylesheet" href="/static/style.css?v=137">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=9">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
@@ -131,11 +131,7 @@
         </div>
         <div class="nav-group">
           <div class="nav-label">{{ t('nav.ulazno', 'Ulazno') }}</div>
-          <a href="/ulazne/nova" class="nav-add {% if path.startswith('/ulazne/nova') %}active{% endif %}">
-            <i data-lucide="plus" aria-hidden="true"></i>
-            {{ t('page.ulazne_new', 'Nova ulazna faktura') }}
-          </a>
-          <a href="/ulazne" class="nav-item {% if path.startswith('/ulazne') and '/nova' not in path %}active{% endif %}">
+          <a href="/ulazne" class="nav-item {% if path.startswith('/ulazne') %}active{% endif %}">
             <i data-lucide="inbox" aria-hidden="true"></i>
             {{ t('nav.ulazne', 'Ulazne') }}
           </a>

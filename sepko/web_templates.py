@@ -9,13 +9,14 @@ from sepko.config import get_settings
 from sepko.db import SessionLocal
 from sepko.efi import UI_LANGUAGES, display_inv_num, load_tenant_ui, normalize_ui_language
 from sepko.i18n import get_translations_map, list_languages, t as i18n_t
-from sepko.money import money_filter
+from sepko.money import money_filter, qty_filter
 from sepko.web_security import ensure_csrf, pop_flash
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.filters["display_inv_num"] = display_inv_num
 templates.env.filters["money"] = money_filter
+templates.env.filters["qty"] = qty_filter
 
 # BCP 47 / HTML lang iz naših UI kodova
 _HTML_LANG = {

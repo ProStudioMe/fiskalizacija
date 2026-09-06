@@ -63,6 +63,7 @@ class Tenant(Base):
     customer_payments: Mapped[list["CustomerPayment"]] = relationship(back_populates="tenant")
     invoice_schedules: Mapped[list["InvoiceSchedule"]] = relationship(back_populates="tenant")
     incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="tenant")
+    incoming_line_names: Mapped[list["IncomingLineName"]] = relationship(back_populates="tenant")
     expense_categories: Mapped[list["ExpenseCategory"]] = relationship(back_populates="tenant")
     expenses: Mapped[list["Expense"]] = relationship(back_populates="tenant")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="tenant")
@@ -488,6 +489,28 @@ class IncomingInvoiceLine(Base):
     total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
 
     invoice: Mapped[IncomingInvoice] = relationship(back_populates="lines")
+
+
+class IncomingLineName(Base):
+    """Šifrarnik naziva stavki ulaznih faktura (ponuda u selectu)."""
+
+    __tablename__ = "incoming_line_names"
+    __table_args__ = (UniqueConstraint("tenant_id", "name_norm", name="uq_tenant_incoming_line_norm"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    name_norm: Mapped[str] = mapped_column(String(255), index=True)
+    use_count: Mapped[int] = mapped_column(default=0)
+    last_unit_price_net: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
+    last_vat_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="incoming_line_names")
 
 
 class ExpenseCategory(Base):
