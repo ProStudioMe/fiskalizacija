@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ t('page.blagajna', 'Blagajna') }} — Sepko{% endblock %}
+{% block page_title %}{{ t('page.blagajna', 'Blagajna') }}{% endblock %}
+{% block content %}
+<p class="muted" style="margin-top:0">EFI RegisterCashDeposit — INITIAL prije prvog CASH računa, WITHDRAW za podizanje gotovine.</p>
+<div class="grid grid-3" style="margin-top:0.5rem">
+  <div class="card">
+    <div class="stat">{{ "%.2f"|format(day.initial) }} €<small>INITIAL depozit</small></div>
+  </div>
+  <div class="card">
+    <div class="stat">{{ "%.2f"|format(day.banknote_sales) }} €<small>BANKNOTE prodaja</small></div>
+  </div>
+  <div class="card">
+    <div class="stat">{{ "%.2f"|format(day.cash_in_drawer) }} €<small>Gotovina u kasi</small></div>
+  </div>
+</div>
+<p class="muted" style="margin-top:0.75rem">
+  Podignuto (WITHDRAW): {{ "%.2f"|format(day.withdrawals) }} € ·
+  Računa danas: {{ day.invoice_count }} ·
+  ENU: <code>{{ fiscal.tcr_code or '—' }}</code>
+</p>
+{% if not day.has_initial %}
+<div class="flash error">Nema INITIAL za danas — unesi početni depozit prije CASH računa (smije biti 0,00).</div>
+{% endif %}
+<div class="grid grid-2" style="margin-top:1rem">
+  <div class="card">
+    <h2>Nova promjena</h2>
+    <form method="post" action="/blagajna">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label>Operacija</label>
+        <select name="operation">
+          <option value="INITIAL">INITIAL — početni depozit</option>
+          <option value="WITHDRAW">WITHDRAW — podizanje gotovine</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Iznos (€)</label>
+        <input name="amount" type="number" step="0.01" min="0" value="0" required>
+      </div>
+      <button type="submit">Registruj</button>
+    </form>
+  </div>
+  <div class="plan-card">
+    <div class="plan-head"><h2>Danas</h2></div>
+    <table class="soft-table">
+      <thead><tr><th>Vrijeme</th><th>Op</th><th class="num">Iznos</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for d in deposits %}
+        <tr>
+          <td>
+            <div class="cell-primary">{{ d.change_datetime.strftime('%H:%M') if d.change_datetime else '—' }}</div>
+          </td>
+          <td><span class="pill-tag">{{ d.operation }}</span></td>
+          <td class="num">{{ "%.2f"|format(d.amount) }} €</td>
+          <td>
+            {% if d.status == 'failed' %}
+              <span class="pill-tag bad">{{ d.status }}</span>
+            {% elif d.status == 'superseded' %}
+              <span class="pill-tag warn">{{ d.status }}</span>
+            {% else %}
+              <span class="pill-tag ok">{{ d.status }}</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema promjena danas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
