@@ -23,8 +23,12 @@
     <div class="info-block">
       <h3>{{ brand }}</h3>
       <p>verzija: {{ version }} · partner: {{ partner_mode }}</p>
-      <p class="muted" style="margin-top:0.5rem">Nosilac: <strong>{{ company_name }}</strong>
-        · <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer">{{ company_domain }}</a></p>
+      <p class="muted" style="margin-top:0.5rem">Nosilac: <strong>{{ company_name }}</strong></p>
+      <p style="margin-top:0.65rem">
+        <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ company_domain }}">
+          <img class="company-logo" src="/static/img/prostudio-logo-dark.png?v=1" alt="{{ company_domain }}" width="160" height="25" data-logo-light="/static/img/prostudio-logo-dark.png?v=1" data-logo-dark="/static/img/prostudio-logo.png?v=1">
+        </a>
+      </p>
     </div>
     <div class="info-block">
       <h3>Firma</h3>

@@ -1,6 +1,7 @@
 # Produkcija na Hetzneru: app iz GHCR + Postgres.
 # Kopira se u /home/proracun/docker-compose.yml
 # Nginx (Virtualmin) proxy → 127.0.0.1:3040
+# Compose interpolacija: docker compose --env-file .docker_env ...
 
 services:
   db:
@@ -42,6 +43,7 @@ services:
 networks:
   proracun:
     name: proracun-net
+    external: true
 
 volumes:
   pgdata:

@@ -237,7 +237,7 @@ a:hover { text-decoration: underline; }
 }
 .brand-footer {
   margin: 0;
-  padding: 0.35rem 0.85rem 0.15rem;
+  padding: 0.55rem 0.85rem 0.65rem;
   text-align: center;
   font-size: 0.75rem;
   font-weight: 500;
@@ -249,10 +249,26 @@ a:hover { text-decoration: underline; }
 .brand-footer a {
   color: inherit;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 .brand-footer a:hover {
   color: var(--accent, #5a32d6);
   text-decoration: none;
+  opacity: 0.92;
+}
+.company-logo {
+  display: block;
+  height: 18px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
+}
+.brand-footer-login .company-logo {
+  height: 22px;
+  max-width: 180px;
 }
 .brand-footer-login {
   position: fixed;

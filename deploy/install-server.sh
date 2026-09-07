@@ -3,6 +3,7 @@
 set -euo pipefail
 install -d -o proracun -g proracun /home/proracun/logs /home/proracun/data /home/proracun/certs
 chmod 600 /home/proracun/.docker_env 2>/dev/null || true
+usermod -aG docker proracun || true
 cp /home/proracun/docker-proracun.service /etc/systemd/system/docker-proracun.service
 cp /home/proracun/nginx-proracun.me.conf /etc/nginx/sites-enabled/proracun.me.conf
 nginx -t
