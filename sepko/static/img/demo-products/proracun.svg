@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240" role="img" aria-label="ProRaun">
+  <defs>
+    <clipPath id="pr"><rect width="48" height="48" rx="12"/></clipPath>
+  </defs>
+  <rect width="320" height="240" fill="#12081F"/>
+  <g transform="translate(112,36) scale(2)">
+    <g clip-path="url(#pr)">
+      <rect width="24" height="48" fill="#4527A0"/>
+      <rect x="24" width="24" height="48" fill="#7C4DFF"/>
+      <path fill="#12081F" opacity="0.4" fill-rule="evenodd" d="M13.9 11.6h12.6L38.2 21 26.5 30.4H22.4v8.2H13.9V11.6Zm8.5 5.2h8.1L33.8 21l-3.3 3.6H22.4V16.8Z"/>
+      <path fill="#fff" fill-rule="evenodd" d="M15 10h12.6L39.3 19.4 27.6 28.8H23.5v8.2H15V10Zm8.5 5.2h8.1L33.9 19.4l-3.3 3.6H23.5V15.2Z"/>
+    </g>
+  </g>
+  <text x="160" y="200" text-anchor="middle" fill="#fff" font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif" font-size="18" font-weight="700">ProRaun</text>
+</svg>

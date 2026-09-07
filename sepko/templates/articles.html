@@ -3,10 +3,15 @@
 {% block page_title %}{{ t('page.artikli', 'Artikli') }}{% endblock %}
 {% block page_actions %}
   <a class="btn secondary" href="/podesavanja/artikli">← Hub</a>
+  {% if return_to and has_active_articles %}
+  <a class="btn" href="{{ return_to }}">{{ t('btn.continue_invoice', 'Nastavi na fakturu') }} →</a>
+  {% elif not return_to %}
   <a class="btn" href="/artikli">+ {{ t('btn.add', 'Novi') }}</a>
+  {% endif %}
 {% endblock %}
 {% block content %}
 <form method="get" action="/artikli" class="filter-bar">
+  {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
   <div class="search-bar" style="margin:0;flex:1;min-width:200px">
     <i data-lucide="search" aria-hidden="true"></i>
     <input name="q" value="{{ q }}" placeholder="Pretraga naziv / šifra / barkod…">
@@ -73,6 +78,7 @@
     <h2>{{ t('btn.add', 'Novi') }}</h2>
     <form method="post" action="/artikli" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
       <wa-input name="code" label="Šifra artikla" required maxlength="64"></wa-input>
       <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
       <wa-input name="unit" label="Jedinica mjere" value="kom"></wa-input>
@@ -141,7 +147,7 @@
           <td>
             <div class="cell-primary">
               {% if a.thumbnail_filename %}
-              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=2{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
+              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=4{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
               {% else %}
               <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#7c3aed' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
               {% endif %}
@@ -157,11 +163,12 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema artikala.</td></tr>
+        <tr><td colspan="4" class="muted" style="padding:1.25rem">{% if return_to %}Nema artikala. Dodaj prvi u formi lijevo, pa nastavi na fakturu.{% else %}Nema artikala.{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
     {% set pager_qs = 'q=' ~ q ~ '&per_page=' ~ per_page %}
+    {% if return_to %}{% set pager_qs = pager_qs ~ '&return_to=' ~ (return_to|urlencode) %}{% endif %}
     {% include "_pager.html" %}
   </div>
 </div>
