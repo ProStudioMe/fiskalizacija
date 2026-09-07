@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=141">
+  <link rel="stylesheet" href="/static/style.css?v=142">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=10">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
@@ -293,7 +293,7 @@
     {% block auth %}{% endblock %}
     <p class="brand-footer brand-footer-login">
       <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ company_domain }}">
-        <img class="company-logo" src="/static/img/prostudio-logo-dark.png?v=2" alt="{{ company_domain }}" width="160" height="25" data-logo-light="/static/img/prostudio-logo-dark.png?v=2" data-logo-dark="/static/img/prostudio-logo.png?v=2">
+        <img class="company-logo" src="/static/img/prostudio-logo.png?v=2" alt="{{ company_domain }}" width="160" height="25">
       </a>
     </p>
     <script src="/static/lucide.min.js?v=0.544.0"></script>
@@ -319,26 +319,7 @@
         root.classList.remove('wa-dark', 'wa-light');
         root.classList.add(next === 'dark' ? 'wa-dark' : 'wa-light');
         try { localStorage.setItem('sepko-theme', next); } catch (e) {}
-        var logo = document.querySelector('.login-card .brand-logo');
-        if (logo) {
-          logo.src = next === 'dark'
-            ? '/static/img/sepko-logo.svg?v=10'
-            : '/static/img/sepko-logo-dark.svg?v=10';
-        }
-        document.querySelectorAll('img.company-logo[data-logo-light]').forEach(function (img) {
-          var src = next === 'dark' ? img.getAttribute('data-logo-dark') : img.getAttribute('data-logo-light');
-          if (src) img.setAttribute('src', src);
-        });
       });
-      var logo0 = document.querySelector('.login-card .brand-logo');
-      if (logo0 && root.getAttribute('data-theme') === 'dark') {
-        logo0.src = '/static/img/sepko-logo.svg?v=10';
-      }
-      if (root.getAttribute('data-theme') === 'dark') {
-        document.querySelectorAll('img.company-logo[data-logo-dark]').forEach(function (img) {
-          img.setAttribute('src', img.getAttribute('data-logo-dark'));
-        });
-      }
     })();
     </script>
   {% endif %}
