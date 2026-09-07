@@ -6,19 +6,19 @@
   var shown = false;
   var mode = "install";
   var script = document.currentScript;
-  var title = (script && script.getAttribute("data-title")) || "Instaliraj SEPKO";
+  var title = (script && script.getAttribute("data-title")) || "Instaliraj ProRačun";
   var msg = (script && script.getAttribute("data-msg")) ||
-    "Dodaj SEPKO na početni ekran — brži pristup računima i fiskalizaciji, bez browser trake.";
+    "Dodaj ProRačun na početni ekran — brži pristup računima i fiskalizaciji, bez browser trake.";
   var okLabel = (script && script.getAttribute("data-ok")) || "Instaliraj";
   var laterLabel = (script && script.getAttribute("data-later")) || "Kasnije";
   var iosMsg = (script && script.getAttribute("data-ios")) ||
     "Na iPhone: Deli → Dodaj na početni ekran.";
   var openLabel = (script && script.getAttribute("data-open")) || "Otvori app";
-  var openTitle = (script && script.getAttribute("data-open-title")) || "SEPKO je instaliran";
+  var openTitle = (script && script.getAttribute("data-open-title")) || "ProRačun je instaliran";
   var openMsg = (script && script.getAttribute("data-open-msg")) ||
     "Aplikacija je već na uređaju. Otvori je da radi bez browser trake.";
   var openIos = (script && script.getAttribute("data-open-ios")) ||
-    "Otvori SEPKO sa početnog ekrana (ikona SEPKO).";
+    "Otvori ProRačun sa početnog ekrana (ikona ProRačun).";
   var btn = document.getElementById("btn-pwa-install");
 
   function standalone() {

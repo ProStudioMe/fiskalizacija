@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('page.info', 'Info') }} — Sepko{% endblock %}
+{% block title %}{{ t('page.info', 'Info') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.info', 'Info') }}{% endblock %}
 {% block content %}
 <div class="info-grid">
@@ -21,7 +21,7 @@
 
   <section class="info-blocks">
     <div class="info-block">
-      <h3>SEPKO</h3>
+      <h3>{{ brand }}</h3>
       <p>verzija: {{ version }} · partner: {{ partner_mode }}</p>
     </div>
     <div class="info-block">
@@ -59,7 +59,7 @@
     </div>
     <div class="info-block">
       <h3>Uređaj</h3>
-      <p>Model: Sepko Cloud back-office<br>Okruženje: {{ 'Produkcija' if tenant.mode == 'prod' else 'Test' }}</p>
+      <p>Model: {{ brand }} Cloud back-office<br>Okruženje: {{ 'Produkcija' if tenant.mode == 'prod' else 'Test' }}</p>
     </div>
   </section>
 </div>

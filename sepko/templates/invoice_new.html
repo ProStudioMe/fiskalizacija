@@ -2,7 +2,7 @@
 {% set is_edit = editing is defined and editing %}
 {% set is_template = as_template if as_template is defined else false %}
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
-{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — Sepko{% endblock %}
+{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
   <span class="inv-page-title{% if is_template %} inv-page-title--template{% endif %}">
     {% if is_template %}

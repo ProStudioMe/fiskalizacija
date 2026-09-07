@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from sepko.brand import DISPLAY_ASCII, DISPLAY_NAME
 from sepko.config import get_settings
 
 
@@ -68,7 +69,7 @@ def _win_raw(printer_name: str, data: bytes) -> str:
                 ("pDatatype", wintypes.LPWSTR),
             ]
 
-        doc = DOC_INFO_1("SEPKO ESC/POS", None, "RAW")
+        doc = DOC_INFO_1(f"{DISPLAY_ASCII} ESC/POS", None, "RAW")
         if not winspool.StartDocPrinterW(hprinter, 1, ctypes.byref(doc)):
             raise RuntimeError("StartDocPrinter nije uspio")
         try:
@@ -94,7 +95,7 @@ def _run_job(job: PrintJob) -> dict[str, Any]:
     return {"ok": True, "bytes": len(raw) * job.copies, "target": last}
 
 
-app = FastAPI(title="Sepko print agent", docs_url=None, redoc_url=None)
+app = FastAPI(title=f"{DISPLAY_NAME} print agent", docs_url=None, redoc_url=None)
 
 
 @app.get("/health")
@@ -124,7 +125,7 @@ async def print_ws(websocket: WebSocket) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     settings = get_settings()
-    parser = argparse.ArgumentParser(description="Sepko lokalni ESC/POS agent")
+    parser = argparse.ArgumentParser(description=f"{DISPLAY_NAME} lokalni ESC/POS agent")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=17890)
     args = parser.parse_args(argv)
@@ -132,7 +133,7 @@ def main(argv: list[str] | None = None) -> None:
         import uvicorn
     except ImportError as exc:
         raise SystemExit("uvicorn je potreban za print agent") from exc
-    print(f"Sepko print agent ws://{args.host}:{args.port}/ws  (POST /print)")
+    print(f"{DISPLAY_NAME} print agent ws://{args.host}:{args.port}/ws  (POST /print)")
     _ = settings
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

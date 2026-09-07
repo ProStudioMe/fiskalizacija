@@ -12,9 +12,9 @@ from sqlalchemy.pool import StaticPool
 
 from sepko.db import Base, get_db
 from sepko.i18n import ensure_translations, export_language_map, import_language_map
-from sepko.licenses import default_license_period, license_alert, license_days_left, license_label
+from sepko.licenses import add_months, default_license_period, license_alert, license_days_left, license_extend_until, license_label
 from sepko.main import app
-from sepko.models import AdminAuditLog, Tenant, TranslationKey, User
+from sepko.models import AdminAuditLog, LicenseInvoice, Tenant, TranslationKey, User
 from sepko.web_auth import hash_password
 
 
@@ -109,6 +109,9 @@ def test_license_helpers():
     start, until = default_license_period("trial", today=today)
     assert start == today
     assert until == today + timedelta(days=30)
+    assert add_months(date(2026, 1, 31), 1) == date(2026, 2, 28)
+    t2 = Tenant(slug="y", name="Y", pib="2", license_until=today + timedelta(days=5))
+    assert license_extend_until(t2.license_until, 6, today=today) == add_months(today + timedelta(days=5), 6)
 
 
 def test_admin_login_and_tenant_list(admin_client):
@@ -118,6 +121,14 @@ def test_admin_login_and_tenant_list(admin_client):
     assert r.status_code == 200
     assert "PHILIA DOO" in r.text
     assert "12345678" in r.text
+
+
+def test_login_shows_proracun_and_prostudio(admin_client):
+    client, _ = admin_client
+    page = client.get("/login")
+    assert page.status_code == 200
+    assert "ProRačun" in page.text
+    assert "prostudio.me" in page.text
 
 
 def test_tenant_user_cannot_open_admin(admin_client):
@@ -233,3 +244,122 @@ def test_translation_save_and_export(admin_client):
     payload = json.loads(exp.text)
     assert payload["language"] == "en"
     assert "nav.pregled" in payload["translations"]
+
+
+def test_tenant_detail_has_license_invoice_form(admin_client):
+    client, Session = admin_client
+    _admin_login(client)
+    db = Session()
+    tenant = db.query(Tenant).filter(Tenant.slug == "philia").one()
+    tid = tenant.id
+    db.close()
+    r = client.get(f"/admin/tenanti/{tid}")
+    assert r.status_code == 200
+    assert "Račun / profaktura za licencu" in r.text
+    assert "admin@philia.me" in r.text
+    assert 'action="/admin/tenanti/' in r.text
+
+
+def test_send_license_invoice_extends_and_audits(admin_client, monkeypatch):
+    client, Session = admin_client
+    monkeypatch.setattr(
+        "sepko.license_invoice.send_platform_mail",
+        lambda **_kw: {"ok": True, "message": "Poslato", "provider": "resend", "id": "re_test"},
+    )
+    _admin_login(client)
+    db = Session()
+    tenant = db.query(Tenant).filter(Tenant.slug == "philia").one()
+    tid = tenant.id
+    old_until = tenant.license_until
+    db.close()
+    page = client.get(f"/admin/tenanti/{tid}")
+    r = client.post(
+        f"/admin/tenanti/{tid}/licenca/racun",
+        data={
+            "csrf_token": _csrf(page.text),
+            "doc_kind": "invoice",
+            "to_email": "admin@philia.me",
+            "number": "01-26-0001",
+            "issue_date": "2026-09-07",
+            "due_date": "2026-09-14",
+            "months": "6",
+            "amount": "90,00",
+            "item_name": "ProRačun Basic WEB",
+            "payment_method": "Virman",
+            "iban": "CKB: 510-1",
+            "message": "Poštovani, test.",
+            "extend_license": "1",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    db = Session()
+    row = db.query(LicenseInvoice).filter(LicenseInvoice.number == "01-26-0001").one()
+    assert row.status == "sent"
+    assert row.kind == "invoice"
+    assert str(row.to_email) == "admin@philia.me"
+    tenant = db.get(Tenant, tid)
+    assert tenant.license_until > old_until
+    audit = db.query(AdminAuditLog).filter(AdminAuditLog.action == "license.invoice_send").first()
+    assert audit is not None
+    db.close()
+
+
+def test_daily_proforma_for_expiring_paid_license(admin_client, monkeypatch):
+    from sepko.license_invoice import run_due_license_proformas
+
+    sent: list[dict] = []
+
+    def fake_send(**kw):
+        sent.append(kw)
+        return {"ok": True, "message": "Poslato", "provider": "resend", "id": "re_pf"}
+
+    monkeypatch.setattr("sepko.license_invoice.send_platform_mail", fake_send)
+    _client, Session = admin_client
+    db = Session()
+    today = date.today()
+    tenant = db.query(Tenant).filter(Tenant.slug == "philia").one()
+    tenant.license_type = "yearly"
+    tenant.license_until = today + timedelta(days=10)
+    db.commit()
+
+    first = run_due_license_proformas(db, today=today)
+    assert first["ok"] == 1
+    assert len(sent) == 1
+    assert "Profaktura" in (sent[0].get("subject") or "")
+    html = sent[0].get("body_html") or ""
+    assert "Profaktura" in html
+    assert "PROSTUDIO.ME DOO" in html
+
+    second = run_due_license_proformas(db, today=today)
+    assert second["ok"] == 0
+    assert len(sent) == 1
+
+    trial = Tenant(
+        slug="trial-x",
+        name="Trial X",
+        pib="11111111",
+        status="trial",
+        mode="test",
+        license_type="trial",
+        license_from=today,
+        license_until=today + timedelta(days=5),
+    )
+    db.add(trial)
+    db.flush()
+    db.add(
+        User(
+            tenant_id=trial.id,
+            email="trial@x.me",
+            password_hash=hash_password("sepko12345"),
+            full_name="Trial",
+            role="admin",
+            active=True,
+        )
+    )
+    db.commit()
+    third = run_due_license_proformas(db, today=today)
+    assert third["ok"] == 0
+    assert len(sent) == 1
+    db.close()
+

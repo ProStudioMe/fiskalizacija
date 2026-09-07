@@ -182,6 +182,15 @@ def init_db() -> None:
             for name, coltype in tenant_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "tenants", name, coltype)
+        if "license_invoices" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("license_invoices")}
+            lic_inv_extras = {
+                "kind": "VARCHAR(16)",
+                "covers_until": "DATE",
+            }
+            for name, coltype in lic_inv_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "license_invoices", name, coltype)
         if "bank_transactions" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("bank_transactions")}
             if "incoming_invoice_id" not in existing:

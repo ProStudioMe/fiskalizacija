@@ -115,7 +115,7 @@ def ensure_superadmin(db: Session) -> User | None:
         tenant_id=None,
         email=SUPERADMIN_EMAIL,
         password_hash=hash_password(password),
-        full_name="Sepko Superadmin",
+        full_name="ProRačun Superadmin",
         role=SUPERADMIN_ROLE,
         active=True,
     )

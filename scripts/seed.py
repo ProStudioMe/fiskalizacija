@@ -191,7 +191,7 @@ def main() -> None:
             )
         )
         db.commit()
-        print("Sepko seed OK (PostgreSQL)")
+        print("ProRačun seed OK (PostgreSQL)")
         print(f"  tenant: philia ({tenant.name})")
         print("  API key (save once):")
         print(f"  {raw}")

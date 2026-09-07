@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ t('login.title', 'Prijava') }} — Sepko{% endblock %}
+{% block title %}{{ t('login.title', 'Prijava') }} — {{ brand }}{% endblock %}
 {% block auth %}
 <div class="login-wrap">
   <div class="card login-card">
     <div class="brand">
-      <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=3" alt="SEPKO" width="190" height="48">
+      <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=9" alt="{{ brand }}" width="248" height="48">
     </div>
     <p class="muted">{{ t('login.title', 'Prijava') }}</p>
     {% if flash %}

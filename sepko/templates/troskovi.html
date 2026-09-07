@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('nav.troskovi', 'Troškovnik') }} — Sepko{% endblock %}
+{% block title %}{{ t('nav.troskovi', 'Troškovnik') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('nav.troskovi', 'Troškovnik') }}{% endblock %}
 {% block content %}
 <p class="muted">{{ year }}-{{ "%02d"|format(month) }} · Ukupno <strong>{{ total|money }} €</strong></p>

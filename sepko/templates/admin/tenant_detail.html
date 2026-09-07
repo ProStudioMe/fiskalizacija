@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ view.name }} — Sepko admin{% endblock %}
+{% block title %}{{ view.name }} — {{ brand }} admin{% endblock %}
 {% block page_title %}{{ view.name }}{% endblock %}
 {% block page_actions %}
   <a class="btn secondary" href="/admin/audit?source=tenant&tenant_id={{ view.id }}">Dnevnik</a>
@@ -120,4 +120,75 @@
     </div>
   </div>
 </div>
+
+<div class="card" style="margin-top:1rem">
+  <h2>Račun / profaktura za licencu</h2>
+  <p class="muted">Isti mail kao kod VG: HTML račun + PDF. Pošiljalac je {{ billing.issuer_name }} ({{ billing.issuer_email }}).
+    Dnevni cron šalje <strong>profakturu</strong> kad licenca ističe (&lt; 30 dana); ovdje šalješ <strong>račun</strong> kad je uplata stigla.</p>
+  {% if not mail_status.ok %}
+  <div class="flash warn">{{ mail_status.message }}</div>
+  {% else %}
+  <p class="cell-secondary">Kanal: {{ mail_status.provider }}</p>
+  {% endif %}
+  <form method="post" action="/admin/tenanti/{{ view.id }}/licenca/racun" class="wa-form-stack" id="license-invoice-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <wa-select name="doc_kind" id="lic-kind" label="Dokument" value="invoice">
+      <wa-option value="invoice" selected>Račun (plaćeno)</wa-option>
+      <wa-option value="proforma">Profaktura (podsjetnik)</wa-option>
+    </wa-select>
+    <wa-input name="to_email" type="email" label="Primaoc" value="{{ lic_to_email }}" required maxlength="255"></wa-input>
+    <div class="row">
+      <wa-input name="number" label="Broj" value="{{ lic_number }}" maxlength="32"></wa-input>
+      <wa-input type="date" name="issue_date" label="Datum" value="{{ lic_issue }}"></wa-input>
+      <wa-input type="date" name="due_date" label="Datum valute" value="{{ lic_due }}"></wa-input>
+    </div>
+    <div class="row">
+      <wa-input name="months" id="lic-months" label="Mjeseci" value="{{ lic_months }}" inputmode="numeric"></wa-input>
+      <wa-input name="amount" id="lic-amount" label="Iznos (€)" value="{{ lic_amount }}" data-monthly="{{ billing.monthly_price }}"></wa-input>
+    </div>
+    <wa-input name="item_name" label="Stavka" value="{{ lic_item }}" maxlength="255"></wa-input>
+    <wa-input name="payment_method" label="Način plaćanja" value="{{ lic_pay }}" maxlength="128"></wa-input>
+    <wa-input name="iban" label="IBAN / žiro" value="{{ lic_iban }}" maxlength="512" placeholder="npr. CKB: 510-…"></wa-input>
+    <wa-textarea name="message" label="Poruka u mailu" rows="6" value="{{ lic_message }}"></wa-textarea>
+    <wa-checkbox name="extend_license" id="lic-extend" value="1" checked>Produži licencu za navedene mjesece (samo za račun)</wa-checkbox>
+    <div class="wa-form-actions">
+      <wa-button type="submit" variant="brand">Pošalji</wa-button>
+    </div>
+  </form>
+  {% if license_invoices %}
+  <hr class="settings-hr">
+  <h2>Poslato</h2>
+  <table class="data-table">
+    <thead><tr><th>Broj</th><th>Tip</th><th>Za</th><th>Iznos</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for inv in license_invoices %}
+      <tr>
+        <td>{{ inv.number }}<div class="cell-secondary">{{ inv.issue_date }}</div></td>
+        <td>{% if inv.kind == 'proforma' %}profaktura{% else %}račun{% endif %}</td>
+        <td>{{ inv.to_email }}</td>
+        <td>{{ inv.amount|money }} €</td>
+        <td>
+          {% if inv.status == 'sent' %}poslato{% else %}nije{% endif %}
+          {% if inv.error %}<div class="cell-secondary">{{ inv.error }}</div>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var kind = document.getElementById('lic-kind');
+  var ext = document.getElementById('lic-extend');
+  if (kind && ext) {
+    function sync() {
+      var proforma = (kind.value || '') === 'proforma';
+      ext.checked = !proforma;
+    }
+    kind.addEventListener('change', sync);
+    kind.addEventListener('wa-change', sync);
+  }
+})();
+</script>
 {% endblock %}

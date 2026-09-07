@@ -1,0 +1,44 @@
+# Poseban backup servis → OneDrive folder (host mount).
+#
+# Lokalno (samo db + backup):
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d backup
+#
+# Produkcija:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.backup.yml up -d
+#
+# Jednokratni dump:
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml run --rm backup once
+#
+# Cilj (OneDrive): postavi SEPKO_BACKUP_ONEDRIVE_DIR u .env
+#   npr. E:/OneDrive/SepkoBackups  ili  E:/onedrive/SepkoBackups
+# Default ./backups (ako je repo već na OneDrive, i to se sinkronizuje).
+
+services:
+  backup:
+    build:
+      context: ./deploy/backup
+    image: sepko-backup:latest
+    env_file:
+      - .env
+    environment:
+      BACKUP_DIR: /backup
+      BACKUP_RETENTION_DAYS: ${SEPKO_BACKUP_RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_HOURS: ${SEPKO_BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_INCLUDE_UPLOADS: ${SEPKO_BACKUP_INCLUDE_UPLOADS:-1}
+      BACKUP_INCLUDE_CERTS: ${SEPKO_BACKUP_INCLUDE_CERTS:-1}
+      # Veza na Postgres iz docker mreže (servis db)
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: ${SEPKO_BACKUP_PGUSER:-sepko}
+      PGPASSWORD: ${SEPKO_BACKUP_PGPASSWORD:-sepko}
+      PGDATABASE: ${SEPKO_BACKUP_PGDATABASE:-sepko}
+      TZ: ${TZ:-Europe/Podgorica}
+    volumes:
+      # OneDrive destinacija na hostu
+      - ${SEPKO_BACKUP_ONEDRIVE_DIR:-./backups}:/backup
+      - ./data:/data:ro
+      - ${SEPKO_CERT_DIR:-./certs}:/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

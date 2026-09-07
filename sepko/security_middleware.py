@@ -177,7 +177,7 @@ class ProbeBlockMiddleware(BaseHTTPMiddleware):
 
 
 _CSRF_SKIP_PREFIX = ("/v1/", "/static/")
-_CSRF_SKIP_EXACT = frozenset({"/health", "/cron/raspored"})
+_CSRF_SKIP_EXACT = frozenset({"/health", "/cron/raspored", "/cron/licence"})
 
 
 class CsrfOriginMiddleware(BaseHTTPMiddleware):

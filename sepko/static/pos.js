@@ -1,4 +1,4 @@
-/* SEPKO mini POS — desktop + PWA kasa */
+/* ProRačun mini POS — desktop + PWA kasa */
 (function () {
   var dataEl = document.getElementById("pos-articles-data");
   if (!dataEl) return;

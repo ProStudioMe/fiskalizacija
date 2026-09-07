@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ doc_label }} {{ draft.number }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;">
+    <tr>
+      <td align="center" style="padding:28px 12px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;">
+          <tr>
+            <td style="padding:0 8px 14px;font-size:15px;font-weight:700;color:#111111;text-align:left;">
+              {{ draft.issuer_name }}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;border-radius:12px;padding:32px 32px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+              <h1 style="margin:0 0 6px;font-size:26px;line-height:1.2;font-weight:700;">{{ doc_label }} {{ draft.number }}</h1>
+              <p style="margin:0 0 22px;font-size:14px;color:#6b7280;">{{ issue_txt }} · Datum valute {{ due_txt }}</p>
+
+              <p style="margin:0 0 4px;font-size:15px;line-height:1.5;">Poštovani/a {{ draft.buyer_name }},</p>
+              <p style="margin:0 0 18px;font-size:15px;line-height:1.5;">
+                U prilogu je {{ doc_label }} {{ draft.number }} od {{ draft.issuer_name }}.
+              </p>
+
+              {% if message_lines %}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
+                <tr>
+                  <td style="background:#f3f4f6;border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.55;color:#111111;">
+                    {% for line in message_lines %}
+                    {{ line }}{% if not loop.last %}<br>{% endif %}
+                    {% endfor %}
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;border-collapse:collapse;">
+                <tr>
+                  <td width="33%" valign="top" style="padding:4px 16px 4px 0;border-right:1px solid #e5e7eb;">
+                    <div style="font-size:20px;font-weight:700;line-height:1.3;">{{ amount_txt }} €</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:4px;">Za platiti</div>
+                  </td>
+                  <td width="33%" valign="top" style="padding:4px 16px;border-right:1px solid #e5e7eb;">
+                    <div style="font-size:20px;font-weight:700;line-height:1.3;">{{ due_txt }}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:4px;">Datum valute</div>
+                  </td>
+                  <td width="34%" valign="top" style="padding:4px 0 4px 16px;">
+                    <div style="font-size:16px;font-weight:700;line-height:1.3;">{{ draft.payment_method }}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:4px;">Način plaćanja</div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:16px;font-weight:700;">Stavke</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 8px;">
+                <tr>
+                  <td style="padding:0 0 8px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Opis</td>
+                  <td align="center" style="padding:0 0 8px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;width:90px;">Kol</td>
+                  <td align="right" style="padding:0 0 8px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;width:100px;">Iznos</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 0;font-size:14px;">{{ draft.item_name }}</td>
+                  <td align="center" style="padding:12px 0;font-size:14px;">{{ qty_txt }} {{ draft.qty_unit }}</td>
+                  <td align="right" style="padding:12px 0;font-size:14px;">{{ amount_txt }}€</td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:4px 0 18px;font-size:15px;font-weight:700;">Ukupno</td>
+                  <td align="right" style="padding:4px 0 18px;font-size:15px;font-weight:700;">{{ amount_txt }}€</td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:16px;font-weight:700;">Kako platiti</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                <tr>
+                  <td style="background:#f3f4f6;border-radius:10px;padding:16px 18px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:4px 12px 4px 0;font-size:13px;font-weight:700;width:42%;vertical-align:top;">Primalac</td>
+                        <td style="padding:4px 0;font-size:13px;">{{ draft.issuer_name }}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 12px 4px 0;font-size:13px;font-weight:700;vertical-align:top;">IBAN</td>
+                        <td style="padding:4px 0;font-size:13px;">{{ draft.iban or '—' }}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 12px 4px 0;font-size:13px;font-weight:700;vertical-align:top;">Svrha / poziv na broj</td>
+                        <td style="padding:4px 0;font-size:13px;">{{ draft.number }}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:13px;line-height:1.55;color:#374151;">
+                <strong>{{ draft.issuer_name }}</strong><br>
+                {% if draft.issuer_address %}{{ draft.issuer_address }}<br>{% endif %}
+                {% if draft.issuer_email %}<a href="mailto:{{ draft.issuer_email }}" style="color:#2563eb;text-decoration:none;">{{ draft.issuer_email }}</a><br>{% endif %}
+                {% if draft.issuer_pib %}PIB: {{ draft.issuer_pib }}{% endif %}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 8px 8px;text-align:center;font-size:12px;color:#9ca3af;">
+              Odgovorite na ovaj mejl ako imate pitanje — stići će {{ draft.issuer_name }}.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

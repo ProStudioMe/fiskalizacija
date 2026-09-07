@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('reports.overview', 'Pregled perioda') }} — Sepko{% endblock %}
+{% block title %}{{ t('reports.overview', 'Pregled perioda') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('reports.overview', 'Pregled') }} {{ year }}-{{ "%02d"|format(month) }}{% endblock %}
 {% block page_actions %}
   <a class="btn secondary" href="/izvjestaji">← Izvještaji</a>

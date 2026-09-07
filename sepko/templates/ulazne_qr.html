@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}{{ t('ulazne.scan_qr', 'Skeniraj QR') }} — Sepko{% endblock %}
+{% block title %}{{ t('ulazne.scan_qr', 'Skeniraj QR') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('ulazne.scan_qr', 'Ulazna iz QR koda') }}{% endblock %}
 {% block page_actions %}
   <a class="btn secondary" href="/ulazne">← {{ t('nav.ulazne', 'Ulazne') }}</a>
 {% endblock %}
 {% block content %}
 <p class="muted" style="max-width:560px">
-  Skeniraj ili nalijepi verify URL sa računa (tax.gov.me). Sepko izvlači IKOF, PIB, datum i iznos;
+  Skeniraj ili nalijepi verify URL sa računa (tax.gov.me). {{ brand }} izvlači IKOF, PIB, datum i iznos;
   stavke dopuni ručno ako portal ne vrati detalje.
 </p>
 

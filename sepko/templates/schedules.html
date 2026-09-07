@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if show_form %}{% if editing %}{{ t('sched.edit_title', 'Izmijeni automatsku fakturu') }}{% else %}{{ t('sched.add_title', 'Nova automatska faktura') }}{% endif %}{% else %}{{ t('page.raspored', 'Automatske fakture') }}{% endif %} — Sepko{% endblock %}
+{% block title %}{% if show_form %}{% if editing %}{{ t('sched.edit_title', 'Izmijeni automatsku fakturu') }}{% else %}{{ t('sched.add_title', 'Nova automatska faktura') }}{% endif %}{% else %}{{ t('page.raspored', 'Automatske fakture') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
 <span class="inv-page-title">
   <a class="btn secondary inv-actions-icon inv-title-back"

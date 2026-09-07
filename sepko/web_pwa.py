@@ -13,6 +13,7 @@ from sepko.db import get_db
 from sepko.models import Expense, IncomingInvoice, Invoice, InvoiceStatus
 from sepko.web_auth import AuthRequired
 from sepko.web_security import redirect
+from sepko.brand import PWA_NAME, PWA_SHORT
 from sepko.web_templates import render
 
 router = APIRouter(tags=["pwa"])
@@ -44,8 +45,8 @@ def pwa_manifest(request: Request):
     manifest_url = f"{origin}/manifest.webmanifest"
     return JSONResponse(
         {
-            "name": "SEPKO",
-            "short_name": "SEPKO",
+            "name": PWA_NAME,
+            "short_name": PWA_SHORT,
             "id": "/",
             "description": "Fiskalizacija CG — izlazne, ulazne, troškovnik",
             "start_url": "/app",
@@ -61,7 +62,7 @@ def pwa_manifest(request: Request):
             ],
             "icons": [
                 {
-                    "src": f"{origin}/static/img/sepko-mark.svg?v=4",
+                    "src": f"{origin}/static/img/sepko-mark.svg?v=9",
                     "sizes": "any",
                     "type": "image/svg+xml",
                     "purpose": "any maskable",

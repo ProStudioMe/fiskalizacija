@@ -16,6 +16,7 @@ from sepko.schemas import FiscalizeRequest, InvoiceLineIn, TotalsIn
 from sepko.services import cash_day_summary, fiscalize_invoice
 from sepko.web_auth import AuthRequired
 from sepko.web_security import flash, redirect, validate_csrf
+from sepko.brand import POS_PWA_NAME
 from sepko.web_templates import render
 
 router = APIRouter(tags=["pos"])
@@ -132,7 +133,7 @@ def pos_pwa_manifest(request: Request):
     origin = str(request.base_url).rstrip("/")
     return JSONResponse(
         {
-            "name": "SEPKO Kasa",
+            "name": POS_PWA_NAME,
             "short_name": "Kasa",
             "id": "/app/kasa",
             "description": "Maloprodaja i gotovinska fiskalizacija",
@@ -146,7 +147,7 @@ def pos_pwa_manifest(request: Request):
             "launch_handler": {"client_mode": "focus-existing"},
             "icons": [
                 {
-                    "src": f"{origin}/static/img/sepko-mark.svg?v=4",
+                    "src": f"{origin}/static/img/sepko-mark.svg?v=9",
                     "sizes": "any",
                     "type": "image/svg+xml",
                     "purpose": "any maskable",

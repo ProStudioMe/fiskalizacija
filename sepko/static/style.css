@@ -235,6 +235,33 @@ a:hover { text-decoration: underline; }
   height: 48px;
   margin: 0 auto 0.25rem;
 }
+.brand-footer {
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.15rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--muted, #94a3b8);
+}
+.sidebar > .brand-footer { margin-top: auto; }
+.nav-bottom + .brand-footer { margin-top: 0; }
+.brand-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+.brand-footer a:hover {
+  color: var(--accent, #5a32d6);
+  text-decoration: none;
+}
+.brand-footer-login {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 1rem;
+  z-index: 5;
+  padding: 0;
+}
 .brand {
   text-align: center;
   margin-bottom: 0.35rem;
@@ -3272,7 +3299,7 @@ tr.inv-line {
   width: 1.45rem;
   height: 1.45rem;
   transform: translateY(-50%);
-  background: url("/static/img/sepko-mark.svg") center / contain no-repeat;
+  background: url("/static/img/sepko-mark.svg?v=9") center / contain no-repeat;
   opacity: 0.32;
   pointer-events: none;
   z-index: 0;

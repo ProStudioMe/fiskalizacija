@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body_class %}pos-mode{% if pwa %} pos-pwa{% endif %}{% endblock %}
-{% block title %}{{ t('page.kasa', 'Kasa') }} — Sepko{% endblock %}
+{% block title %}{{ t('page.kasa', 'Kasa') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.kasa', 'Kasa') }}{% endblock %}
 {% block page_actions %}
   {% if not pwa %}
@@ -33,7 +33,7 @@
 {% block manifest %}
   {% if pwa %}
   <link rel="manifest" href="/manifest-kasa.webmanifest">
-  <meta name="apple-mobile-web-app-title" content="SEPKO Kasa">
+  <meta name="apple-mobile-web-app-title" content="{{ brand }} Kasa">
   {% else %}
   {{ super() }}
   {% endif %}

@@ -514,15 +514,15 @@ STRINGS_SEED: list[dict] = [
         "key": "pwa.install_title",
         "category": "pwa",
         "description": "Naslov dijaloga instalacije",
-        "values": {"cnr": "Instaliraj SEPKO", "en": "Install SEPKO"},
+        "values": {"cnr": "Instaliraj ProRačun", "en": "Install ProRačun"},
     },
     {
         "key": "pwa.install_msg",
         "category": "pwa",
         "description": "Tekst dijaloga instalacije",
         "values": {
-            "cnr": "Dodaj SEPKO na početni ekran — brži pristup računima, bez browser trake.",
-            "en": "Add SEPKO to your home screen — faster invoices, no browser chrome.",
+            "cnr": "Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.",
+            "en": "Add ProRačun to your home screen — faster invoices, no browser chrome.",
         },
     },
     {
@@ -544,7 +544,7 @@ STRINGS_SEED: list[dict] = [
         "key": "pwa.open_title",
         "category": "pwa",
         "description": "Naslov kad je PWA već instalirana",
-        "values": {"cnr": "SEPKO je instaliran", "en": "SEPKO is installed"},
+        "values": {"cnr": "ProRačun je instaliran", "en": "ProRačun is installed"},
     },
     {
         "key": "pwa.open_msg",
@@ -560,8 +560,8 @@ STRINGS_SEED: list[dict] = [
         "category": "pwa",
         "description": "iOS uputstvo kad je PWA instalirana",
         "values": {
-            "cnr": "Otvori SEPKO sa početnog ekrana (ikona SEPKO).",
-            "en": "Open SEPKO from your home screen (the SEPKO icon).",
+            "cnr": "Otvori ProRačun sa početnog ekrana (ikona ProRačun).",
+            "en": "Open ProRačun from your home screen (the ProRačun icon).",
         },
     },
     {
@@ -3250,6 +3250,10 @@ _FORCE_SEED_KEYS = frozenset({
     "sched.edit_title",
     "sched.add_title",
     "sched.list_title",
+    "pwa.install_title",
+    "pwa.install_msg",
+    "pwa.open_title",
+    "pwa.open_ios",
     "ulazne.form_sub",
 })
 

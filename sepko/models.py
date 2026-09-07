@@ -67,6 +67,7 @@ class Tenant(Base):
     expense_categories: Mapped[list["ExpenseCategory"]] = relationship(back_populates="tenant")
     expenses: Mapped[list["Expense"]] = relationship(back_populates="tenant")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="tenant")
+    license_invoices: Mapped[list["LicenseInvoice"]] = relationship(back_populates="tenant")
 
 
 class User(Base):
@@ -590,6 +591,36 @@ class InvoiceSchedule(Base):
     tenant: Mapped[Tenant] = relationship(back_populates="invoice_schedules")
     template_invoice: Mapped[Invoice] = relationship(foreign_keys=[template_invoice_id])
     customer: Mapped[Customer | None] = relationship(foreign_keys=[customer_id])
+
+
+class LicenseInvoice(Base):
+    """Račun za pretplatu / produženje licence (platform admin → tenant)."""
+
+    __tablename__ = "license_invoices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    number: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    to_email: Mapped[str] = mapped_column(String(255))
+    buyer_name: Mapped[str] = mapped_column(String(255), default="")
+    issue_date: Mapped[date] = mapped_column(Date)
+    due_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    qty: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("1"))
+    qty_unit: Mapped[str] = mapped_column(String(16), default="mj")
+    item_name: Mapped[str] = mapped_column(String(255), default="")
+    payment_method: Mapped[str] = mapped_column(String(128), default="")
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    iban: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16), default="invoice")  # invoice | proforma
+    covers_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="sent")
+    provider_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tenant: Mapped[Tenant] = relationship(back_populates="license_invoices")
 
 
 class AdminAuditLog(Base):

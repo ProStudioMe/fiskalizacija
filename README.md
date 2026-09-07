@@ -1,6 +1,7 @@
-# Sepko
+# ProRačun
 
-SaaS fiskalizacija CG · back-office (Jinja) + REST API · fiskal radi **Navira**.
+SaaS fiskalizacija CG · **proracun.me** · back-office (Jinja) + REST API · fiskal radi **Navira**.
+Prostudio: [prostudio.me](https://prostudio.me)
 
 ## Faza 1
 
@@ -45,5 +46,14 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 Konfig: `deploy/gunicorn.conf.py`, `deploy/nginx.conf`.
+
+## Backup → OneDrive
+
+Poseban servis (nije dio app-a): vidi [`deploy/backup/README.md`](deploy/backup/README.md).
+
+```powershell
+# u .env: SEPKO_BACKUP_ONEDRIVE_DIR=E:/onedrive/SepkoBackups
+docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d db backup
+```
 
 Lokalni ESC/POS agent na kasi: `python -m sepko.print_agent`

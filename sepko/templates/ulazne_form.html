@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set is_edit = invoice is defined and invoice %}
-{% block title %}{% if is_edit %}{{ t('page.ulazne_edit', 'Izmjena ulazne fakture') }}{% else %}{{ t('page.ulazne_new', 'Nova ulazna faktura') }}{% endif %} — Sepko{% endblock %}
+{% block title %}{% if is_edit %}{{ t('page.ulazne_edit', 'Izmjena ulazne fakture') }}{% else %}{{ t('page.ulazne_new', 'Nova ulazna faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
   <span class="inv-page-title inv-page-title--with-back">
     <a class="btn secondary inv-actions-icon inv-title-back" href="{% if is_edit %}/ulazne/{{ invoice.id }}{% else %}/ulazne{% endif %}" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">

@@ -1,6 +1,6 @@
 {
-  "name": "SEPKO",
-  "short_name": "SEPKO",
+  "name": "ProRačun",
+  "short_name": "ProRačun",
   "id": "/",
   "description": "Fiskalizacija CG — izlazne, ulazne, troškovnik",
   "start_url": "/app",
@@ -15,7 +15,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/static/img/sepko-mark.svg?v=4",
+      "src": "/static/img/sepko-mark.svg?v=9",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

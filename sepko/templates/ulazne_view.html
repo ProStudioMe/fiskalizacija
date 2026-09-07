@@ -4,7 +4,7 @@
 {% set show_code = invoice.lines|map(attribute='code')|select|list|length > 0 %}
 {% set linked_expenses = invoice.expenses or [] %}
 {% set lines_n = invoice.lines|length %}
-{% block title %}{{ invoice.number or ('Ulazna #' ~ invoice.id) }} — Sepko{% endblock %}
+{% block title %}{{ invoice.number or ('Ulazna #' ~ invoice.id) }} — {{ brand }}{% endblock %}
 {% block page_title %}
   <span class="inv-page-title inv-page-title--with-back">
     <a class="btn secondary inv-actions-icon inv-title-back" href="/ulazne" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">

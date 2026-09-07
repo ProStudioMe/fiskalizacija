@@ -10,6 +10,7 @@ import uuid
 
 import httpx
 
+from sepko.brand import USER_AGENT
 from sepko.config import Settings, get_settings
 from sepko.efi import (
     TenantFiscal,
@@ -108,7 +109,7 @@ def _auth_headers(settings: Settings) -> dict[str, str]:
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "Sepko/0.1",
+        "User-Agent": USER_AGENT,
     }
     if key:
         headers["Authorization"] = f"Bearer {key}"

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('page.komitenti', 'Komitenti') }} — Sepko{% endblock %}
+{% block title %}{{ t('page.komitenti', 'Komitenti') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.komitenti', 'Komitenti') }}{% endblock %}
 {% block page_actions %}
   <a class="btn" href="/kupci">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>

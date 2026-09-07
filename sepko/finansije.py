@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from sepko.brand import MAIL_FROM_NAME
+
 from sepko.config import get_settings
 from sepko.crypto import decrypt_secret, encrypt_secret
 from sepko.efi import _settings_dict, _write_settings
@@ -50,7 +52,7 @@ class MailSettings:
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = ""
-    smtp_from_name: str = "SEPKO"
+    smtp_from_name: str = MAIL_FROM_NAME
     smtp_use_tls: bool = True
     mail_since_date: str = "2026-01-01"
     izvod_subjects: str = "Hipotekarna banka - Izvod racuna"
@@ -73,7 +75,7 @@ def load_mail_settings(tenant: Tenant | None = None) -> MailSettings:
         smtp_user=os.getenv("SMTP_USER", "") or os.getenv("IMAP_USER", ""),
         smtp_password=os.getenv("SMTP_PASSWORD", "") or os.getenv("IMAP_PASSWORD", ""),
         smtp_from=os.getenv("SMTP_FROM", "") or os.getenv("IMAP_USER", ""),
-        smtp_from_name=os.getenv("SMTP_FROM_NAME", "SEPKO"),
+        smtp_from_name=os.getenv("SMTP_FROM_NAME", MAIL_FROM_NAME),
         smtp_use_tls=os.getenv("SMTP_USE_TLS", "1") not in ("0", "false", "False"),
         mail_since_date=os.getenv("MAIL_SINCE_DATE", "2026-01-01"),
         izvod_subjects=os.getenv(
@@ -522,7 +524,7 @@ def send_firm_mail(
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = formataddr((mail.smtp_from_name or "SEPKO", mail.smtp_from or mail.smtp_user))
+    msg["From"] = formataddr((mail.smtp_from_name or MAIL_FROM_NAME, mail.smtp_from or mail.smtp_user))
     msg["To"] = ", ".join(recipients)
     msg.set_content(body_text)
     if body_html:

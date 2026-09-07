@@ -4,12 +4,14 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from datetime import date, datetime, timezone
+from decimal import Decimal
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from sepko.catalog import ensure_tax_rates
@@ -27,6 +29,18 @@ from sepko.i18n import (
     list_languages,
     upsert_translation,
 )
+from sepko.license_invoice import (
+    build_renewal_draft,
+    default_months_for_license,
+    default_personal_message,
+    load_platform_billing,
+    next_license_invoice_number,
+    parse_months,
+    persist_and_send,
+    tenant_notify_email,
+    validate_email_list,
+    validate_invoice_number,
+)
 from sepko.licenses import (
     LICENSE_LABELS,
     LICENSE_TYPES,
@@ -39,12 +53,15 @@ from sepko.models import (
     AdminAuditLog,
     AuditLog,
     Language,
+    LicenseInvoice,
     Tenant,
     TenantStatus,
     Translation,
     TranslationKey,
     User,
 )
+from sepko.money import format_amount, parse_nonneg_money
+from sepko.platform_mail import platform_mail_status
 from sepko.web_auth import (
     AdminAuthRequired,
     AuthRequired,
@@ -64,6 +81,7 @@ from sepko.web_security import (
     validate_csrf,
 )
 from sepko.web_templates import render
+from fastapi.responses import HTMLResponse, Response as _UnusedResponse  # noqa: F401
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -343,6 +361,18 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
         .all()
     )
     today = date.today()
+    billing = load_platform_billing()
+    months = default_months_for_license(tenant.license_type)
+    amount = (billing.monthly_price * Decimal(months)).quantize(Decimal("0.01"))
+    notify = tenant_notify_email(db, tenant)
+    mail_status = platform_mail_status()
+    license_invoices = (
+        db.query(LicenseInvoice)
+        .filter(LicenseInvoice.tenant_id == tenant.id)
+        .order_by(LicenseInvoice.id.desc())
+        .limit(20)
+        .all()
+    )
     return render(
         request,
         "admin/tenant_detail.html",
@@ -358,6 +388,23 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
                 "days": license_days_left(tenant.license_until, today=today),
                 "alert": license_alert(tenant, today=today),
                 "license_label": license_label(tenant.license_type),
+                "mail_status": mail_status,
+                "billing": billing,
+                "license_invoices": license_invoices,
+                "lic_to_email": notify,
+                "lic_number": next_license_invoice_number(db, today=today, kind="invoice"),
+                "lic_issue": today.isoformat(),
+                "lic_due": (today + timedelta(days=7)).isoformat(),
+                "lic_months": months,
+                "lic_amount": format_amount(amount),
+                "lic_item": billing.item_name,
+                "lic_pay": billing.payment_method,
+                "lic_iban": billing.issuer_iban,
+                "lic_message": default_personal_message(
+                    signer_name=user.full_name or billing.signer_name,
+                    billing=billing,
+                    kind="invoice",
+                ),
             },
         ),
     )
@@ -478,6 +525,112 @@ def tenant_update(
     db.commit()
     flash(request, "Tenant je sačuvan.")
     return redirect(f"/admin/tenanti/{tenant.id}")
+
+
+@router.post("/tenanti/{tenant_id}/licenca/racun")
+def tenant_license_invoice_send(
+    request: Request,
+    tenant_id: int,
+    csrf_token: str = Form(""),
+    doc_kind: str = Form("invoice"),
+    to_email: str = Form(""),
+    number: str = Form(""),
+    issue_date: str = Form(""),
+    due_date: str = Form(""),
+    months: str = Form(""),
+    amount: str = Form(""),
+    item_name: str = Form(""),
+    payment_method: str = Form(""),
+    iban: str = Form(""),
+    message: str = Form(""),
+    extend_license: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = _admin(request, db)
+    back = f"/admin/tenanti/{tenant_id}"
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(back)
+    tenant = db.get(Tenant, tenant_id)
+    if not tenant:
+        flash(request, "Tenant nije pronađen.", "error")
+        return redirect("/admin/tenanti")
+
+    kind = "proforma" if doc_kind.strip() == "proforma" else "invoice"
+    emails = validate_email_list(to_email)
+    if not emails:
+        flash(request, "Unesi ispravnu e-mail adresu primaoca.", "error")
+        return redirect(back)
+    months_n = parse_months(months)
+    if months_n is None:
+        flash(request, "Količina (mjeseci) mora biti 1–120.", "error")
+        return redirect(back)
+    amt = parse_nonneg_money(amount, max_value=Decimal("100000"))
+    if amt is None:
+        flash(request, "Iznos nije ispravan.", "error")
+        return redirect(back)
+    today = date.today()
+    issued = _parse_date(issue_date) or today
+    due = _parse_date(due_date) or (issued + timedelta(days=7))
+    billing = load_platform_billing()
+    num = validate_invoice_number(number) or next_license_invoice_number(db, today=issued, kind=kind)
+    if db.query(LicenseInvoice).filter(LicenseInvoice.number == num).first():
+        flash(request, f"Broj {num} već postoji.", "error")
+        return redirect(back)
+    item = (item_name.strip() or billing.item_name)[:255]
+    pay = (payment_method.strip() or billing.payment_method)[:128]
+    iban_c = (iban.strip() or billing.issuer_iban)[:512]
+    msg = (message or "").strip()[:4000]
+    if not msg:
+        msg = default_personal_message(
+            signer_name=user.full_name or billing.signer_name,
+            billing=billing,
+            kind=kind,
+        )
+    draft = build_renewal_draft(
+        tenant=tenant,
+        billing=billing,
+        to_email=emails[0],
+        number=num,
+        months=months_n,
+        amount=amt,
+        kind=kind,
+        issue_date=issued,
+        due_date=due,
+        item_name=item,
+        payment_method=pay,
+        iban=iban_c,
+        message=msg,
+        signer_name=user.full_name or billing.signer_name,
+    )
+    extend = kind == "invoice" and extend_license in ("1", "on", "true")
+    try:
+        row, result, until = persist_and_send(
+            db,
+            tenant,
+            draft,
+            extend=extend,
+            months=months_n,
+            billing=billing,
+            today=today,
+            covers_until=None if extend else tenant.license_until,
+        )
+    except IntegrityError:
+        db.rollback()
+        flash(request, "Broj dokumenta je zauzet. Pokušaj ponovo.", "error")
+        return redirect(back)
+
+    bits = [f"{row.kind} {row.number} {format_amount(row.amount)}€ → {row.to_email}"]
+    if until:
+        bits.append(f"licenca do {until}")
+    _write_audit(db, user, "license.invoice_send", tenant_id=tenant.id, detail="; ".join(bits))
+    db.commit()
+    if result.get("ok"):
+        extra = f" Licenca produžena do {until}." if until else ""
+        flash(request, f"{draft.doc_label} {row.number} poslata na {row.to_email}.{extra}")
+    else:
+        flash(request, result.get("message") or "Slanje nije uspjelo.", "error")
+    return redirect(back)
 
 
 @router.post("/tenanti/{tenant_id}/status")

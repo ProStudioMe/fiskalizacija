@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Sepko{% endblock %}</title>
+  <title>{% block title %}{{ brand }}{% endblock %}</title>
   <script>
     (function () {
       try {
@@ -26,20 +26,20 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=137">
+  <link rel="stylesheet" href="/static/style.css?v=140">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=9">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
   {% block head_extra %}{% endblock %}
   {% block extra_css %}{% endblock %}
-  <link rel="icon" href="/static/img/sepko-mark.svg?v=4" type="image/svg+xml">
+  <link rel="icon" href="/static/img/sepko-mark.svg?v=9" type="image/svg+xml">
   {% block manifest %}
   <link rel="manifest" href="/manifest.webmanifest">
   {% endblock %}
   <meta name="theme-color" content="#5b21b6">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="SEPKO">
-  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=4">
+  <meta name="apple-mobile-web-app-title" content="{{ brand }}">
+  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=9">
   <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/webawesome.loader.js"></script>
   <script src="/static/webawesome-init.js?v=1"></script>
   <script src="/static/money.js?v=1"></script>
@@ -71,8 +71,8 @@
         <button type="button" class="nav-toggle" id="nav-toggle" aria-label="{{ t('nav.meni', 'Meni') }}" aria-expanded="false" aria-controls="sidebar">
           <i data-lucide="menu" aria-hidden="true"></i>
         </button>
-        <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="SEPKO">
-          <img class="brand-logo" src="/static/img/sepko-logo.svg?v=4" alt="SEPKO" width="140" height="36">
+        <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="{{ brand }}">
+          <img class="brand-logo" src="/static/img/sepko-logo.svg?v=9" alt="{{ brand }}" width="186" height="36">
         </a>
       </div>
       <div class="topbar-right">
@@ -193,6 +193,9 @@
           </a>
         </div>
           {% endif %}
+        <p class="brand-footer">
+          <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer">{{ company_domain }}</a>
+        </p>
       </aside>
 
       <div class="workspace">
@@ -276,6 +279,9 @@
   {% endif %}
   {% else %}
     {% block auth %}{% endblock %}
+    <p class="brand-footer brand-footer-login">
+      <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer">{{ company_domain }}</a>
+    </p>
     <script src="/static/lucide.min.js?v=0.544.0"></script>
     <script src="/static/lucide-init.js?v=1"></script>
     <script>
@@ -302,27 +308,27 @@
         var logo = document.querySelector('.login-card .brand-logo');
         if (logo) {
           logo.src = next === 'dark'
-            ? '/static/img/sepko-logo.svg?v=4'
-            : '/static/img/sepko-logo-dark.svg?v=3';
+            ? '/static/img/sepko-logo.svg?v=9'
+            : '/static/img/sepko-logo-dark.svg?v=9';
         }
       });
       var logo0 = document.querySelector('.login-card .brand-logo');
       if (logo0 && root.getAttribute('data-theme') === 'dark') {
-        logo0.src = '/static/img/sepko-logo.svg?v=4';
+        logo0.src = '/static/img/sepko-logo.svg?v=9';
       }
     })();
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=2"
-          data-title="{{ t('pwa.install_title', 'Instaliraj SEPKO') }}"
-          data-msg="{{ t('pwa.install_msg', 'Dodaj SEPKO na početni ekran — brži pristup računima, bez browser trake.') }}"
+  <script src="/static/pwa-install.js?v=3"
+          data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
+          data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"
           data-ok="{{ t('pwa.install', 'Instaliraj') }}"
           data-later="{{ t('btn.later', 'Kasnije') }}"
           data-ios="{{ t('pwa.install_ios', 'Na iPhone: Deli → Dodaj na početni ekran.') }}"
           data-open="{{ t('pwa.open', 'Otvori app') }}"
-          data-open-title="{{ t('pwa.open_title', 'SEPKO je instaliran') }}"
+          data-open-title="{{ t('pwa.open_title', 'ProRačun je instaliran') }}"
           data-open-msg="{{ t('pwa.open_msg', 'Aplikacija je već na uređaju. Otvori je da radi bez browser trake.') }}"
-          data-open-ios="{{ t('pwa.open_ios', 'Otvori SEPKO sa početnog ekrana (ikona SEPKO).') }}"></script>
+          data-open-ios="{{ t('pwa.open_ios', 'Otvori ProRačun sa početnog ekrana (ikona ProRačun).') }}"></script>
 </body>
 </html>

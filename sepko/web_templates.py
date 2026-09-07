@@ -5,6 +5,13 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
+from sepko.brand import (
+    COMPANY_DOMAIN,
+    COMPANY_URL,
+    DISPLAY_NAME,
+    DOMAIN,
+    SITE_URL,
+)
 from sepko.config import get_settings
 from sepko.db import SessionLocal
 from sepko.efi import UI_LANGUAGES, display_inv_num, load_tenant_ui, normalize_ui_language
@@ -17,6 +24,11 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.filters["display_inv_num"] = display_inv_num
 templates.env.filters["money"] = money_filter
 templates.env.filters["qty"] = qty_filter
+templates.env.globals["brand"] = DISPLAY_NAME
+templates.env.globals["brand_domain"] = DOMAIN
+templates.env.globals["brand_url"] = SITE_URL
+templates.env.globals["company_domain"] = COMPANY_DOMAIN
+templates.env.globals["company_url"] = COMPANY_URL
 
 # BCP 47 / HTML lang iz naših UI kodova
 _HTML_LANG = {
@@ -53,6 +65,11 @@ def render(request: Request, name: str, context: dict | None = None):
         "partner_mode": get_settings().partner_mode,
         "ui_languages": _ui_languages(),
         "is_admin_portal": False,
+        "brand": DISPLAY_NAME,
+        "brand_domain": DOMAIN,
+        "brand_url": SITE_URL,
+        "company_domain": COMPANY_DOMAIN,
+        "company_url": COMPANY_URL,
     }
     flash, flash_type = pop_flash(request)
     ctx["flash"] = flash

@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from sepko import __version__
+from sepko.brand import DISPLAY_NAME
 from sepko.config import get_settings
 from sepko.db import dispose_async_engine, init_db
 from sepko.routers import bookkeeping, health, invoices
@@ -40,7 +41,7 @@ async def lifespan(_app: FastAPI):
 app_settings = get_settings()
 
 app = FastAPI(
-    title="Sepko",
+    title=DISPLAY_NAME,
     description="SaaS fiskalizacija CG — back-office + API (Navira partner).",
     version=__version__,
     lifespan=lifespan,
@@ -89,11 +90,12 @@ app.include_router(izvjestaji_router)
 
 @app.get("/cron/raspored")
 async def cron_schedules(token: str = ""):
-    """Pozovi jednom dnevno (Task Scheduler / cron): /cron/raspored?token=SEPKO_CRON_SECRET"""
+    """Jednom dnevno: automatske fakture tenanata + profakture za istek licence."""
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
 
     from sepko.db import AsyncSessionLocal
+    from sepko.license_invoice import run_due_license_proformas
     from sepko.schedules import run_due_schedules
 
     settings = get_settings()
@@ -102,7 +104,27 @@ async def cron_schedules(token: str = ""):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     async with AsyncSessionLocal() as session:
-        result = await session.run_sync(run_due_schedules)
+        schedules = await session.run_sync(run_due_schedules)
+        licences = await session.run_sync(run_due_license_proformas)
+        return JSONResponse({"schedules": schedules, "licences": licences})
+
+
+@app.get("/cron/licence")
+async def cron_licences(token: str = ""):
+    """Samo profakture za istek licence (isti token kao /cron/raspored)."""
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+
+    from sepko.db import AsyncSessionLocal
+    from sepko.license_invoice import run_due_license_proformas
+
+    settings = get_settings()
+    secret = (settings.cron_secret or "").strip()
+    if not secret or token != secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    async with AsyncSessionLocal() as session:
+        result = await session.run_sync(run_due_license_proformas)
         return JSONResponse(result)
 
 

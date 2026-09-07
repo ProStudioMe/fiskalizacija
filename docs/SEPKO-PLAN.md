@@ -5,13 +5,13 @@ Radi sync na drugi računar: sve bitne odluke žive ovdje, ne samo u Cursor chat
 
 ## Proizvod
 
-- **Sepko** — SaaS fiskalizacija CG, cilj **~15 €/mjesec**
+- **ProRačun** (`proracun.me`) — SaaS fiskalizacija CG, cilj **~15 €/mjesec**
 - **Vi:** frontend + pretplata + back-office + **platform admin**
 - **Navira:** prava fiskalizacija (JIKR/IKOF/QR)
-- **Prostudio:** ekosistem / kanal
+- **Prostudio:** firma / kanal ([prostudio.me](https://prostudio.me))
 - UX referenca tok: [VG eFiskal](https://pos.fiskalizacija.me/) → [`docs/reference/vg-efiskal/`](reference/vg-efiskal/README.md)
 - **UI shell:** inspiracija Hostinger hPanel → [`docs/reference/hostinger/`](reference/hostinger/README.md)
-- Brand Sepko ostaje svoj (ne klon Hostinger/VG)
+- Brand ProRačun ostaje svoj (ne klon Hostinger/VG)
 ## Arhitektura (dva portala)
 
 ```mermaid

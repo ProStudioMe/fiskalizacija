@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
+from sepko.brand import MAIL_FROM_NAME
 from sepko.db import get_db
 from sepko.finansije import (
     MailSettings,
@@ -404,7 +405,7 @@ def settings_mail_save(
     smtp_user: str = Form(""),
     smtp_password: str = Form(""),
     smtp_from: str = Form(""),
-    smtp_from_name: str = Form("SEPKO"),
+    smtp_from_name: str = Form(MAIL_FROM_NAME),
     mail_since_date: str = Form("2026-01-01"),
     izvod_subjects: str = Form(""),
     faktura_subjects: str = Form("Faktura"),
@@ -433,7 +434,7 @@ def settings_mail_save(
         smtp_user=smtp_user.strip() or imap_user.strip(),
         smtp_password=smtp_password.strip() or current.smtp_password,
         smtp_from=smtp_from.strip() or imap_user.strip(),
-        smtp_from_name=smtp_from_name.strip() or "SEPKO",
+        smtp_from_name=smtp_from_name.strip() or MAIL_FROM_NAME,
         mail_since_date=(mail_since_date or "2026-01-01")[:10],
         izvod_subjects=izvod_subjects.strip() or current.izvod_subjects,
         faktura_subjects=faktura_subjects.strip() or "Faktura",
