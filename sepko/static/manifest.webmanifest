@@ -15,7 +15,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/static/img/sepko-mark.png?v=12",
+      "src": "/static/img/sepko-mark.png?v=14",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"

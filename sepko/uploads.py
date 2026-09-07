@@ -112,7 +112,7 @@ def article_thumb_public_url(article_id: int, filename: str | None) -> str | Non
         return None
     if is_demo_thumb(filename):
         name = Path(filename[len(DEMO_PREFIX) :]).name
-        return f"/static/img/demo-products/{name}?v=4"
+        return f"/static/img/demo-products/{name}?v=5"
     return f"/artikli/{article_id}/thumb"
 
 

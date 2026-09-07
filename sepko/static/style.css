@@ -927,8 +927,12 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
 }
 .login-stack .brand-logo-stack {
-  height: 148px;
-  width: auto;
+  height: auto;
+  width: min(280px, 72vw);
+  max-height: 280px;
+  border-radius: 28px;
+  object-fit: cover;
+  filter: none;
 }
 .login-card {
   width: 100%; border: none;

@@ -147,7 +147,7 @@ def pos_pwa_manifest(request: Request):
             "launch_handler": {"client_mode": "focus-existing"},
             "icons": [
                 {
-                    "src": f"{origin}/static/img/sepko-mark.png?v=12",
+                    "src": f"{origin}/static/img/sepko-mark.png?v=14",
                     "sizes": "1024x1024",
                     "type": "image/png",
                     "purpose": "any",
