@@ -19,10 +19,14 @@
   <div class="inv-actions">
     <div class="inv-actions-btns">
       <div class="inv-actions-group" role="group" aria-label="{{ t('btn.print', 'Štampa') }}">
-        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/stampa" title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/stampa" target="sepko-print" rel="noopener"
+           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+           title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
           <i data-lucide="printer" aria-hidden="true"></i>
         </a>
-        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/pdf" title="A4 PDF" aria-label="A4 PDF">
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/pdf" target="sepko-print" rel="noopener"
+           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+           title="A4 PDF" aria-label="A4 PDF">
           <i data-lucide="file-text" aria-hidden="true"></i>
         </a>
       </div>

@@ -319,7 +319,9 @@
               </button>
             </form>
             {% endif %}
-            <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" title="PDF" aria-label="PDF">
+            <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" target="sepko-print" rel="noopener"
+               onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+               title="PDF" aria-label="PDF">
               <i data-lucide="file-text" aria-hidden="true"></i>
             </a>
           </div>

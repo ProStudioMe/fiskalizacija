@@ -14,7 +14,39 @@
       margin: 0;
       padding: 0;
     }
-    .noprint { margin: 0 0 1rem; }
+    .noprint {
+      margin: 0 0 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.55rem 0.75rem;
+      background: #f4f4f6;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
+    }
+    .noprint a, .noprint button {
+      appearance: none;
+      font: inherit;
+      color: #1a1030;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #c8c8d0;
+      border-radius: 6px;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+    .noprint a:hover, .noprint button:hover { border-color: #7c3aed; color: #5b21b6; }
+    .noprint button#btn-print {
+      background: #6d28d9;
+      border-color: #6d28d9;
+      color: #fff;
+      font-weight: 600;
+    }
+    .noprint button#btn-print:hover { background: #5b21b6; border-color: #5b21b6; color: #fff; }
+    .noprint .sep { display: none; }
     .sheet { max-width: 190mm; margin: 0 auto; }
     .top {
       display: grid;
@@ -159,11 +191,10 @@
 <body>
   <div class="sheet">
     <p class="noprint">
-      <a href="/racuni/{{ invoice.id }}">← Nazad</a>
-      ·
+      <button type="button" onclick="window.close()">Zatvori</button>
       <button type="button" id="btn-print" onclick="window.print()">Štampa / PDF</button>
-      ·
       <a href="/racuni/{{ invoice.id }}/stampa?fmt=thermal">Termalni</a>
+      <a href="/racuni/{{ invoice.id }}">Otvori u app</a>
     </p>
 
     <div class="top">

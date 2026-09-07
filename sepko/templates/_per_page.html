@@ -1,19 +1,71 @@
-<label class="per-page">
-  {{ t('label.per_page', 'Po stranici') }}
-  <select name="per_page" class="per-page-native" aria-label="{{ t('label.per_page', 'Po stranici') }}">
+<label class="per-page" data-per-page>
+  <span class="per-page-text">{{ t('label.per_page', 'Po stranici') }}</span>
+  <span class="per-page-value" data-per-page-value>{{ per_page }}</span>
+  <select name="per_page" class="per-page-native" aria-label="{{ t('label.per_page', 'Po stranici') }}" hidden>
     {% for n in page_sizes %}
     <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
     {% endfor %}
   </select>
+  <button type="button" class="per-page-trigger" aria-haspopup="listbox" aria-expanded="false" title="{{ t('label.per_page', 'Po stranici') }}">
+    <span class="visually-hidden">{{ t('label.per_page', 'Po stranici') }}</span>
+  </button>
+  <ul class="per-page-menu" role="listbox" hidden>
+    {% for n in page_sizes %}
+    <li role="option" data-value="{{ n }}" class="{% if per_page == n %}is-selected{% endif %}" aria-selected="{{ 'true' if per_page == n else 'false' }}">{{ n }}</li>
+    {% endfor %}
+  </ul>
 </label>
 <script>
 (function () {
-  document.querySelectorAll('select.per-page-native').forEach(function (sel) {
-    if (sel.dataset.bound) return;
-    sel.dataset.bound = '1';
-    sel.addEventListener('change', function () {
-      var form = sel.closest('form');
+  document.querySelectorAll('[data-per-page]').forEach(function (wrap) {
+    if (wrap.dataset.bound) return;
+    wrap.dataset.bound = '1';
+    var sel = wrap.querySelector('select.per-page-native');
+    var btn = wrap.querySelector('.per-page-trigger');
+    var menu = wrap.querySelector('.per-page-menu');
+    var valueEl = wrap.querySelector('[data-per-page-value]');
+    if (!sel || !btn || !menu) return;
+
+    function close() {
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      wrap.classList.remove('is-open');
+    }
+    function open() {
+      menu.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      wrap.classList.add('is-open');
+    }
+    function toggle() {
+      if (menu.hidden) open(); else close();
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggle();
+    });
+    menu.addEventListener('click', function (e) {
+      var opt = e.target.closest('[data-value]');
+      if (!opt) return;
+      var v = opt.getAttribute('data-value');
+      sel.value = v;
+      if (valueEl) valueEl.textContent = v;
+      menu.querySelectorAll('[data-value]').forEach(function (li) {
+        var on = li.getAttribute('data-value') === v;
+        li.classList.toggle('is-selected', on);
+        li.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      close();
+      var form = wrap.closest('form');
       if (form) form.submit();
+      else sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    document.addEventListener('click', function (e) {
+      if (!wrap.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') close();
     });
   });
 })();

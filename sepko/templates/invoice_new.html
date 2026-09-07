@@ -61,15 +61,9 @@
           <span class="inv-lines-count" id="lines-count-label">0 stavki</span>
         </div>
 
-        <div class="inv-quick-add" id="inv-quick-add">
-          <wa-input type="search" id="art-inline" placeholder="Traži artikal… Enter dodaje" with-clear size="medium" class="inv-art-input" autocomplete="off"></wa-input>
-          <div class="inv-suggest" id="art-suggest" hidden></div>
-          <p class="inv-art-block" id="inv-art-block" hidden role="alert"></p>
-        </div>
-
         <div class="lines-empty" id="lines-empty" hidden>
           <p class="lines-empty-title">Dodaj prvu stavku</p>
-          <p class="muted lines-empty-hint">Kucaj ime ili šifru, pa Enter. Česti artikli su na vrhu.</p>
+          <p class="muted lines-empty-hint">Kucaj ime ili šifru ispod, pa Enter. Česti artikli su na vrhu.</p>
           <p class="lines-empty-keys"><kbd>/</kbd> fokus pretrage</p>
         </div>
 
@@ -86,6 +80,12 @@
             </thead>
             <tbody id="lines-body"></tbody>
           </table>
+        </div>
+
+        <div class="inv-quick-add inv-quick-add--lines" id="inv-quick-add">
+          <wa-input type="search" id="art-inline" placeholder="Traži artikal… Enter dodaje" with-clear size="medium" class="inv-art-input" autocomplete="off"></wa-input>
+          <div class="inv-suggest" id="art-suggest" hidden></div>
+          <p class="inv-art-block" id="inv-art-block" hidden role="alert"></p>
         </div>
 
         <div class="inv-dock inv-dock--foot" role="toolbar" aria-label="Akcije fakture">
@@ -251,8 +251,7 @@ let custSuggestItems = [];
 let hideCustSuggestTimer = null;
 let justAddedId = null;
 let justAddedTimer = null;
-let suggestFlashId = null;
-let suggestFlashTimer = null;
+let skipArtSuggestOnce = false;
 
 document.querySelector('.app')?.classList.remove('inv-compose-mode');
 
@@ -346,22 +345,6 @@ function lineQtyForArticle(id){
   return isFinite(q) ? q : 0;
 }
 
-function flashSuggestRow(id){
-  suggestFlashId = id;
-  if (suggestFlashTimer) clearTimeout(suggestFlashTimer);
-  suggestFlashTimer = setTimeout(() => {
-    suggestFlashId = null;
-    suggestFlashTimer = null;
-    if (artSuggest && !artSuggest.hidden) {
-      artSuggest.querySelectorAll('.inv-suggest-row.is-added').forEach(row => {
-        row.classList.remove('is-added');
-        const pulse = row.querySelector('.inv-suggest-added.is-pulse');
-        if (pulse) pulse.classList.remove('is-pulse');
-      });
-    }
-  }, 1200);
-}
-
 function markJustAdded(id){
   justAddedId = id;
   if (justAddedTimer) clearTimeout(justAddedTimer);
@@ -421,16 +404,20 @@ function addArticle(a){
   }
   bumpFreq(a.id);
   pushRecent(a.id);
-  cancelHideSuggest();
   artInline.value = '';
   suggestIndex = -1;
-  flashSuggestRow(a.id);
   markJustAdded(a.id);
+  hideSuggest();
+  skipArtSuggestOnce = true;
   recalc();
   requestAnimationFrame(() => {
-    artInline.focus();
-    cancelHideSuggest();
-    renderSuggest('');
+    const row = linesBody && linesBody.querySelector('tr.inv-line.is-just-added');
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (linesWrap) {
+      linesWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    artInline.focus({ preventScroll: true });
   });
 }
 
@@ -490,13 +477,12 @@ function renderSuggest(q){
     sec.items.forEach(a => {
       const qtyOnInv = lineQtyForArticle(a.id);
       const isOnInv = qtyOnInv > 0;
-      const isFlash = suggestFlashId === a.id;
       const block = articleBlockReason(a);
       const disabled = !!block;
-      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${isFlash?' is-added':''}${disabled?' is-blocked':''}" data-si="${idx}" data-aid="${a.id}" ${disabled?'aria-disabled="true"':''} title="${disabled ? esc('Ne može se dodati — ' + block) : ''}">
+      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${disabled?' is-blocked':''}" data-si="${idx}" data-aid="${a.id}" ${disabled?'aria-disabled="true"':''} title="${disabled ? esc('Ne može se dodati — ' + block) : ''}">
         <span class="modal-code">${esc(a.code)}</span>
         <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}${disabled ? ' · ' + esc(block) : ''}</span></span>
-        ${isOnInv ? `<span class="inv-suggest-added${isFlash?' is-pulse':''}" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : (disabled ? `<span class="inv-suggest-blocked">${esc(block)}</span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>')}
+        ${isOnInv ? `<span class="inv-suggest-added" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : (disabled ? `<span class="inv-suggest-blocked">${esc(block)}</span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>')}
         <span class="modal-row-side">
           <span class="modal-row-price">${money(a.price)} €</span>
           <span class="modal-row-vat">${a.tax ? ('PDV ' + a.vat + '%') : 'Bez PDV'}</span>
@@ -884,6 +870,10 @@ document.getElementById('btn-no-customer')?.addEventListener('click', ()=>{
 
 function artQuery(){ return fieldValue(artInline); }
 function openArtSuggest(){
+  if (skipArtSuggestOnce) {
+    skipArtSuggestOnce = false;
+    return;
+  }
   cancelHideSuggest();
   suggestIndex = -1;
   renderSuggest(artQuery());
