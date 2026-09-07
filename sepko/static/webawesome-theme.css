@@ -14,23 +14,37 @@ html.wa-theme-shoelace {
   --wa-form-control-border-radius: var(--radius-sm);
 }
 
-/* Brand / accent → Sepko purple */
+/* Brand / accent → Sepko purple
+   WA scale is 95=lightest → 05=darkest. Light filled buttons use brand-50 + white text. */
 html.wa-theme-shoelace {
-  --wa-color-brand-50: #ede7ff;
-  --wa-color-brand-40: #b9a0f5;
+  --wa-color-brand-95: #f4efff;
+  --wa-color-brand-90: #ebe4ff;
+  --wa-color-brand-80: #d4c4fb;
+  --wa-color-brand-70: #b9a0f5;
   --wa-color-brand-60: var(--accent);
-  --wa-color-brand-70: var(--cta);
-  --wa-color-brand-80: var(--cta-hover);
+  --wa-color-brand-50: var(--cta);
+  --wa-color-brand-40: var(--cta-hover);
   --wa-color-focus: var(--accent);
   --wa-color-text-link: var(--accent);
 }
 
 html.wa-theme-shoelace.wa-dark {
-  --wa-color-brand-50: rgba(103, 61, 230, 0.18);
+  --wa-color-brand-20: rgba(103, 61, 230, 0.18);
+  --wa-color-brand-30: rgba(103, 61, 230, 0.28);
   --wa-color-brand-40: #b29af5;
+  --wa-color-brand-50: var(--cta);
   --wa-color-brand-60: var(--accent);
   --wa-color-brand-70: var(--cta);
   --wa-color-brand-80: var(--cta-hover);
+}
+
+/* Filled brand buttons: white on CTA in both themes (WA dark would use dark on-loud). */
+html.wa-theme-shoelace.wa-light,
+html.wa-theme-shoelace:not(.wa-dark),
+html.wa-theme-shoelace.wa-dark {
+  --wa-color-brand-fill-loud: var(--cta);
+  --wa-color-brand-on-loud: #fff;
+  --wa-color-brand-border-loud: var(--cta);
 }
 
 .inv-compose-form wa-button[variant="brand"]::part(base) {
