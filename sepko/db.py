@@ -211,9 +211,11 @@ def init_db() -> None:
     db = SessionLocal()
     try:
         ensure_translations(db)
+        from sepko.bootstrap import ensure_client_tenants
         from sepko.web_auth import ensure_superadmin
 
         ensure_superadmin(db)
+        ensure_client_tenants(db)
         db.commit()
     except Exception:
         db.rollback()

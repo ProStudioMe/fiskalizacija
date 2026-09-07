@@ -481,6 +481,7 @@ def articles_page(
     q: str | None = Query(None),
     per_page: int | None = Query(None),
     page: int = Query(1, ge=1),
+    return_to: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -508,6 +509,13 @@ def articles_page(
     thumb_url = None
     if editing and editing.thumbnail_filename:
         thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
+    back = _safe_return_to(return_to)
+    has_active = (
+        db.query(Article.id)
+        .filter(Article.tenant_id == tenant.id, Article.active.is_(True))
+        .first()
+        is not None
+    )
     resp = render(
         request,
         "articles.html",
@@ -526,6 +534,8 @@ def articles_page(
             "page": page,
             "pages": pages,
             "total": total,
+            "return_to": back or "",
+            "has_active_articles": has_active,
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
@@ -547,15 +557,17 @@ async def articles_create(
     tax_rate_code: str = Form("PDV21"),
     unit: str = Form("KOM"),
     thumb: UploadFile | None = File(None),
+    return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back_artikli = _artikli_url(return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/artikli")
+        return redirect(back_artikli)
 
     exists = (
         db.query(Article)
@@ -564,7 +576,7 @@ async def articles_create(
     )
     if exists:
         flash(request, "Artikal sa tom šifrom već postoji.", "error")
-        return redirect("/artikli")
+        return redirect(back_artikli)
 
     vat, tax_code = resolve_vat(db, tenant, tax_rate_code.strip() or None)
     cat_id = int(category_id) if category_id.strip().isdigit() else None
@@ -575,7 +587,7 @@ async def articles_create(
     stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
-        return redirect("/artikli")
+        return redirect(back_artikli)
     article = Article(
         tenant_id=tenant.id,
         category_id=cat_id,
@@ -603,7 +615,7 @@ async def articles_create(
     except ValueError as exc:
         db.rollback()
         flash(request, str(exc), "error")
-        return redirect("/artikli")
+        return redirect(back_artikli)
     write_audit(
         db,
         "article.create",
@@ -613,7 +625,7 @@ async def articles_create(
     )
     db.commit()
     flash(request, "Artikal sačuvan.")
-    return redirect("/artikli")
+    return redirect(_safe_return_to(return_to) or "/artikli")
 
 
 @router.post("/artikli/{article_id}")
@@ -1407,6 +1419,13 @@ def _safe_return_to(raw: str | None) -> str | None:
     if not path.startswith("/") or path.startswith("//") or "://" in path:
         return None
     return path[:200]
+
+
+def _artikli_url(return_to: str | None = None) -> str:
+    rt = _safe_return_to(return_to)
+    if rt:
+        return f"/artikli?return_to={quote(rt)}"
+    return "/artikli"
 
 
 def _schedule_templates(db: Session, tenant: Tenant) -> list[Invoice]:
@@ -2258,14 +2277,27 @@ def invoice_new_page(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    safe_return = _safe_return_to(return_to)
     ctx = _invoice_editor_context(
         request,
         db,
         user,
         tenant,
-        return_to=_safe_return_to(return_to),
+        return_to=safe_return,
         as_template=bool(as_template),
     )
+    # Bez artikala UI fakture nema šta da ponudi — vodi na šifrarnik, pa nazad.
+    if not ctx["articles"]:
+        flash(request, "Prvo dodaj barem jedan artikal, pa napravi fakturu.")
+        next_path = "/racuni/novi"
+        q: list[str] = []
+        if as_template:
+            q.append("as_template=1")
+        if safe_return:
+            q.append(f"return_to={quote(safe_return)}")
+        if q:
+            next_path = f"{next_path}?{'&'.join(q)}"
+        return redirect(_artikli_url(next_path))
     return render(request, "invoice_new.html", ctx)
 
 

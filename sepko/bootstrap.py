@@ -17,7 +17,7 @@ _DEV_PASSWORD = "sepko123"
 
 # ProStudio usluge (+ licenca) — kopija seed kataloga bez hotelskih soba
 _PROSTUDIO_ARTICLES: list[tuple[str, str, str, Decimal, Decimal, str, str]] = [
-    ("PR-BASIC", LICENSE_ITEM, "KOM", Decimal("15.00"), Decimal("21"), "#5a32d6", "demo/proracun.png"),
+    ("PR-BASIC", LICENSE_ITEM, "KOM", Decimal("15.00"), Decimal("21"), "#5a32d6", "demo/proracun.svg"),
     ("2", "Izrada web sajta", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/web.svg"),
     ("3", "B2B sistem", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/b2b.svg"),
     ("7", "Cloudflare + konfiguracija", "kom", Decimal("1.00"), Decimal("21"), "#c62828", "demo/cloud.svg"),

@@ -147,7 +147,7 @@
           <td>
             <div class="cell-primary">
               {% if a.thumbnail_filename %}
-              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=5{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
+              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=4{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
               {% else %}
               <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#7c3aed' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
               {% endif %}

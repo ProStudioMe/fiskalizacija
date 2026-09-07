@@ -5,7 +5,7 @@
 {% block auth %}
 <div class="login-wrap">
   <div class="login-stack">
-    <img class="brand-logo brand-logo-lg brand-logo-stack" src="/static/img/proracun-lockup.png?v=5" alt="{{ brand }}" width="280" height="280">
+    <img class="brand-logo brand-logo-lg brand-logo-stack" src="/static/img/proracun-lockup-clear.png?v=1" alt="{{ brand }}" width="280" height="280">
     <div class="card login-card">
     <p class="muted">{{ t('login.title', 'Prijava') }}</p>
     {% if flash %}
@@ -13,8 +13,14 @@
     {% endif %}
     <form method="post" action="/login" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input id="email" name="email" type="email" label="{{ t('login.email', 'Email') }}" required autocomplete="username"></wa-input>
-      <wa-input id="password" name="password" type="password" password-toggle label="{{ t('login.password', 'Lozinka') }}" required autocomplete="current-password"></wa-input>
+      <div class="field">
+        <label for="email">{{ t('login.email', 'Email') }}</label>
+        <input id="email" name="email" type="email" required autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label for="password">{{ t('login.password', 'Lozinka') }}</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
       <div class="wa-form-actions">
         <button type="submit" class="btn">{{ t('login.submit', 'Prijavi se') }}</button>
       </div>

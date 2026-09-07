@@ -38,7 +38,9 @@ html.wa-theme-shoelace.wa-dark {
   --wa-color-brand-80: var(--cta-hover);
 }
 
-/* Filled brand buttons: white on CTA in both themes (WA dark would use dark on-loud). */
+/* Default WA appearance is accent: fill-loud + on-loud (white). Tokens alone
+   can still resolve to a pale tint; pierce the shadow with ::part. */
+html.wa-theme-shoelace,
 html.wa-theme-shoelace.wa-light,
 html.wa-theme-shoelace:not(.wa-dark),
 html.wa-theme-shoelace.wa-dark {
@@ -47,24 +49,27 @@ html.wa-theme-shoelace.wa-dark {
   --wa-color-brand-border-loud: var(--cta);
 }
 
-.inv-compose-form wa-button[variant="brand"]::part(base) {
-  background: var(--cta);
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]) {
+  --wa-color-fill-loud: var(--cta);
+  --wa-color-on-loud: #fff;
+  --wa-color-brand-fill-loud: var(--cta);
+  --wa-color-brand-on-loud: #fff;
+  color: #fff;
+}
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(button),
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(base) {
+  background-color: var(--cta);
   border-color: var(--cta);
   color: #fff;
 }
-.inv-compose-form wa-button[variant="brand"]:hover::part(base) {
-  background: var(--cta-hover);
-  border-color: var(--cta-hover);
-}
-.inv-actions wa-button[variant="brand"]::part(base) {
-  background: var(--cta);
-  border-color: var(--cta);
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(label) {
   color: #fff;
-  font-weight: 600;
 }
-.inv-actions wa-button[variant="brand"]:hover::part(base) {
-  background: var(--cta-hover);
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]):hover::part(button),
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]):hover::part(base) {
+  background-color: var(--cta-hover);
   border-color: var(--cta-hover);
+  color: #fff;
 }
 
 html.wa-theme-shoelace.wa-light,

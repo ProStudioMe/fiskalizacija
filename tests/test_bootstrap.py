@@ -48,13 +48,13 @@ def test_ensure_client_tenants_creates_admins(monkeypatch):
             .one()
         )
         assert license_row.name == LICENSE_ITEM
-        assert license_row.thumbnail_filename == "demo/proracun.png"
+        assert license_row.thumbnail_filename == "demo/proracun.svg"
         license_row.thumbnail_filename = "demo/app.svg"
         db.commit()
         ensure_client_tenants(db)
         db.commit()
         db.refresh(license_row)
-        assert license_row.thumbnail_filename == "demo/proracun.png"
+        assert license_row.thumbnail_filename == "demo/proracun.svg"
         hotel_articles = (
             db.query(Article).filter(Article.tenant_id == hotel.id).count()
         )
