@@ -6,7 +6,12 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 from sepko.brand import (
+    COMPANY_ADDRESS,
+    COMPANY_BILLING_EMAIL,
     COMPANY_DOMAIN,
+    COMPANY_NAME,
+    COMPANY_PHONE,
+    COMPANY_PIB,
     COMPANY_URL,
     DISPLAY_NAME,
     DOMAIN,
@@ -27,8 +32,13 @@ templates.env.filters["qty"] = qty_filter
 templates.env.globals["brand"] = DISPLAY_NAME
 templates.env.globals["brand_domain"] = DOMAIN
 templates.env.globals["brand_url"] = SITE_URL
+templates.env.globals["company_name"] = COMPANY_NAME
 templates.env.globals["company_domain"] = COMPANY_DOMAIN
 templates.env.globals["company_url"] = COMPANY_URL
+templates.env.globals["company_pib"] = COMPANY_PIB
+templates.env.globals["company_address"] = COMPANY_ADDRESS
+templates.env.globals["company_phone"] = COMPANY_PHONE
+templates.env.globals["company_email"] = COMPANY_BILLING_EMAIL
 
 # BCP 47 / HTML lang iz naših UI kodova
 _HTML_LANG = {
@@ -68,8 +78,13 @@ def render(request: Request, name: str, context: dict | None = None):
         "brand": DISPLAY_NAME,
         "brand_domain": DOMAIN,
         "brand_url": SITE_URL,
+        "company_name": COMPANY_NAME,
         "company_domain": COMPANY_DOMAIN,
         "company_url": COMPANY_URL,
+        "company_pib": COMPANY_PIB,
+        "company_address": COMPANY_ADDRESS,
+        "company_phone": COMPANY_PHONE,
+        "company_email": COMPANY_BILLING_EMAIL,
     }
     flash, flash_type = pop_flash(request)
     ctx["flash"] = flash

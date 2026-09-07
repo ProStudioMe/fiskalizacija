@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
-from sepko.brand import MAIL_FROM_NAME
+from sepko.brand import COMPANY_BILLING_EMAIL, COMPANY_NAME, MAIL_FROM_NAME
 from sepko.finansije import MailSettings, load_mail_settings, send_firm_mail
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,8 +37,8 @@ def platform_from_header() -> str:
     if mail.smtp_from:
         name = (mail.smtp_from_name or MAIL_FROM_NAME).strip() or MAIL_FROM_NAME
         return f"{name} <{mail.smtp_from}>"
-    issuer = (os.getenv("SEPKO_BILLING_NAME") or "PROSTUDIO.ME DOO").strip() or "PROSTUDIO.ME DOO"
-    addr = (os.getenv("SEPKO_BILLING_EMAIL") or "finansije@prostudio.me").strip() or "finansije@prostudio.me"
+    issuer = (os.getenv("SEPKO_BILLING_NAME") or COMPANY_NAME).strip() or COMPANY_NAME
+    addr = (os.getenv("SEPKO_BILLING_EMAIL") or COMPANY_BILLING_EMAIL).strip() or COMPANY_BILLING_EMAIL
     return f"{issuer} <{addr}>"
 
 

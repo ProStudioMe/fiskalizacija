@@ -1,0 +1,23 @@
+[Unit]
+Description=Docker ProRačun (proracun.me)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/proracun
+EnvironmentFile=/home/proracun/.docker_env
+TimeoutStartSec=300
+Restart=always
+RestartSec=8
+
+ExecStartPre=-/bin/sh -c 'if [ -n "${TOKEN}" ]; then /usr/bin/docker login ghcr.io -u ProStudioMe -p "${TOKEN}"; fi'
+ExecStartPre=/usr/bin/docker compose --env-file /home/proracun/.docker_env -f /home/proracun/docker-compose.yml pull
+ExecStart=/usr/bin/docker compose --env-file /home/proracun/.docker_env -f /home/proracun/docker-compose.yml up --remove-orphans --no-color
+ExecStop=/usr/bin/docker compose --env-file /home/proracun/.docker_env -f /home/proracun/docker-compose.yml down
+
+StandardOutput=append:/home/proracun/logs/docker-proracun.log
+StandardError=append:/home/proracun/logs/docker-proracun-error.log
+
+[Install]
+WantedBy=multi-user.target

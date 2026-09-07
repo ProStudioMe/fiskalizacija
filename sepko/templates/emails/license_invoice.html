@@ -12,7 +12,8 @@
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;">
           <tr>
             <td style="padding:0 8px 14px;font-size:15px;font-weight:700;color:#111111;text-align:left;">
-              {{ draft.issuer_name }}
+              {{ draft.issuer_name }}<br>
+              <a href="{{ company_url }}" style="font-size:13px;font-weight:600;color:#5a32d6;text-decoration:none;">{{ company_domain }}</a>
             </td>
           </tr>
           <tr>
@@ -98,7 +99,9 @@
 
               <p style="margin:0;font-size:13px;line-height:1.55;color:#374151;">
                 <strong>{{ draft.issuer_name }}</strong><br>
+                <a href="{{ company_url }}" style="color:#2563eb;text-decoration:none;">{{ company_domain }}</a><br>
                 {% if draft.issuer_address %}{{ draft.issuer_address }}<br>{% endif %}
+                {% if draft.issuer_phone %}Tel: {{ draft.issuer_phone }}<br>{% endif %}
                 {% if draft.issuer_email %}<a href="mailto:{{ draft.issuer_email }}" style="color:#2563eb;text-decoration:none;">{{ draft.issuer_email }}</a><br>{% endif %}
                 {% if draft.issuer_pib %}PIB: {{ draft.issuer_pib }}{% endif %}
               </p>

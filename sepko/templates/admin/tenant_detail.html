@@ -123,7 +123,8 @@
 
 <div class="card" style="margin-top:1rem">
   <h2>Račun / profaktura za licencu</h2>
-  <p class="muted">Isti mail kao kod VG: HTML račun + PDF. Pošiljalac je {{ billing.issuer_name }} ({{ billing.issuer_email }}).
+  <p class="muted">Pošiljalac je <strong>{{ billing.issuer_name }}</strong> ({{ company_domain }})
+    — {{ billing.issuer_email }}{% if billing.issuer_pib %}, PIB {{ billing.issuer_pib }}{% endif %}.
     Dnevni cron šalje <strong>profakturu</strong> kad licenca ističe (&lt; 30 dana); ovdje šalješ <strong>račun</strong> kad je uplata stigla.</p>
   {% if not mail_status.ok %}
   <div class="flash warn">{{ mail_status.message }}</div>

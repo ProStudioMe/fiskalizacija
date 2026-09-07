@@ -14,7 +14,15 @@ from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from sepko.brand import LICENSE_ITEM
+from sepko.brand import (
+    COMPANY_ADDRESS,
+    COMPANY_BILLING_EMAIL,
+    COMPANY_DOMAIN,
+    COMPANY_NAME,
+    COMPANY_PHONE,
+    COMPANY_PIB,
+    LICENSE_ITEM,
+)
 from sepko.finansije import safe_filename
 from sepko.licenses import LICENSE_WARN_DAYS, license_days_left, license_extend_until
 from sepko.models import AdminAuditLog, LicenseInvoice, Tenant, TenantStatus, User
@@ -31,12 +39,12 @@ _DEFAULT_MONTHLY = Decimal("15.00")
 
 @dataclass
 class PlatformBilling:
-    issuer_name: str = "PROSTUDIO.ME DOO"
-    issuer_address: str = ""
-    issuer_email: str = "finansije@prostudio.me"
-    issuer_pib: str = "03452668"
+    issuer_name: str = COMPANY_NAME
+    issuer_address: str = COMPANY_ADDRESS
+    issuer_email: str = COMPANY_BILLING_EMAIL
+    issuer_pib: str = COMPANY_PIB
     issuer_iban: str = ""
-    issuer_phone: str = ""
+    issuer_phone: str = COMPANY_PHONE
     signer_name: str = ""
     signer_title: str = "Licence i pretplata"
     item_name: str = LICENSE_ITEM
@@ -75,14 +83,14 @@ def load_platform_billing() -> PlatformBilling:
     load_dotenv(ROOT / ".env")
     price = parse_nonneg_money(os.getenv("SEPKO_LICENSE_MONTHLY_PRICE") or "15") or _DEFAULT_MONTHLY
     from_email = parse_from_email(platform_from_header())
-    issuer_email = (os.getenv("SEPKO_BILLING_EMAIL") or from_email or "finansije@prostudio.me").strip()[:255]
+    issuer_email = (os.getenv("SEPKO_BILLING_EMAIL") or from_email or COMPANY_BILLING_EMAIL).strip()[:255]
     return PlatformBilling(
-        issuer_name=(os.getenv("SEPKO_BILLING_NAME") or "PROSTUDIO.ME DOO").strip()[:255] or "PROSTUDIO.ME DOO",
-        issuer_address=(os.getenv("SEPKO_BILLING_ADDRESS") or "").strip()[:255],
-        issuer_email=issuer_email or "finansije@prostudio.me",
-        issuer_pib=(os.getenv("SEPKO_BILLING_PIB") or "03452668").strip()[:32] or "03452668",
+        issuer_name=(os.getenv("SEPKO_BILLING_NAME") or COMPANY_NAME).strip()[:255] or COMPANY_NAME,
+        issuer_address=(os.getenv("SEPKO_BILLING_ADDRESS") or COMPANY_ADDRESS).strip()[:255],
+        issuer_email=issuer_email or COMPANY_BILLING_EMAIL,
+        issuer_pib=(os.getenv("SEPKO_BILLING_PIB") or COMPANY_PIB).strip()[:32] or COMPANY_PIB,
         issuer_iban=(os.getenv("SEPKO_BILLING_IBAN") or "").strip()[:512],
-        issuer_phone=(os.getenv("SEPKO_BILLING_PHONE") or "").strip()[:64],
+        issuer_phone=(os.getenv("SEPKO_BILLING_PHONE") or COMPANY_PHONE).strip()[:64],
         signer_name=(os.getenv("SEPKO_BILLING_SIGNER_NAME") or "").strip()[:255],
         signer_title=(os.getenv("SEPKO_BILLING_SIGNER_TITLE") or "Licence i pretplata").strip()[:128]
         or "Licence i pretplata",
@@ -226,6 +234,7 @@ def render_license_invoice_text(draft: LicenseInvoiceDraft) -> str:
     qty_txt = format_amount(draft.qty)
     lines = [
         f"{draft.issuer_name}",
+        COMPANY_DOMAIN,
         "",
         f"{draft.doc_label} {draft.number}",
         f"{fmt_date(draft.issue_date)} · Datum valute {fmt_date(draft.due_date)}",
@@ -320,7 +329,13 @@ def render_license_invoice_pdf(draft: LicenseInvoiceDraft, *, font_path: str = "
 
         pdf.set_font("Inv", "B", 14)
         pdf.cell(0, 8, draft.issuer_name, **nxt)
-        pdf.ln(4)
+        pdf.set_font("Inv", "", 9)
+        pdf.set_text_color(90, 90, 90)
+        pdf.cell(0, 5, COMPANY_DOMAIN, **nxt)
+        if draft.issuer_address:
+            pdf.cell(0, 5, draft.issuer_address, **nxt)
+        pdf.set_text_color(17, 17, 17)
+        pdf.ln(2)
         pdf.set_font("Inv", "B", 18)
         pdf.cell(0, 10, f"{draft.doc_label} {draft.number}", **nxt)
         pdf.set_font("Inv", "", 10)

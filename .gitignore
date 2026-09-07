@@ -18,6 +18,7 @@ backups/
 _pull_aside/
 *-DESKTOP-*.css
 *-DESKTOP-*.html
+*.ppk
 
 # Large binary fiscalization packs (keep maps/README in git)
 docs/Fiskalizacija_uputstvo.zip

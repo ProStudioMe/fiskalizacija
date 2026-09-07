@@ -39,6 +39,8 @@ SEPKO_DATABASE_URL=postgresql+asyncpg://sepko:sepko@localhost:5433/sepko
 
 ## Produkcija
 
+Server: **proracun.me** na Hetzneru (SSH user `proracun`, home `/home/proracun`). Detalji: [`deploy/README.md`](deploy/README.md).
+
 Gunicorn s Uvicorn workerima iza Nginx-a (ne gol Uvicorn):
 
 ```powershell
@@ -46,6 +48,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 Konfig: `deploy/gunicorn.conf.py`, `deploy/nginx.conf`.
+Image: `ghcr.io/prostudiome/fiskalizacija:latest`.
 
 ## Backup → OneDrive
 
