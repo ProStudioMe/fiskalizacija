@@ -26,20 +26,34 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=142">
+  <link rel="stylesheet" href="/static/style.css?v=143">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
-  <link rel="stylesheet" href="/static/webawesome-theme.css?v=10">
+  <link rel="stylesheet" href="/static/webawesome-theme.css?v=11">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
   {% block head_extra %}{% endblock %}
   {% block extra_css %}{% endblock %}
-  <link rel="icon" href="/static/img/sepko-mark.svg?v=9" type="image/svg+xml">
+  <link rel="icon" href="/static/img/sepko-mark.svg?v=10" type="image/svg+xml">
   {% block manifest %}
   <link rel="manifest" href="/manifest.webmanifest">
   {% endblock %}
   <meta name="theme-color" content="#5b21b6">
+  <meta name="description" content="{% block meta_description %}{{ brand }}{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ brand }}">
+  <meta property="og:title" content="{% block og_title %}{{ brand }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ brand }}{% endblock %}">
+  <meta property="og:url" content="{% block og_url %}{{ brand_url }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ brand_url }}/static/img/og-proracun.png?v=2{% endblock %}">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:alt" content="{{ brand }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ brand }}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}{{ brand }}{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{{ brand_url }}/static/img/og-proracun.png?v=2{% endblock %}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="{{ brand }}">
-  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=9">
+  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=10">
   <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/webawesome.loader.js"></script>
   <script src="/static/webawesome-init.js?v=1"></script>
   <script src="/static/money.js?v=1"></script>
@@ -72,7 +86,7 @@
           <i data-lucide="menu" aria-hidden="true"></i>
         </button>
         <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="{{ brand }}">
-          <img class="brand-logo" src="/static/img/sepko-logo.svg?v=10" alt="{{ brand }}" width="186" height="36">
+          <img class="brand-logo" src="/static/img/sepko-logo.svg?v=11" alt="{{ brand }}" width="186" height="36">
         </a>
       </div>
       <div class="topbar-right">
@@ -80,7 +94,9 @@
           <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
           <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
         </button>
+        {% if not is_admin_portal and user.role not in ['admin', 'superadmin'] %}
         <button type="button" class="topbar-install" id="btn-pwa-install" hidden>{{ t('pwa.install', 'Instaliraj') }}</button>
+        {% endif %}
         <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
         <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -324,7 +340,8 @@
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=3"
+  <script src="/static/pwa-install.js?v=4"
+          data-skip="{% if is_admin_portal or (user and user.role in ['admin', 'superadmin']) %}1{% else %}0{% endif %}"
           data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
           data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"
           data-ok="{{ t('pwa.install', 'Instaliraj') }}"

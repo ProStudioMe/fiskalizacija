@@ -123,6 +123,54 @@ def test_admin_login_and_tenant_list(admin_client):
     assert "12345678" in r.text
 
 
+def test_pwa_install_prompt_skipped_for_admin(admin_client):
+    client, Session = admin_client
+    _admin_login(client)
+    r = client.get("/admin/tenanti")
+    assert r.status_code == 200
+    assert 'data-skip="1"' in r.text
+    assert 'id="btn-pwa-install"' not in r.text
+
+    client.post("/admin/logout", data={"csrf_token": _csrf(r.text)}, follow_redirects=False)
+    page = client.get("/login")
+    client.post(
+        "/login",
+        data={"email": "admin@philia.me", "password": "sepko123", "csrf_token": _csrf(page.text)},
+        follow_redirects=False,
+    )
+    dash = client.get("/")
+    assert dash.status_code == 200
+    assert 'data-skip="1"' in dash.text
+    assert 'id="btn-pwa-install"' not in dash.text
+
+    db = Session()
+    tenant = db.query(Tenant).filter_by(slug="philia").one()
+    db.add(
+        User(
+            tenant_id=tenant.id,
+            email="kasir@philia.me",
+            password_hash=hash_password("sepko123"),
+            full_name="Kasir",
+            role="kasir",
+            active=True,
+        )
+    )
+    db.commit()
+    db.close()
+
+    client.post("/logout", data={"csrf_token": _csrf(dash.text)}, follow_redirects=False)
+    page = client.get("/login")
+    client.post(
+        "/login",
+        data={"email": "kasir@philia.me", "password": "sepko123", "csrf_token": _csrf(page.text)},
+        follow_redirects=False,
+    )
+    kasir_page = client.get("/")
+    assert kasir_page.status_code == 200
+    assert 'data-skip="0"' in kasir_page.text
+    assert 'id="btn-pwa-install"' in kasir_page.text
+
+
 def test_login_shows_proracun_and_prostudio(admin_client):
     client, _ = admin_client
     page = client.get("/login")

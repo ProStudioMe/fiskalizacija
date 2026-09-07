@@ -19,7 +19,10 @@
     "Aplikacija je već na uređaju. Otvori je da radi bez browser trake.";
   var openIos = (script && script.getAttribute("data-open-ios")) ||
     "Otvori ProRačun sa početnog ekrana (ikona ProRačun).";
+  var skip = (script && script.getAttribute("data-skip")) === "1";
   var btn = document.getElementById("btn-pwa-install");
+
+  if (skip) return;
 
   function standalone() {
     return window.matchMedia("(display-mode: standalone)").matches ||
