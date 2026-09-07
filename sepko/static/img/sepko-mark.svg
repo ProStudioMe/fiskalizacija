@@ -1,16 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="ProRačun">
   <defs>
-    <clipPath id="sq"><rect width="48" height="48" rx="14"/></clipPath>
-    <mask id="p">
-      <path fill="#fff" d="M13.4 11.2A3.6 3.6 0 0 1 17 7.6h10.6a11.2 11.2 0 0 1 0 22.4H20.6v7.2a3.6 3.6 0 0 1-7.2 0V11.2Z"/>
-      <circle cx="27.2" cy="18.8" r="5.4" fill="#000"/>
-    </mask>
+    <clipPath id="mk"><rect width="48" height="48" rx="12"/></clipPath>
   </defs>
-  <rect width="48" height="48" rx="14" fill="#1a0f3d"/>
-  <g clip-path="url(#sq)">
-    <path d="M0 0h28c6 0 10 4 10 10v8H14C6 18 0 12 0 4V0z" fill="#3d2499"/>
-    <path d="M20 18h28v12c0 8-6 14-14 14H20V18z" fill="#5a32d6"/>
-    <path d="M0 28h22v20H14C6 48 0 42 0 34V28z" fill="#4a2bb8"/>
-    <rect width="48" height="48" fill="#fff" mask="url(#p)"/>
+  <g clip-path="url(#mk)">
+    <rect width="24" height="48" fill="#4527A0"/>
+    <rect x="24" width="24" height="48" fill="#7C4DFF"/>
+    <path fill="#12081F" opacity="0.4" fill-rule="evenodd" d="M13.9 11.6h12.6L38.2 21 26.5 30.4H22.4v8.2H13.9V11.6Zm8.5 5.2h8.1L33.8 21l-3.3 3.6H22.4V16.8Z"/>
+    <path fill="#fff" fill-rule="evenodd" d="M15 10h12.6L39.3 19.4 27.6 28.8H23.5v8.2H15V10Zm8.5 5.2h8.1L33.9 19.4l-3.3 3.6H23.5V15.2Z"/>
   </g>
 </svg>

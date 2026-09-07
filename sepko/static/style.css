@@ -915,8 +915,23 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
     radial-gradient(circle at 80% 80%, rgba(23,64,232,0.2), transparent 40%),
     var(--shell);
 }
+.login-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(400px, 100%);
+  gap: 1rem;
+}
+.login-stack .brand-logo-lg {
+  margin: 0;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+.login-stack .brand-logo-stack {
+  height: 148px;
+  width: auto;
+}
 .login-card {
-  width: min(400px, 100%); border: none;
+  width: 100%; border: none;
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 50px rgba(0,0,0,0.35);
 }
@@ -3315,7 +3330,7 @@ tr.inv-line {
   width: 1.45rem;
   height: 1.45rem;
   transform: translateY(-50%);
-  background: url("/static/img/sepko-mark.svg?v=9") center / contain no-repeat;
+  background: url("/static/img/sepko-mark.svg?v=12") center / contain no-repeat;
   opacity: 0.32;
   pointer-events: none;
   z-index: 0;

@@ -2,10 +2,9 @@
 {% block title %}Prijava — {{ brand }} admin{% endblock %}
 {% block auth %}
 <div class="login-wrap">
-  <div class="card login-card">
-    <div class="brand">
-      <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=9" alt="{{ brand }}" width="248" height="48">
-    </div>
+  <div class="login-stack">
+    <img class="brand-logo brand-logo-lg brand-logo-stack" src="/static/img/sepko-logo-stack.svg?v=12" alt="{{ brand }}" width="248" height="176">
+    <div class="card login-card">
     <p class="muted">Prijava u platformu</p>
     {% if flash %}
       <div class="flash {% if flash_type == 'error' %}error{% endif %}" role="status">{{ flash }}</div>
@@ -15,10 +14,11 @@
       <wa-input id="email" name="email" type="email" label="Email" required autocomplete="username"></wa-input>
       <wa-input id="password" name="password" type="password" password-toggle label="Lozinka" required autocomplete="current-password"></wa-input>
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">Prijavi se</wa-button>
+        <button type="submit" class="btn">Prijavi se</button>
       </div>
     </form>
     <p class="muted" style="margin-top:1rem"><a href="/login">Prijava firme</a></p>
+    </div>
   </div>
 </div>
 {% endblock %}
