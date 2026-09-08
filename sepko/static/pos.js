@@ -155,7 +155,51 @@
     return null;
   }
 
+  var cashWarned = false;
+
+  function cashIsOpen() {
+    return form && form.getAttribute("data-has-initial") === "1";
+  }
+
+  function cashUrl() {
+    return (form && form.getAttribute("data-blagajna")) || "/blagajna";
+  }
+
+  function promptOpenCash(opts) {
+    opts = opts || {};
+    var go = function () {
+      window.location.href = cashUrl();
+    };
+    if (window.sepkoDialog && typeof window.sepkoDialog.confirm === "function") {
+      window.sepkoDialog.confirm({
+        title: opts.title || "Blagajna nije otvorena",
+        message:
+          opts.message ||
+          "Prije gotovinskih računa unesi INITIAL depozit za danas (smije biti 0,00).",
+        tone: "warn",
+        okLabel: opts.okLabel || "Otvori blagajnu",
+        cancelLabel: opts.cancelLabel || "Kasnije",
+        onOk: go,
+      });
+      return;
+    }
+    if (window.confirm((opts.title || "Blagajna nije otvorena") + "\n\n" + (opts.message || ""))) {
+      go();
+    }
+  }
+
+  function ensureCashOrWarn(force) {
+    if (cashIsOpen()) return true;
+    if (!force && cashWarned) return false;
+    cashWarned = true;
+    promptOpenCash();
+    return false;
+  }
+
   function addLine(a, qty, tileBtn) {
+    if (!cashIsOpen()) {
+      ensureCashOrWarn(false);
+    }
     qty = qty || 1;
     var existing = findLine(a.id, a.price, a.name);
     if (existing) {
@@ -206,6 +250,10 @@
   }
 
   function openCustomModal() {
+    if (!cashIsOpen()) {
+      ensureCashOrWarn(true);
+      return;
+    }
     if (!customModal) return;
     customPrevFocus = document.activeElement;
     if (customName) customName.value = "Usluga";
@@ -308,8 +356,7 @@
     });
     if (totalEl) totalEl.textContent = money(total);
     if (cartEmpty) cartEmpty.hidden = cart.length > 0;
-    var canSell = form && form.getAttribute("data-has-initial") === "1";
-    if (submitBtn) submitBtn.disabled = !canSell || cart.length === 0;
+    if (submitBtn) submitBtn.disabled = cart.length === 0;
     if (clearBtn) clearBtn.disabled = cart.length === 0;
     if (justAddedKey) {
       setTimeout(function () {
@@ -397,8 +444,13 @@
       }
       if (form.getAttribute("data-has-initial") !== "1") {
         e.preventDefault();
-        var blag = form.getAttribute("data-blagajna") || "/blagajna";
-        window.location.href = blag;
+        promptOpenCash({
+          title: "Blagajna nije otvorena",
+          message:
+            "Ne možeš fiskalizovati gotovinski račun dok ne uneseš INITIAL depozit za danas (smije biti 0,00).",
+          okLabel: "Otvori blagajnu",
+          cancelLabel: "Odustani",
+        });
         return;
       }
       e.preventDefault();

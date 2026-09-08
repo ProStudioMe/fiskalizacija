@@ -177,6 +177,7 @@ def test_login_shows_proracun_and_prostudio(admin_client):
     assert page.status_code == 200
     assert "ProRačun" in page.text
     assert "prostudio.me" in page.text
+    assert "https://moj.proracun.me/login" in page.text
 
 
 def test_tenant_user_cannot_open_admin(admin_client):

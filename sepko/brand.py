@@ -3,7 +3,8 @@
 DISPLAY_NAME = "ProRačun"
 DISPLAY_ASCII = "ProRacun"
 DOMAIN = "proracun.me"
-SITE_URL = "https://proracun.me"
+APP_DOMAIN = "moj.proracun.me"
+SITE_URL = f"https://{APP_DOMAIN}"
 
 # Nosilac projekta i izdavalac računa / profaktura za licence (prema tenantima)
 COMPANY_NAME = "PROSTUDIO.ME DOO"

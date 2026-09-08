@@ -559,6 +559,40 @@ a:hover { text-decoration: underline; }
 }
 .inv-status-tabs {
   margin: 0 0 0.85rem;
+  max-width: 100%;
+  min-width: 0;
+}
+.inv-status-tabs .tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.inv-status-tabs .tabs::-webkit-scrollbar { display: none; }
+.inv-status-tabs .tab {
+  flex: 1 1 0;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 0;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+}
+.inv-status-tabs .tab-short { display: none; }
+.inv-status-tabs .tab-long { display: inline; }
+
+@media (max-width: 720px) {
+  .inv-status-tabs .tab {
+    flex: 1 1 0;
+    font-size: 0.78rem;
+    padding: 0.42rem 0.35rem;
+  }
+  .inv-status-tabs .tab-long { display: none; }
+  .inv-status-tabs .tab-short { display: inline; }
 }
 .page-actions:empty { display: none; }
 .inv-page-title {
@@ -677,19 +711,33 @@ a:hover { text-decoration: underline; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .nav-toggle { display: inline-grid; place-items: center; }
   .topbar-chip { display: none; }
+  html, body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+  .app,
+  .app-body,
+  .workspace,
+  .panel-body {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
   .sidebar {
     display: flex;
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
-    width: min(300px, 86vw);
+    width: 100%;
+    max-width: 100%;
     z-index: 50;
     transform: translateX(-105%);
     transition: transform 0.22s ease;
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-    padding-top: 1rem;
+    border-radius: 0;
+    box-shadow: none;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-bottom: env(safe-area-inset-bottom);
   }
   body.nav-open .sidebar { transform: translateX(0); }
   body.nav-open .nav-backdrop { display: block; }
@@ -697,7 +745,7 @@ a:hover { text-decoration: underline; }
   .panel-body, .page-head { padding-left: 1rem; padding-right: 1rem; }
   .app-body { margin: 0 0.4rem 0.4rem; border-radius: 18px; }
   .page-title { font-size: 1.35rem; }
-  .soft-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .soft-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
   .filter-bar { align-items: stretch; }
   .filter-dates { width: 100%; }
   .inv-filter-toolbar { flex-direction: column; align-items: stretch; }
@@ -1005,6 +1053,8 @@ button.danger:hover, .btn.danger:hover { background: #fef2f2; }
 /* Hostinger-like list */
 .tabs {
   display: inline-flex; gap: 0.2rem; margin-bottom: 1rem; flex-wrap: wrap;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--soft-2, #e4e6ec); padding: 0.28rem; border-radius: var(--radius-pill);
 }
 .tab {
@@ -1319,16 +1369,33 @@ html[data-theme="dark"] .tab.active {
 @media (max-width: 960px) {
   .inv-filter-toolbar {
     gap: 0.5rem;
+    width: 100%;
+    max-width: 100%;
   }
   .inv-filter-search,
   .inv-filter-dates {
     flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .inv-filter-search {
+    min-width: 0;
+  }
+  .inv-filter-dates {
+    justify-content: flex-start;
+  }
+  .inv-filter-dates input[type="date"],
+  .inv-filter-dates input.inv-date-dmy {
+    width: 0;
+    min-width: 0;
+    flex: 1 1 0;
   }
   .inv-filter-actions {
     margin-left: 0;
     width: 100%;
     height: auto;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 }
 
@@ -1386,10 +1453,15 @@ html[data-theme="dark"] .tab.active {
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
   overflow: visible;
+  max-width: 100%;
+  min-width: 0;
 }
 .plan-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
+  min-width: 0;
 }
 .plan-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -2080,6 +2152,125 @@ body.sepko-dialog-open { overflow: hidden; }
 }
 .th-date-form .btn { width: 100%; }
 .invoices-table th { white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .plan-card#inv-list-card,
+  #inv-list-card.plan-card {
+    overflow: hidden;
+  }
+  #inv-list-card .plan-table-wrap {
+    overflow: visible;
+  }
+  .invoices-table.soft-table {
+    display: block;
+    overflow: visible;
+    width: 100%;
+  }
+  .invoices-table thead {
+    display: none;
+  }
+  .invoices-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.75rem;
+  }
+  .invoices-table tbody tr.inv-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "check num amount"
+      "check client amount"
+      "check status actions"
+      "check date actions";
+    gap: 0.2rem 0.65rem;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-sizing: border-box;
+  }
+  .invoices-table tbody tr.inv-row:hover td,
+  .invoices-table tbody tr.inv-row td {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .invoices-table tbody tr.inv-row td.col-check {
+    grid-area: check;
+    align-self: start;
+    padding-top: 0.15rem;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(2) {
+    grid-area: num;
+    min-width: 0;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(3) {
+    grid-area: status;
+    min-width: 0;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(4) {
+    grid-area: client;
+    min-width: 0;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(5) {
+    grid-area: date;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    min-width: 0;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(5) .cell-date,
+  .invoices-table tbody tr.inv-row td:nth-child(5) .cell-secondary {
+    display: inline;
+    margin: 0;
+  }
+  .invoices-table tbody tr.inv-row td:nth-child(5) .cell-secondary:not(:empty)::before {
+    content: "·";
+    margin-right: 0.25rem;
+  }
+  .invoices-table tbody tr.inv-row td.cell-amount {
+    grid-area: amount;
+    text-align: right;
+    font-size: 0.98rem;
+    font-weight: 700;
+    align-self: start;
+    white-space: nowrap;
+  }
+  .invoices-table tbody tr.inv-row td.cell-actions {
+    grid-area: actions;
+    position: static;
+    justify-self: end;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .invoices-table tbody tr.inv-row .cell-client {
+    font-size: 0.86rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .invoices-table tbody tr.inv-row .inv-num-local {
+    font-size: 0.92rem;
+  }
+  .invoices-table tbody tr.inv-empty,
+  .invoices-table tbody tr:not(.inv-row) {
+    display: block;
+    padding: 1rem;
+    border: none;
+  }
+  .invoices-table tbody tr:not(.inv-row) td {
+    display: block;
+    border: none;
+    padding: 0;
+  }
+}
 .pill-tag {
   display: inline-block;
   padding: 0.15rem 0.55rem;

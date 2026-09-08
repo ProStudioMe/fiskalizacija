@@ -1,6 +1,6 @@
 # ProRačun
 
-SaaS fiskalizacija CG · **proracun.me** · back-office (Jinja) + REST API · fiskal radi **Navira**.
+SaaS fiskalizacija CG · sajt **proracun.me** · app **moj.proracun.me** · back-office (Jinja) + REST API · fiskal radi **Navira**.
 Prostudio: [prostudio.me](https://prostudio.me)
 
 ## Faza 1
@@ -39,7 +39,7 @@ SEPKO_DATABASE_URL=postgresql+asyncpg://sepko:sepko@localhost:5433/sepko
 
 ## Produkcija
 
-Server: **proracun.me** na Hetzneru (SSH user `proracun`, home `/home/proracun`). Detalji: [`deploy/README.md`](deploy/README.md).
+Server: **moj.proracun.me** (app) / **proracun.me** (sajt) na Hetzneru (SSH user `proracun`, home `/home/proracun`). Detalji: [`deploy/README.md`](deploy/README.md).
 
 Gunicorn s Uvicorn workerima iza Nginx-a (ne gol Uvicorn):
 
