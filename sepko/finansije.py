@@ -504,9 +504,164 @@ def safe_filename(name: str) -> str:
     return re.sub(r"[^\w.\-]+", "_", (name or "firma").strip())[:60] or "firma"
 
 
-# —— SMTP ——
+# —— IMAP probe + slanje ——
 
-def send_firm_mail(
+# Uobičajeni IMAP portovi: 993=SSL, 143=STARTTLS
+_IMAP_PROBE_PORTS: tuple[int, ...] = (993, 143)
+_IMAP_HOST_MAX = 253
+_IMAP_PROBE_TIMEOUT = 8.0
+
+
+def normalize_imap_host(host: str) -> str | None:
+    """Host bez sheme/puta/porta; lowercase. None ako format nije validan."""
+    h = (host or "").strip().lower()
+    if not h or len(h) > _IMAP_HOST_MAX:
+        return None
+    if "://" in h or "/" in h or " " in h or "\\" in h:
+        return None
+    if h.startswith("[") and h.endswith("]"):
+        h = h[1:-1]
+    # host:port nije dozvoljen — port biramo probeom
+    if ":" in h:
+        # IPv6 bez zagrada odbijamo radi jednostavnosti
+        return None
+    if h in (".", "..") or h.startswith(".") or h.endswith("."):
+        return None
+    if not re.fullmatch(r"[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)*", h):
+        # dozvoli i čisti IPv4
+        if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", h):
+            return None
+    return h
+
+
+def imap_host_is_safe(host: str) -> tuple[bool, str]:
+    """Blokiraj SSRF ka privatnim/loopback adresama (resolve DNS)."""
+    import ipaddress
+    import socket
+
+    host = (host or "").strip().lower()
+    if not host:
+        return False, "Nedostaje IMAP host."
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except OSError:
+        return False, "IMAP host se ne može razriješiti (DNS)."
+    if not infos:
+        return False, "IMAP host se ne može razriješiti (DNS)."
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False, "IMAP host nije dozvoljen."
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return False, "IMAP host nije dozvoljen (privatna ili lokalna adresa)."
+    return True, ""
+
+
+def probe_imap(
+    host: str,
+    user: str,
+    password: str,
+    *,
+    preferred_port: int | None = None,
+    timeout: float = _IMAP_PROBE_TIMEOUT,
+) -> dict[str, Any]:
+    """Probaj IMAP portove; vrati prvi koji loginuje. Samo 993/143."""
+    import imaplib
+
+    normalized = normalize_imap_host(host)
+    if not normalized:
+        return {"ok": False, "message": "Neispravan IMAP host (samo hostname, bez http/porta).", "port": None}
+    user = (user or "").strip()
+    password = password or ""
+    if not user or not password:
+        return {"ok": False, "message": "Unesi korisnika i lozinku.", "port": None}
+    if len(user) > 255 or len(password) > 512:
+        return {"ok": False, "message": "User/lozinka predugački.", "port": None}
+
+    ok_host, host_msg = imap_host_is_safe(normalized)
+    if not ok_host:
+        return {"ok": False, "message": host_msg, "port": None}
+
+    ports: list[int] = []
+    if preferred_port in _IMAP_PROBE_PORTS:
+        ports.append(int(preferred_port))
+    for p in _IMAP_PROBE_PORTS:
+        if p not in ports:
+            ports.append(p)
+
+    errors: list[str] = []
+    for port in ports:
+        try:
+            if port == 143:
+                imap = imaplib.IMAP4(normalized, port, timeout=timeout)
+                try:
+                    imap.starttls()
+                except Exception:
+                    pass
+            else:
+                imap = imaplib.IMAP4_SSL(normalized, port, timeout=timeout)
+            try:
+                typ, _ = imap.login(user, password)
+                if typ != "OK":
+                    raise RuntimeError(f"login {typ}")
+            finally:
+                try:
+                    imap.logout()
+                except Exception:
+                    pass
+            return {
+                "ok": True,
+                "port": port,
+                "host": normalized,
+                "ssl": port != 143,
+                "message": f"IMAP OK — {normalized}:{port}",
+            }
+        except Exception as exc:
+            err = str(exc).replace("\n", " ")[:120]
+            errors.append(f"{port}: {err}")
+
+    detail = "; ".join(errors[:4])
+    return {
+        "ok": False,
+        "port": None,
+        "host": normalized,
+        "message": (
+            f"IMAP nije dostupan na {normalized} "
+            f"(probano {', '.join(str(p) for p in ports)}). {detail}"
+        )[:500],
+    }
+
+
+def _open_imap(mail: MailSettings):
+    """IMAP4_SSL (993) ili IMAP4+STARTTLS (143)."""
+    import imaplib
+
+    host = normalize_imap_host(mail.imap_host) or ""
+    ok, msg = imap_host_is_safe(host) if host else (False, "Nedostaje IMAP host.")
+    if not ok:
+        raise OSError(msg)
+    port = int(mail.imap_port or 993)
+    if port not in _IMAP_PROBE_PORTS:
+        port = 993
+    if port == 143:
+        imap = imaplib.IMAP4(host, port, timeout=60)
+        try:
+            imap.starttls()
+        except Exception:
+            pass
+        return imap
+    return imaplib.IMAP4_SSL(host, port, timeout=60)
+
+
+def _send_smtp_mail(
     *,
     mail: MailSettings,
     to_addrs: list[str],
@@ -515,12 +670,12 @@ def send_firm_mail(
     body_html: str | None = None,
     attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> dict[str, Any]:
-    """attachments: (filename, data, mime)."""
+    """Direktni SMTP (platform .env rezervа). attachments: (filename, data, mime)."""
     if not mail.smtp_host or not mail.smtp_user or not mail.smtp_password:
-        return {"ok": False, "message": "SMTP nije podešen (SMTP_HOST / USER / PASSWORD)."}
+        return {"ok": False, "message": "SMTP nije podešen (SMTP_HOST / USER / PASSWORD).", "provider": "smtp"}
     recipients = [a.strip() for a in to_addrs if a and a.strip()]
     if not recipients:
-        return {"ok": False, "message": "Nema adrese primaoca."}
+        return {"ok": False, "message": "Nema adrese primaoca.", "provider": "smtp"}
 
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -543,9 +698,54 @@ def send_firm_mail(
             with smtplib.SMTP_SSL(mail.smtp_host, mail.smtp_port, timeout=60) as smtp:
                 smtp.login(mail.smtp_user, mail.smtp_password)
                 smtp.send_message(msg)
-        return {"ok": True, "message": f"Poslato na {', '.join(recipients)}."}
+        return {"ok": True, "message": f"Poslato na {', '.join(recipients)}.", "provider": "smtp"}
     except Exception as exc:
-        return {"ok": False, "message": f"SMTP greška: {exc}"}
+        return {"ok": False, "message": f"SMTP greška: {exc}", "provider": "smtp"}
+
+
+def send_firm_mail(
+    *,
+    mail: MailSettings,
+    to_addrs: list[str],
+    subject: str,
+    body_text: str,
+    body_html: str | None = None,
+    attachments: list[tuple[str, bytes, str]] | None = None,
+) -> dict[str, Any]:
+    """Slanje kartica/faktura: Resend (platforma), Reply-To = mail firme. SMTP samo rezervа iz .env."""
+    from sepko.platform_mail import _send_resend, resend_api_key
+
+    recipients = [a.strip() for a in to_addrs if a and a.strip()]
+    if not recipients:
+        return {"ok": False, "message": "Nema adrese primaoca.", "provider": None}
+
+    reply = (mail.imap_user or mail.smtp_from or "").strip()[:255] or None
+    key = resend_api_key()
+    if key:
+        return _send_resend(
+            api_key=key,
+            to_addrs=recipients,
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            attachments=attachments,
+            reply_to=reply,
+        )
+
+    platform = load_mail_settings(None)
+    use = (
+        platform
+        if platform.smtp_host and platform.smtp_user and platform.smtp_password
+        else mail
+    )
+    return _send_smtp_mail(
+        mail=use,
+        to_addrs=recipients,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        attachments=attachments,
+    )
 
 
 # —— IMAP izvodi (pojednostavljeno) ——
@@ -558,7 +758,6 @@ def fetch_izvodi_from_imap(
     limit: int = 200,
 ) -> dict[str, Any]:
     import email
-    import imaplib
     from email import policy
     from email.header import decode_header, make_header
 
@@ -612,7 +811,7 @@ def fetch_izvodi_from_imap(
     skipped = 0
     found = 0
 
-    imap = imaplib.IMAP4_SSL(mail.imap_host, mail.imap_port)
+    imap = _open_imap(mail)
     try:
         imap.login(mail.imap_user, mail.imap_password)
         imap.select(mail.imap_folder, readonly=True)

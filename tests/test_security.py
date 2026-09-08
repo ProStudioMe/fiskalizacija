@@ -132,3 +132,45 @@ def test_csrf_origin_blocks_cross_site_post():
     assert blocked.status_code == 403
     allowed = client.post("/save", headers={"origin": "https://sepko.local", "host": "sepko.local"})
     assert allowed.status_code == 200
+
+
+def test_normalize_imap_host():
+    from sepko.finansije import normalize_imap_host
+
+    assert normalize_imap_host("Mail.Example.COM") == "mail.example.com"
+    assert normalize_imap_host("https://mail.example.com") is None
+    assert normalize_imap_host("mail.example.com:993") is None
+    assert normalize_imap_host("mail.example.com/inbox") is None
+
+
+def test_imap_host_blocks_private(monkeypatch):
+    from sepko.finansije import imap_host_is_safe
+
+    def fake_getaddrinfo(host, *args, **kwargs):
+        return [(None, None, None, None, ("10.0.0.5", 0))]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    ok, msg = imap_host_is_safe("evil.internal")
+    assert not ok
+    assert "privatna" in msg.lower() or "lokalna" in msg.lower()
+
+
+def test_imap_probe_rate_limit():
+    from sepko.web_security import (
+        _imap_probe_attempts,
+        imap_probe_rate_limited,
+        record_imap_probe,
+    )
+
+    class Req:
+        def __init__(self):
+            self.client = type("C", (), {"host": "203.0.113.9"})()
+            self.headers = {}
+
+    req = Req()
+    _imap_probe_attempts.clear()
+    for _ in range(8):
+        assert not imap_probe_rate_limited(tenant_id=42, request=req)  # type: ignore[arg-type]
+        record_imap_probe(tenant_id=42, request=req)  # type: ignore[arg-type]
+    assert imap_probe_rate_limited(tenant_id=42, request=req)  # type: ignore[arg-type]
+    _imap_probe_attempts.clear()

@@ -21,6 +21,8 @@ from sepko.finansije import (
     load_mail_settings,
     match_bank_tx_to_expense,
     match_bank_tx_to_incoming,
+    normalize_imap_host,
+    probe_imap,
     safe_filename,
     save_mail_settings,
     send_firm_mail,
@@ -36,7 +38,13 @@ from sepko.models import (
 )
 from sepko.ulazne import ensure_expense_categories
 from sepko.web_auth import AuthRequired
-from sepko.web_security import flash, redirect, validate_csrf
+from sepko.web_security import (
+    flash,
+    imap_probe_rate_limited,
+    record_imap_probe,
+    redirect,
+    validate_csrf,
+)
 from sepko.web_templates import render
 
 router = APIRouter(tags=["finansije"])
@@ -396,16 +404,9 @@ def settings_mail_save(
     request: Request,
     csrf_token: str = Form(""),
     imap_host: str = Form(""),
-    imap_port: str = Form("993"),
     imap_user: str = Form(""),
     imap_password: str = Form(""),
     imap_folder: str = Form("INBOX"),
-    smtp_host: str = Form(""),
-    smtp_port: str = Form("587"),
-    smtp_user: str = Form(""),
-    smtp_password: str = Form(""),
-    smtp_from: str = Form(""),
-    smtp_from_name: str = Form(MAIL_FROM_NAME),
     mail_since_date: str = Form("2026-01-01"),
     izvod_subjects: str = Form(""),
     faktura_subjects: str = Form("Faktura"),
@@ -423,26 +424,73 @@ def settings_mail_save(
         return redirect("/podesavanja/mail")
 
     current = load_mail_settings(tenant)
+    host_raw = imap_host.strip() or current.imap_host
+    host = normalize_imap_host(host_raw)
+    if host_raw and not host:
+        flash(request, "Neispravan IMAP host (samo hostname, npr. mail.firma.me).", "error")
+        return redirect("/podesavanja/mail")
+    host = host or normalize_imap_host(current.imap_host) or ""
+    user_mail = imap_user.strip()[:255]
+    password_new = imap_password.strip()
+    password = password_new or current.imap_password
+
+    host_changed = host != normalize_imap_host(current.imap_host or "")
+    user_changed = user_mail != (current.imap_user or "").strip()
+    password_changed = bool(password_new)
+    need_probe = bool(
+        host
+        and user_mail
+        and password
+        and (host_changed or user_changed or password_changed or not current.enabled)
+    )
+
+    port = int(current.imap_port or 993)
+    flash_extra = ""
+
+    if (host_changed or user_changed or password_changed) and not password:
+        flash(request, "Unesi lozinku da potvrdiš novi mail server / nalog.", "error")
+        return redirect("/podesavanja/mail")
+
+    if need_probe:
+        if imap_probe_rate_limited(tenant_id=tenant.id, request=request):
+            flash(
+                request,
+                "Previše IMAP provjera. Sačekaj ~15 minuta pa pokušaj ponovo.",
+                "error",
+            )
+            return redirect("/podesavanja/mail")
+        record_imap_probe(tenant_id=tenant.id, request=request)
+        preferred = None if host_changed else (port if port in (993, 143) else None)
+        probe = probe_imap(host, user_mail, password, preferred_port=preferred)
+        if not probe.get("ok"):
+            flash(request, str(probe.get("message") or "IMAP nije dostupan."), "error")
+            return redirect("/podesavanja/mail")
+        host = str(probe.get("host") or host)
+        port = int(probe["port"])
+        flash_extra = f" IMAP {host}:{port} OK."
+
     mail = MailSettings(
-        imap_host=imap_host.strip() or current.imap_host,
-        imap_port=int(imap_port or 993),
-        imap_user=imap_user.strip(),
-        imap_password=imap_password.strip() or current.imap_password,
+        imap_host=host,
+        imap_port=port,
+        imap_user=user_mail,
+        imap_password=password,
         imap_folder=imap_folder.strip() or "INBOX",
-        smtp_host=smtp_host.strip() or imap_host.strip() or current.smtp_host,
-        smtp_port=int(smtp_port or 587),
-        smtp_user=smtp_user.strip() or imap_user.strip(),
-        smtp_password=smtp_password.strip() or current.smtp_password,
-        smtp_from=smtp_from.strip() or imap_user.strip(),
-        smtp_from_name=smtp_from_name.strip() or MAIL_FROM_NAME,
+        imap_sent_folder=current.imap_sent_folder,
+        smtp_host=current.smtp_host,
+        smtp_port=current.smtp_port,
+        smtp_user=current.smtp_user,
+        smtp_password=current.smtp_password,
+        smtp_from=user_mail or current.smtp_from,
+        smtp_from_name=current.smtp_from_name or MAIL_FROM_NAME,
+        smtp_use_tls=current.smtp_use_tls,
         mail_since_date=(mail_since_date or "2026-01-01")[:10],
         izvod_subjects=izvod_subjects.strip() or current.izvod_subjects,
         faktura_subjects=faktura_subjects.strip() or "Faktura",
-        enabled=bool(imap_user.strip() and (imap_password.strip() or current.imap_password)),
+        enabled=bool(user_mail and password and host),
     )
     save_mail_settings(tenant, mail)
     db.commit()
-    flash(request, "Mail podešavanja sačuvana.")
+    flash(request, f"Mail podešavanja sačuvana.{flash_extra}")
     return redirect("/podesavanja/mail")
 
 
