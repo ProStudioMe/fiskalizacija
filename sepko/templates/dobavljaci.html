@@ -1,32 +1,125 @@
 {% extends "base.html" %}
 {% block title %}{{ t('nav.dobavljaci', 'Dobavljači') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('nav.dobavljaci', 'Dobavljači') }}{% endblock %}
+{% block page_actions %}
+  <a class="btn" href="/dobavljaci">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
+{% endblock %}
 {% block content %}
-<div class="grid grid-2" style="gap:1rem;align-items:start">
+<p class="muted" style="margin-top:0">Šifarnik dobavljača za <strong>ulazne fakture</strong> (nabavka). Isti kontakt podaci kao kod komitenata — bez popusta i loga.</p>
+
+<div class="grid grid-2">
   <div class="card">
-    <h2 style="margin-top:0;font-size:1rem">{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/dobavljaci" class="wa-form-stack">
+    {% if editing %}
+    <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
+    <form method="post" action="/dobavljaci/{{ editing.id }}" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="pib" label="PIB" required></wa-input>
-      <wa-input name="name" label="Naziv" required></wa-input>
-      <wa-input name="street" label="Ulica"></wa-input>
-      <wa-input name="city" label="Mjesto"></wa-input>
-      <wa-input name="email" type="email" label="E-mail"></wa-input>
-      <wa-input name="phone" label="Telefon"></wa-input>
+      {% set import_source_url = '/kupci/lookup.json' %}
+      {% set import_source_label = 'Uvezi iz komitenata' %}
+      {% include '_import_from_party.html' %}
+      <wa-input label="PIB" value="{{ editing.pib }}" disabled></wa-input>
+      <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
+      <wa-input name="name" label="Naziv" value="{{ editing.name }}" required maxlength="255"></wa-input>
+      <wa-input name="street" label="Ulica i broj" value="{{ editing.street or '' }}" maxlength="255"></wa-input>
+      <div class="row">
+        <wa-input name="city" label="Mjesto" value="{{ editing.city or '' }}" maxlength="128"></wa-input>
+        {% set ctry = editing.country or 'Crna Gora' %}
+        <wa-select name="country" label="Država" value="{{ ctry }}">
+          {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
+          <wa-option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</wa-option>
+          {% endfor %}
+        </wa-select>
+      </div>
+      <wa-input name="email" type="email" label="E-mail" value="{{ editing.email or '' }}" maxlength="255"></wa-input>
+      <wa-input name="phone" label="Broj telefona" value="{{ editing.phone or '' }}" placeholder="+382 …" maxlength="64"></wa-input>
+      <wa-input name="contact" label="Kontakt" value="{{ editing.contact or '' }}" placeholder="Ime kontakt osobe" maxlength="255"></wa-input>
+      <wa-textarea name="notes" label="Napomena" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="/dobavljaci">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
+    {% else %}
+    <h2>{{ t('btn.add', 'Novi') }}</h2>
+    <form method="post" action="/dobavljaci" class="wa-form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% set import_source_url = '/kupci/lookup.json' %}
+      {% set import_source_label = 'Uvezi iz komitenata' %}
+      {% include '_import_from_party.html' %}
+      <wa-input name="pib" label="PIB" required maxlength="32"></wa-input>
+      <wa-input name="pdv_number" label="PDV broj" maxlength="64"></wa-input>
+      <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
+      <wa-input name="street" label="Ulica i broj" maxlength="255"></wa-input>
+      <div class="row">
+        <wa-input name="city" label="Mjesto" maxlength="128"></wa-input>
+        <wa-select name="country" label="Država" value="Crna Gora">
+          <wa-option value="Crna Gora" selected>Crna Gora</wa-option>
+          <wa-option value="Srbija">Srbija</wa-option>
+          <wa-option value="Bosna i Hercegovina">Bosna i Hercegovina</wa-option>
+          <wa-option value="Hrvatska">Hrvatska</wa-option>
+          <wa-option value="Slovenija">Slovenija</wa-option>
+          <wa-option value="Ostalo">Ostalo</wa-option>
+        </wa-select>
+      </div>
+      <wa-input name="email" type="email" label="E-mail" maxlength="255"></wa-input>
+      <wa-input name="phone" label="Broj telefona" placeholder="+382 …" maxlength="64"></wa-input>
+      <wa-input name="contact" label="Kontakt" placeholder="Ime kontakt osobe" maxlength="255"></wa-input>
+      <wa-textarea name="notes" label="Napomena" rows="2"></wa-textarea>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
+      </div>
+    </form>
+    {% endif %}
   </div>
-  <div class="plan-card">
-    <div class="plan-table-wrap">
+
+  <div>
+    <form method="get" action="/dobavljaci" class="filter-bar">
+      <div class="search-bar" style="margin:0;flex:1;min-width:180px">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <input name="q" value="{{ q or '' }}" placeholder="Pretraga naziv / PIB / mjesto…">
+      </div>
+    </form>
+    <div class="plan-card">
+      <div class="plan-head">
+        <div>
+          <h2>{{ t('nav.dobavljaci', 'Dobavljači') }}</h2>
+          <div class="cell-secondary">{{ suppliers|length }}</div>
+        </div>
+      </div>
       <table class="soft-table">
-        <thead><tr><th>PIB</th><th>Naziv</th><th>Grad</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Dobavljač</th>
+            <th>Lokacija</th>
+            <th>Kontakt</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
         {% for s in suppliers %}
-          <tr><td>{{ s.pib }}</td><td>{{ s.name }}</td><td>{{ s.city or '—' }}</td></tr>
+          <tr>
+            <td>
+              <div class="cell-primary">
+                {{ s.name }}
+                {% if not s.active %}<span class="pill-tag bad">off</span>{% endif %}
+              </div>
+              <div class="cell-secondary">PIB {{ s.pib }}{% if s.pdv_number %} · PDV {{ s.pdv_number }}{% endif %}</div>
+            </td>
+            <td>
+              <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ s.city or '—' }}</div>
+              <div class="cell-secondary">{{ s.street or '' }}{% if s.country %} · {{ s.country }}{% endif %}</div>
+            </td>
+            <td>
+              <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ s.email or '—' }}</div>
+              <div class="cell-secondary">{{ s.phone or '' }}{% if s.contact %} · {{ s.contact }}{% endif %}</div>
+            </td>
+            <td class="cell-actions">
+              {% set edit_href = '/dobavljaci?edit=' ~ s.id %}
+              {% set delete_url = ('/dobavljaci/' ~ s.id ~ '/obrisi') if s.active else none %}
+              {% include "_row_actions.html" %}
+            </td>
+          </tr>
         {% else %}
-          <tr><td colspan="3" class="muted">Nema dobavljača</td></tr>
+          <tr><td colspan="4" class="muted">Nema dobavljača.</td></tr>
         {% endfor %}
         </tbody>
       </table>

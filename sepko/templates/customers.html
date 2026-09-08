@@ -13,6 +13,9 @@
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
     <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% set import_source_url = '/dobavljaci/lookup.json' %}
+      {% set import_source_label = 'Uvezi iz dobavljača' %}
+      {% include '_import_from_party.html' %}
       <wa-input label="PIB / JMBG broj" value="{{ editing.pib }}" disabled></wa-input>
       <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
       <wa-input name="name" label="Naziv komitenta" value="{{ editing.name }}" required></wa-input>
@@ -48,6 +51,9 @@
     <h2>{{ t('btn.add', 'Novi') }}</h2>
     <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% set import_source_url = '/dobavljaci/lookup.json' %}
+      {% set import_source_label = 'Uvezi iz dobavljača' %}
+      {% include '_import_from_party.html' %}
       <wa-input name="pib" label="PIB / JMBG broj" required></wa-input>
       <wa-input name="pdv_number" label="PDV broj"></wa-input>
       <wa-input name="name" label="Naziv komitenta" required></wa-input>

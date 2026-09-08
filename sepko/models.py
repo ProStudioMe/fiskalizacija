@@ -427,18 +427,24 @@ class Supplier(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     pib: Mapped[str] = mapped_column(String(32))
+    pdv_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     street: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     country: Mapped[str | None] = mapped_column(String(64), nullable=True, default="Crna Gora")
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tenant: Mapped[Tenant] = relationship(back_populates="suppliers")
     incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="supplier")
+
+    def composed_address(self) -> str | None:
+        parts = [p for p in (self.street, self.city, self.country) if p]
+        return ", ".join(parts) if parts else None
 
 
 class IncomingInvoice(Base):

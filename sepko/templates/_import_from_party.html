@@ -1,0 +1,141 @@
+{# Uvoz zajedničkih polja iz drugog šifarnika (komitent ↔ dobavljač).
+   Očekuje: import_source_url, import_source_label #}
+<div class="party-import" data-party-import data-url="{{ import_source_url }}">
+  <div class="party-import-label">{{ import_source_label }}</div>
+  <div class="party-import-wrap">
+    <input type="search" class="party-import-q" placeholder="PIB ili naziv…" autocomplete="off" maxlength="64">
+    <div class="party-import-suggest inv-suggest" hidden role="listbox"></div>
+  </div>
+  <p class="party-import-status muted" hidden></p>
+</div>
+<script>
+(function () {
+  if (window.__partyImportBound) return;
+  window.__partyImportBound = true;
+
+  var FIELDS = ['pib', 'pdv_number', 'name', 'street', 'city', 'country', 'email', 'phone', 'contact', 'notes'];
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function setField(form, name, value) {
+    var el = form.querySelector('[name="' + name + '"]');
+    if (!el || el.disabled) return;
+    el.value = value == null ? '' : String(value);
+  }
+
+  function applyItem(form, item) {
+    if (!form || !item) return;
+    FIELDS.forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(item, k)) setField(form, k, item[k]);
+    });
+  }
+
+  function bind(root) {
+    var url = root.getAttribute('data-url');
+    var qEl = root.querySelector('.party-import-q');
+    var box = root.querySelector('.party-import-suggest');
+    var status = root.querySelector('.party-import-status');
+    var form = root.closest('form');
+    if (!url || !qEl || !box || !form) return;
+
+    var timer = null;
+    var items = [];
+    var active = -1;
+
+    function setStatus(msg) {
+      if (!status) return;
+      if (!msg) { status.hidden = true; status.textContent = ''; return; }
+      status.hidden = false;
+      status.textContent = msg;
+    }
+
+    function hide() {
+      box.hidden = true;
+      box.innerHTML = '';
+      active = -1;
+    }
+
+    function render() {
+      if (!items.length) {
+        box.innerHTML = '<div class="inv-suggest-empty muted">Nema pogodaka.</div>';
+        box.hidden = false;
+        return;
+      }
+      box.innerHTML = items.map(function (it, i) {
+        var sub = 'PIB ' + esc(it.pib) + (it.city ? ' · ' + esc(it.city) : '');
+        return '<button type="button" class="inv-suggest-row' + (i === active ? ' is-active' : '') + '" data-ix="' + i + '" role="option">' +
+          '<span class="modal-row-main"><strong>' + esc(it.name) + '</strong>' +
+          '<span class="cell-secondary">' + sub + '</span></span></button>';
+      }).join('');
+      box.hidden = false;
+    }
+
+    function pick(ix) {
+      var it = items[ix];
+      if (!it) return;
+      applyItem(form, it);
+      qEl.value = '';
+      hide();
+      setStatus('Popunjeno iz: ' + (it.name || it.pib) + ' — sačuvaj da potvrdiš.');
+    }
+
+    async function search() {
+      var q = (qEl.value || '').trim();
+      if (q.length < 1) { hide(); setStatus(''); return; }
+      try {
+        var res = await fetch(url + '?q=' + encodeURIComponent(q), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        });
+        if (!res.ok) { hide(); setStatus('Pretraga nije uspjela.'); return; }
+        var data = await res.json();
+        items = data.items || [];
+        active = items.length ? 0 : -1;
+        render();
+      } catch (e) {
+        hide();
+        setStatus('Pretraga nije uspjela.');
+      }
+    }
+
+    qEl.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(search, 220);
+    });
+    qEl.addEventListener('keydown', function (e) {
+      if (box.hidden) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!items.length) return;
+        active = (active + 1) % items.length;
+        render();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!items.length) return;
+        active = (active - 1 + items.length) % items.length;
+        render();
+      } else if (e.key === 'Enter' && active >= 0) {
+        e.preventDefault();
+        pick(active);
+      } else if (e.key === 'Escape') {
+        hide();
+      }
+    });
+    box.addEventListener('mousedown', function (e) {
+      var btn = e.target.closest('[data-ix]');
+      if (!btn) return;
+      e.preventDefault();
+      pick(parseInt(btn.getAttribute('data-ix'), 10));
+    });
+    qEl.addEventListener('blur', function () {
+      setTimeout(hide, 150);
+    });
+  }
+
+  document.querySelectorAll('[data-party-import]').forEach(bind);
+})();
+</script>

@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -924,6 +924,57 @@ def _get_customer(db: Session, tenant: Tenant, customer_id: int) -> Customer | N
         .filter(Customer.tenant_id == tenant.id, Customer.id == customer_id)
         .first()
     )
+
+
+def _party_lookup_payload(row) -> dict:
+    """Zajednička polja komitent/dobavljač za kopiranje forme."""
+    return {
+        "id": row.id,
+        "pib": row.pib or "",
+        "pdv_number": row.pdv_number or "",
+        "name": row.name or "",
+        "street": row.street or "",
+        "city": row.city or "",
+        "country": row.country or "Crna Gora",
+        "email": row.email or "",
+        "phone": row.phone or "",
+        "contact": row.contact or "",
+        "notes": row.notes or "",
+    }
+
+
+@router.get("/kupci/lookup.json")
+def customers_lookup(
+    request: Request,
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """Pretraga komitenata za uvoz podataka na formu dobavljača."""
+    try:
+        _user, tenant = _auth(request, db)
+    except AuthRequired:
+        return JSONResponse({"items": []}, status_code=401)
+    term = (q or "").strip()[:64]
+    if len(term) < 1:
+        return JSONResponse({"items": []})
+    like = f"%{term}%"
+    rows = (
+        db.query(Customer)
+        .filter(
+            Customer.tenant_id == tenant.id,
+            Customer.active.is_(True),
+            or_(
+                Customer.pib.ilike(like),
+                Customer.name.ilike(like),
+                Customer.city.ilike(like),
+                Customer.pdv_number.ilike(like),
+            ),
+        )
+        .order_by(Customer.name)
+        .limit(15)
+        .all()
+    )
+    return JSONResponse({"items": [_party_lookup_payload(r) for r in rows]})
 
 
 @router.get("/kupci", response_class=HTMLResponse)

@@ -157,6 +157,21 @@ def init_db() -> None:
             for name, coltype in cust_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "customers", name, coltype)
+        if "suppliers" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("suppliers")}
+            supp_extras = {
+                "pdv_number": "VARCHAR(64)",
+                "street": "VARCHAR(255)",
+                "city": "VARCHAR(128)",
+                "country": "VARCHAR(64)",
+                "email": "VARCHAR(255)",
+                "phone": "VARCHAR(64)",
+                "contact": "VARCHAR(255)",
+                "notes": "TEXT",
+            }
+            for name, coltype in supp_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "suppliers", name, coltype)
         if "articles" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("articles")}
             art_extras = {

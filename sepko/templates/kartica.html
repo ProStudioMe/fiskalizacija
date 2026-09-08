@@ -3,14 +3,19 @@
 {% block page_title %}{{ t('fin.card', 'Finansijska kartica') }}{% endblock %}
 {% block page_actions %}
   <a class="btn secondary" href="/finansije">← Lista</a>
-  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/print" target="_blank">{{ t('btn.print', 'Štampa') }}</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/print{% if year %}?year={{ year }}{% endif %}" target="_blank">{{ t('btn.print', 'Štampa') }}</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/xlsx{% if year %}?year={{ year }}{% endif %}">Excel</a>
 {% endblock %}
 {% block content %}
 <div class="card" style="margin-bottom:1rem">
   <div class="row" style="align-items:flex-start">
     <div style="flex:1.5">
       <h2 style="margin:0;color:var(--ink);font-size:1.15rem">{{ customer.name }}</h2>
-      <div class="cell-secondary">PIB {{ customer.pib }}{% if customer.email %} · {{ customer.email }}{% endif %}</div>
+      <div class="cell-secondary">
+        PIB {{ customer.pib }}
+        {% if customer.email %} · {{ customer.email }}{% endif %}
+        {% if customer.phone %} · {{ customer.phone }}{% endif %}
+      </div>
     </div>
     <div class="totals-bar" style="margin:0;flex:1">
       <div><span class="muted">{{ t('fin.invoiced', 'Fakturisano') }}</span><strong>{{ summary.fakturisano|money }} €</strong></div>
@@ -19,6 +24,59 @@
     </div>
   </div>
 </div>
+
+{% if years %}
+<form method="get" action="/finansije/kartica/{{ customer.id }}" class="rpt-period no-print" style="margin-bottom:1rem">
+  <label class="rpt-period-field">
+    <span>Godina</span>
+    <select name="year" onchange="this.form.submit()">
+      <option value="" {% if not year %}selected{% endif %}>Sve</option>
+      {% for y in years %}
+      <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <span class="muted rpt-vs">{% if year %}PROMET {{ year }}{% else %}Cjelokupan promet{% endif %}</span>
+</form>
+{% endif %}
+
+{% if promet %}
+<div class="plan-card" style="margin-bottom:1rem">
+  <div class="plan-head"><h2>Promet — zbir</h2></div>
+  <div class="table-wrap">
+    <table class="soft-table rpt-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="num" colspan="2">Početno</th>
+          <th class="num" colspan="2">Tekući</th>
+          <th class="num" colspan="2">Ukupan</th>
+          <th class="num">Saldo</th>
+        </tr>
+        <tr>
+          <th></th>
+          <th class="num">D</th><th class="num">P</th>
+          <th class="num">D</th><th class="num">P</th>
+          <th class="num">D</th><th class="num">P</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>UKUPNO</strong></td>
+          <td class="num">{{ promet.open_d|money }}</td>
+          <td class="num">{{ promet.open_p|money }}</td>
+          <td class="num">{{ promet.tek_d|money }}</td>
+          <td class="num">{{ promet.tek_p|money }}</td>
+          <td class="num">{{ promet.uk_d|money }}</td>
+          <td class="num">{{ promet.uk_p|money }}</td>
+          <td class="num"><strong>{{ promet.saldo|money }} {% if promet.saldo > 0 %}D{% elif promet.saldo < 0 %}P{% endif %}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 <div class="plan-card" style="margin-bottom:1rem">
   <div class="plan-head"><h2>{{ t('fin.cards', 'Kartica') }}</h2></div>
@@ -37,7 +95,7 @@
       </thead>
       <tbody>
       {% for r in ledger %}
-        <tr>
+        <tr {% if r.Vrsta == 'Početno stanje' %}style="background:color-mix(in srgb, var(--surface) 80%, var(--muted));font-weight:600"{% endif %}>
           <td>{{ r.Datum or '—' }}</td>
           <td>{{ r.Vrsta }}</td>
           <td>
@@ -67,7 +125,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="row">
         <wa-input name="amount" label="Iznos €" inputmode="decimal" placeholder="0,00" required></wa-input>
-        <wa-input name="paid_at" type="date" label="Datum" value="{{ '' }}"></wa-input>
+        <wa-input name="paid_at" type="date" label="Datum" value=""></wa-input>
       </div>
       <wa-input name="note" label="Napomena" placeholder="npr. virman / izvod"></wa-input>
       <wa-select name="invoice_id" label="Veži na fakturu (opciono)">
@@ -83,17 +141,19 @@
   </div>
 
   <div class="card">
-    <h2>Pošalji karticu / fakture</h2>
+    <h2>Pošalji karticu</h2>
     <form method="post" action="/finansije/kartica/{{ customer.id }}/posalji" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="year" value="{{ year or '' }}">
       <wa-input name="to_email" type="email" label="Za (e-mail)" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required></wa-input>
-      <wa-input name="subject" label="Naslov" value="Finansijska kartica — {{ customer.name }}"></wa-input>
+      <wa-input name="subject" label="Naslov" value="Finansijska kartica — {{ customer.name }}{% if year %} · {{ year }}{% endif %}"></wa-input>
       <wa-textarea name="body" label="Poruka" rows="4" value="Poštovani,
 
-u prilogu je finansijska kartica za {{ customer.name }}.
+u prilogu je finansijska kartica za {{ customer.name }}{% if year %} ({{ year }}){% endif %}.
 
 Srdačan pozdrav"></wa-textarea>
-      <wa-checkbox name="attach_kartica" value="1" checked>Priloži finansijsku karticu (HTML)</wa-checkbox>
+      <wa-checkbox name="attach_kartica" value="1" checked>HTML kartica u tijelu maila + prilog</wa-checkbox>
+      <wa-checkbox name="attach_xlsx" value="1" checked>Priloži Excel (.xlsx)</wa-checkbox>
       {% if invoices %}
       <div class="field" style="margin-bottom:0">
         <label>Priloži fakture</label>
@@ -107,7 +167,7 @@ Srdačan pozdrav"></wa-textarea>
       <div class="wa-form-actions">
         <wa-button type="submit" variant="brand">Pošalji mail</wa-button>
       </div>
-      <p class="cell-secondary" style="margin:0">SMTP iz Podešavanja → Mail ili `.env` (SMTP_* / IMAP_*).</p>
+      <p class="cell-secondary" style="margin:0">Šalje se preko ProRačun Resenda (Reply-To = tvoj IMAP mail).</p>
     </form>
   </div>
 </div>

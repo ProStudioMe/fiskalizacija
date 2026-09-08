@@ -458,46 +458,23 @@ def build_kartica_html(
     summary: dict[str, Any],
     ledger: list[dict[str, Any]],
     auto_print: bool = False,
+    for_email: bool = False,
+    year: str | None = None,
+    brand: str = "ProRačun",
 ) -> str:
-    from sepko.money import format_amount
+    """Kompatibilni wrapper — puna logika u sepko.kartica_export."""
+    from sepko.kartica_export import build_kartica_html as _build
 
-    rows = []
-    for r in ledger:
-        dug = f"{format_amount(r['Duguje'])} €" if r.get("Duguje") else ""
-        pot = f"{format_amount(r['Potražuje'])} €" if r.get("Potražuje") else ""
-        rows.append(
-            f"<tr><td>{r.get('Datum') or ''}</td><td>{r.get('Vrsta') or ''}</td>"
-            f"<td>{r.get('Dokument') or ''}</td><td>{r.get('Opis') or ''}</td>"
-            f"<td class='num'>{dug}</td><td class='num'>{pot}</td>"
-            f"<td class='num'><strong>{format_amount(r.get('Saldo', 0))} €</strong></td></tr>"
-        )
-    print_js = "window.onload=function(){window.print();};" if auto_print else ""
-    return f"""<!DOCTYPE html>
-<html lang="sr"><head><meta charset="utf-8">
-<title>Kartica — {naziv}</title>
-<style>
-body{{font-family:Segoe UI,system-ui,sans-serif;color:#111;margin:24px;}}
-h1{{font-size:1.35rem;margin:0 0 .35rem}}
-.meta{{color:#555;margin-bottom:1.25rem;font-size:.92rem}}
-table{{width:100%;border-collapse:collapse;font-size:.88rem}}
-th,td{{border-bottom:1px solid #ddd;padding:.45rem .35rem;text-align:left}}
-th{{font-size:.72rem;text-transform:uppercase;color:#666}}
-.num{{text-align:right;font-variant-numeric:tabular-nums}}
-.totals{{margin-top:1rem;display:flex;gap:2rem;font-size:.95rem}}
-@media print{{body{{margin:12px}}}}
-</style></head><body>
-<h1>Finansijska kartica</h1>
-<div class="meta"><strong>{naziv}</strong> · PIB {pib}<br>
-Fakturisano {format_amount(summary.get('fakturisano',0))} € · Uplaćeno {format_amount(summary.get('uplaceno',0))} € ·
-<strong>Dug {format_amount(summary.get('dug',0))} €</strong></div>
-<table><thead><tr>
-<th>Datum</th><th>Vrsta</th><th>Dokument</th><th>Opis</th>
-<th class="num">Duguje</th><th class="num">Potražuje</th><th class="num">Saldo</th>
-</tr></thead><tbody>
-{''.join(rows) or '<tr><td colspan="7">Nema stavki</td></tr>'}
-</tbody></table>
-<script>{print_js}</script>
-</body></html>"""
+    return _build(
+        naziv=naziv,
+        pib=pib,
+        summary=summary,
+        ledger=ledger,
+        auto_print=auto_print,
+        for_email=for_email,
+        year=year,
+        brand=brand,
+    )
 
 
 def safe_filename(name: str) -> str:
@@ -890,6 +867,7 @@ def fetch_izvodi_from_imap(
                 pdf_bytes=pdf_bytes,
                 default_day=day,
             )
+            auto_n = 0
             if not parsed:
                 db.add(
                     BankTransaction(
@@ -905,28 +883,39 @@ def fetch_izvodi_from_imap(
                 )
                 stmt.tx_count = 1
             else:
+                created_txs = []
                 for p in parsed:
-                    db.add(
-                        BankTransaction(
-                            tenant_id=tenant.id,
-                            statement_id=stmt.id,
-                            tx_date=p.get("tx_date") or day,
-                            amount=Decimal(str(p["amount"])),
-                            description=(p.get("description") or "")[:500],
-                            tx_type=p.get("tx_type") or "other",
-                            status="needs_review",
-                            raw_text=(p.get("raw") or "")[:2000],
-                        )
+                    tx = BankTransaction(
+                        tenant_id=tenant.id,
+                        statement_id=stmt.id,
+                        tx_date=p.get("tx_date") or day,
+                        amount=Decimal(str(p["amount"])),
+                        description=(p.get("description") or "")[:500],
+                        tx_type=p.get("tx_type") or "other",
+                        status="needs_review",
+                        raw_text=(p.get("raw") or "")[:2000],
                     )
+                    db.add(tx)
+                    created_txs.append(tx)
+                db.flush()
+                from sepko.bank_match import auto_match_new_transactions
+
+                auto_n = auto_match_new_transactions(db, tenant, created_txs)
                 stmt.tx_count = len(parsed)
-                # Aggregate totals
                 deb = sum(Decimal(str(p["amount"])) for p in parsed if p.get("tx_type") == "debit")
                 cred = sum(Decimal(str(p["amount"])) for p in parsed if p.get("tx_type") == "credit")
                 stmt.debit_total = abs(deb) if deb else None
                 stmt.credit_total = cred if cred else None
-
             db.add(InvoiceMailSeen(tenant_id=tenant.id, message_id=mid, kind="izvod", matched=day))
-            imported.append({"day": day, "subject": subject, "path": path.name if path else None, "tx": stmt.tx_count})
+            imported.append(
+                {
+                    "day": day,
+                    "subject": subject,
+                    "path": path.name if path else None,
+                    "tx": stmt.tx_count,
+                    "auto_matched": auto_n,
+                }
+            )
             seen.add(mid)
         db.commit()
     except Exception as exc:
@@ -938,6 +927,7 @@ def fetch_izvodi_from_imap(
         except Exception:
             pass
 
+    auto_total = sum(int(x.get("auto_matched") or 0) for x in imported)
     return {
         "ok": True,
         "found": found,
@@ -945,10 +935,10 @@ def fetch_izvodi_from_imap(
         "skipped": skipped,
         "message": (
             f"Od {since.strftime('%d.%m.%Y')}: pronađeno {found} izvoda, "
-            f"novo {len(imported)}, preskočeno {skipped}."
+            f"novo {len(imported)}, preskočeno {skipped}"
+            + (f", auto-povezano {auto_total} uplata." if auto_total else ".")
         ),
     }
-
 
 def customers_with_balance(db: Session, tenant: Tenant) -> list[dict[str, Any]]:
     customers = (

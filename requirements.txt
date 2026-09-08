@@ -17,7 +17,7 @@ cryptography>=43.0.0
 pytest>=8.3.0
 pytest-asyncio>=0.24.0
 qrcode>=8.0
-fpdf2>=2.8.0
+openpyxl>=3.1.0
 
 # Security audit (dev/CI)
 pip-audit>=2.7.0
