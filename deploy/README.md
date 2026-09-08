@@ -11,7 +11,7 @@ Hetzner / Virtualmin nalog **proracun**. SSH ključevi nisu u gitu (OneDrive `he
 | User | `proracun` |
 | Port | `22` (SFTP/SSH) |
 | Home | `/home/proracun` |
-| Domen (sajt) | `proracun.me`, `www.proracun.me` |
+| Domen (sajt) | `proracun.me`, `www.proracun.me` → `/home/proracun/public_html` (`site/` u gitu) |
 | App | `moj.proracun.me` → `127.0.0.1:3040` |
 | App (localhost) | `127.0.0.1:3040` → kontejner `:8000` |
 
