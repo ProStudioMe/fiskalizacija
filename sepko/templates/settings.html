@@ -4,11 +4,11 @@
 {% block content %}
 <div class="settings-layout">
   <nav class="settings-nav">
-    <a href="/podesavanja" class="{% if section == 'osnovna' %}active{% endif %}">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
-    <a href="/podesavanja/stampa" class="{% if section == 'stampa' %}active{% endif %}">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
-    <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail', 'Mail') }} (izvodi / SMTP) <span class="chevron">›</span></a>
     <a href="/podesavanja/artikli" class="{% if section == 'artikli' %}active{% endif %}">{{ t('settings.articles', 'Artikli') }} <span class="chevron">›</span></a>
     <a href="/kupci">{{ t('nav.komitenti', 'Komitenti') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja" class="{% if section == 'osnovna' %}active{% endif %}">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/stampa" class="{% if section == 'stampa' %}active{% endif %}">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail', 'Mail') }} (izvodi) <span class="chevron">›</span></a>
     <a href="/podesavanja/operateri" class="{% if section == 'operateri' %}active{% endif %}">{{ t('settings.operators', 'Operateri') }} <span class="chevron">›</span></a>
   </nav>
 
@@ -40,44 +40,14 @@
       <wa-checkbox name="qty_no_decimals" value="1" {% if ui.qty_no_decimals %}checked{% endif %}>Prikaz količina na fakturama bez decimala</wa-checkbox>
 
       <hr class="settings-hr">
-      <h2>Firma / EFI</h2>
+      <h2>Firma</h2>
       <wa-input name="name" label="Naziv" value="{{ tenant.name }}" required></wa-input>
       <wa-input name="pib" label="PIB (TIN)" value="{{ tenant.pib }}" required></wa-input>
       <wa-input name="company_address" label="Adresa (linija 1)" value="{{ company.address }}" placeholder="npr. BUL. 21. MAJ BR. 24, Podgorica"></wa-input>
       <wa-input name="company_address2" label="Adresa (linija 2)" value="{{ company.address2 }}"></wa-input>
       <wa-input name="company_pdv_number" label="PDV broj" value="{{ company.pdv_number }}"></wa-input>
       <wa-input name="company_bank_account" label="Žiro / HB račun" value="{{ company.bank_account }}" placeholder="npr. 520-45519-94"></wa-input>
-      <wa-input name="company_website" label="Web (footer PDF)" value="{{ company.website }}" placeholder="www.primjer.me"></wa-input>
-      <wa-select name="mode" label="Režim" value="{{ tenant.mode }}">
-        <wa-option value="test" {% if tenant.mode == 'test' %}selected{% endif %}>Test (efitest)</wa-option>
-        <wa-option value="prod" {% if tenant.mode == 'prod' %}selected{% endif %}>Produkcija (mapr)</wa-option>
-      </wa-select>
-      <wa-input name="busin_unit_code" label="BusinUnitCode" value="{{ fiscal.busin_unit_code }}" maxlength="10"></wa-input>
-      <wa-input name="tcr_code" label="TCRCode (ENU)" value="{{ fiscal.tcr_code }}" maxlength="10"></wa-input>
-      <wa-input name="soft_code" label="SoftCode" value="{{ fiscal.soft_code }}" maxlength="10"></wa-input>
-      <wa-input name="operator_code" label="OperatorCode (default)" value="{{ fiscal.operator_code }}" maxlength="10"></wa-input>
-      <wa-select name="is_issuer_in_vat" label="IsIssuerInVAT" value="{{ 'true' if fiscal.is_issuer_in_vat else 'false' }}">
-        <wa-option value="true" {% if fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.yes', 'Da') }}</wa-option>
-        <wa-option value="false" {% if not fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.no', 'Ne') }}</wa-option>
-      </wa-select>
-
-      <hr class="settings-hr">
-      <h2>Token za fiskalizaciju</h2>
-      <p class="muted">Ako firma ima token od Telekoma ili Pošte, unesi ga ovdje. Koristi se prema fiskalizacionom partneru umjesto (ili pored) PKCS#12 certifikata.</p>
-      <wa-select name="token_provider" label="Aktivan kanal" value="{{ fiscal.token_provider }}">
-        {% for code, label in token_providers %}
-        <wa-option value="{{ code }}" {% if fiscal.token_provider == code %}selected{% endif %}>{{ label }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-input type="password" password-toggle name="telekom_token" label="Crnogorski Telekom — token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_telekom_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}"></wa-input>
-      {% if fiscal.has_telekom_token() %}
-      <wa-checkbox name="clear_telekom_token" value="1">Ukloni Telekom token</wa-checkbox>
-      {% endif %}
-      <wa-input type="password" password-toggle name="posta_token" label="Pošta Crne Gore — token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_posta_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}"></wa-input>
-      {% if fiscal.has_posta_token() %}
-      <wa-checkbox name="clear_posta_token" value="1">Ukloni Pošta token</wa-checkbox>
-      {% endif %}
-
+      <p class="muted">Režim, EFI kodovi, tokeni i web u footeru podešava platform admin.</p>
       <p class="muted">Partner: {{ partner_mode }} · API: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}nema ključa{% endfor %}</p>
       <div class="wa-form-actions">
         <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
@@ -125,6 +95,31 @@
         <a class="btn secondary" href="/podesavanja">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
+
+    {% elif section == 'mail' %}
+    <h2>IMAP (izvodi)</h2>
+    <p class="muted">Skidanje bankovnih izvoda s maila. Slanje kartica ide preko ProRačun Resenda (Reply-To = tvoj mail).</p>
+    <form method="post" action="/podesavanja/mail" class="wa-form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <wa-input name="imap_host" label="Mail server (host)" value="{{ mail.imap_host }}" placeholder="npr. mail.firma.me ili fusion.mxrouting.net"></wa-input>
+      <p class="cell-secondary">Port se automatski otkriva (993 SSL, pa 143 STARTTLS) pri snimanju kad promijeniš host, user ili lozinku.</p>
+      {% if mail.imap_port %}
+      <p class="muted">Trenutni port: <strong>{{ mail.imap_port }}</strong></p>
+      {% endif %}
+      <div class="row">
+        <wa-input name="imap_user" label="User (email)" value="{{ mail.imap_user }}" autocomplete="username"></wa-input>
+        <wa-input name="imap_password" type="password" password-toggle label="Lozinka" value="" placeholder="{% if mail.imap_password %}•••••• (ostavi prazno da zadržiš){% else %}lozinka{% endif %}" autocomplete="current-password"></wa-input>
+      </div>
+      <wa-input name="imap_folder" label="Folder" value="{{ mail.imap_folder }}"></wa-input>
+      <wa-input name="mail_since_date" label="Uvoz izvoda od (YYYY-MM-DD)" value="{{ mail.mail_since_date }}"></wa-input>
+      <wa-textarea name="izvod_subjects" label="Subject termini (jedan po redu)" rows="3" value="{{ mail.izvod_subjects }}"></wa-textarea>
+      <wa-textarea name="faktura_subjects" label="Faktura subject termini" rows="2" value="{{ mail.faktura_subjects }}"></wa-textarea>
+      <div class="wa-form-actions">
+        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="/podesavanja">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    <p class="cell-secondary" style="margin-top:1rem">Platforma: <code>RESEND_API_KEY</code> + <code>RESEND_FROM</code> u <code>.env</code>.</p>
 
     {% elif section == 'operateri' %}
     <h2>{{ t('settings.operators', 'Operateri') }}</h2>

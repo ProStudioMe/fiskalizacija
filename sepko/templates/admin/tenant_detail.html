@@ -68,10 +68,11 @@
 
   <div>
     <div class="card">
-      <h2>EFI kodovi / tokeni</h2>
-      <p class="muted">Unesi EFI kodove i tokene Telekoma / Pošte za fiskalizaciju. Token se ne prikazuje nakon spremanja.</p>
+      <h2>EFI kodovi / tokeni / web</h2>
+      <p class="muted">Samo platform admin. Token se ne prikazuje nakon spremanja.</p>
       <form method="post" action="/admin/tenanti/{{ view.id }}/efi" class="wa-form-stack">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <wa-input name="company_website" label="Web (footer PDF)" value="{{ company.website }}" placeholder="https://primjer.me"></wa-input>
         <wa-input name="busin_unit_code" label="BusinUnitCode" value="{{ fiscal.busin_unit_code }}" maxlength="10"></wa-input>
         <wa-input name="tcr_code" label="TCRCode (ENU)" value="{{ fiscal.tcr_code }}" maxlength="10"></wa-input>
         <wa-input name="soft_code" label="SoftCode" value="{{ fiscal.soft_code }}" maxlength="10"></wa-input>

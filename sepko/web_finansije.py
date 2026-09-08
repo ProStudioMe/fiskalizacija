@@ -391,11 +391,25 @@ def settings_mail_page(request: Request, db: Session = Depends(get_db)):
     if user.role != "admin":
         flash(request, "Samo admin.", "error")
         return redirect("/")
+    from sepko.config import get_settings
+    from sepko.efi import load_tenant_fiscal, load_tenant_ui
+
     mail = load_mail_settings(tenant)
     return render(
         request,
-        "settings_mail.html",
-        {"user": user, "tenant": tenant, "mail": mail, "section": "mail"},
+        "settings.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "mail": mail,
+            "section": "mail",
+            "partner_mode": get_settings().partner_mode,
+            "api_key_prefixes": [],
+            "fiscal": load_tenant_fiscal(tenant),
+            "ui": load_tenant_ui(tenant),
+            "operators": [],
+            "editing_op": None,
+        },
     )
 
 

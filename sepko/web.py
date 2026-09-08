@@ -15,11 +15,8 @@ from sepko.config import get_settings
 from sepko.db import get_db
 from sepko.efi import (
     TenantCompany,
-    TenantFiscal,
     TenantUiSettings,
     UI_LANGUAGES,
-    FISCAL_TOKEN_LABELS,
-    FISCAL_TOKEN_PROVIDERS,
     load_tenant_company,
     load_tenant_fiscal,
     load_tenant_ui,
@@ -27,7 +24,6 @@ from sepko.efi import (
     parse_display_inv_num,
     display_inv_num,
     save_tenant_company,
-    save_tenant_fiscal,
     save_tenant_ui,
 )
 from sepko.catalog import ARTICLE_COLORS, ensure_tax_rates, resolve_vat
@@ -2963,7 +2959,6 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "fiscal": load_tenant_fiscal(tenant),
             "ui": load_tenant_ui(tenant),
             "company": load_tenant_company(tenant),
-            "token_providers": [(c, FISCAL_TOKEN_LABELS[c]) for c in FISCAL_TOKEN_PROVIDERS],
             "operators": [],
             "editing_op": None,
         },
@@ -3033,17 +3028,6 @@ def settings_save_basic(
     csrf_token: str = Form(""),
     name: str = Form(...),
     pib: str = Form(...),
-    mode: str = Form("test"),
-    busin_unit_code: str = Form(""),
-    tcr_code: str = Form(""),
-    soft_code: str = Form(""),
-    operator_code: str = Form(""),
-    is_issuer_in_vat: str = Form("true"),
-    token_provider: str = Form(""),
-    telekom_token: str = Form(""),
-    posta_token: str = Form(""),
-    clear_telekom_token: str = Form(""),
-    clear_posta_token: str = Form(""),
     language: str = Form("cnr"),
     max_invoice_amount: str = Form("1000000.00"),
     default_opening_cash: str = Form("0,00"),
@@ -3058,7 +3042,6 @@ def settings_save_basic(
     company_address2: str = Form(""),
     company_pdv_number: str = Form(""),
     company_bank_account: str = Form(""),
-    company_website: str = Form(""),
     db: Session = Depends(get_db),
 ):
     pair = _require_admin(request, db)
@@ -3071,22 +3054,8 @@ def settings_save_basic(
 
     tenant.name = name.strip()
     tenant.pib = pib.strip()
-    tenant.mode = mode if mode in ("test", "prod") else "test"
-    save_tenant_fiscal(
-        tenant,
-        TenantFiscal(
-            busin_unit_code=busin_unit_code.strip(),
-            tcr_code=tcr_code.strip(),
-            soft_code=soft_code.strip(),
-            operator_code=operator_code.strip(),
-            is_issuer_in_vat=is_issuer_in_vat in ("true", "on", "1", "da"),
-            token_provider=token_provider.strip().lower(),
-        ),
-        telekom_token_new=telekom_token,
-        posta_token_new=posta_token,
-        clear_telekom_token=clear_telekom_token in ("1", "on", "true"),
-        clear_posta_token=clear_posta_token in ("1", "on", "true"),
-    )
+    # mode / EFI / tokeni / website — samo platform admin (/admin/tenanti/…)
+    company = load_tenant_company(tenant)
     save_tenant_company(
         tenant,
         TenantCompany(
@@ -3094,7 +3063,7 @@ def settings_save_basic(
             address2=company_address2.strip(),
             pdv_number=company_pdv_number.strip(),
             bank_account=company_bank_account.strip(),
-            website=company_website.strip(),
+            website=company.website,
         ),
     )
     ui = load_tenant_ui(tenant)
