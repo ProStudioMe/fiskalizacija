@@ -22,7 +22,7 @@ from sepko.brand import MAIL_FROM_NAME
 
 from sepko.config import get_settings
 from sepko.crypto import decrypt_secret, encrypt_secret
-from sepko.efi import _settings_dict, _write_settings
+from sepko.efi import _settings_dict, _write_settings, display_inv_num
 from sepko.models import (
     BankStatement,
     BankTransaction,
@@ -374,7 +374,9 @@ def customer_ledger(db: Session, tenant: Tenant, customer: Customer) -> list[dic
     for inv in invoices:
         day = inv.issue_datetime.strftime("%Y-%m-%d") if inv.issue_datetime else ""
         amt = float(inv.total_gross or 0)
-        doc = inv.inv_num or (f"1-1-{inv.inv_ord_num}/{inv.issue_datetime.year}" if inv.inv_ord_num and inv.issue_datetime else f"#{inv.id}")
+        doc = display_inv_num(inv)
+        if doc in ("—", "Nacrt"):
+            doc = f"#{inv.id}"
         events.append(
             {
                 "sort_date": day,

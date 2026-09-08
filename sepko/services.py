@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from sepko.audit import write_audit
-from sepko.efi import CASH_PAY_METHODS, build_inv_num, load_tenant_fiscal
+from sepko.efi import CASH_PAY_METHODS, build_inv_num, display_inv_num, load_tenant_fiscal
 from sepko.models import (
     CashDeposit,
     CustomerPayment,
@@ -202,7 +202,7 @@ def fiscalize_invoice(
         tenant_id=tenant.id,
         entity_type="invoice",
         entity_id=invoice.id,
-        detail=f"{invoice.inv_num or invoice.external_id} {invoice.status}",
+        detail=f"{display_inv_num(invoice)} {invoice.status}",
     )
     db.commit()
     return _to_response(invoice)
@@ -306,7 +306,9 @@ def delete_draft_invoice(db: Session, tenant: Tenant, invoice: Invoice) -> None:
         synchronize_session=False,
     )
 
-    label = invoice.inv_num or invoice.external_id or str(invoice.id)
+    label = display_inv_num(invoice)
+    if label in ("—", "Nacrt"):
+        label = invoice.external_id or str(invoice.id)
     write_audit(
         db,
         "invoice.delete",

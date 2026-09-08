@@ -38,7 +38,7 @@
       {% for inv in invoices %}
       <tr>
         <td>{{ inv.issue_datetime.strftime('%H:%M') if inv.issue_datetime else '—' }}</td>
-        <td><a href="/racuni/{{ inv.id }}">{{ inv.inv_num or ('#' ~ inv.id) }}</a></td>
+        <td><a href="/racuni/{{ inv.id }}">{{ inv|display_inv_num }}</a></td>
         <td><span class="pill-tag">{{ inv.payment_method }}</span></td>
         <td class="num">{{ inv.total_gross|money }} €</td>
         <td><a class="btn secondary" href="/racuni/{{ inv.id }}/stampa" target="sepko-print" rel="noopener"

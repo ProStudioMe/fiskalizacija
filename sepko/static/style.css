@@ -1,4 +1,4 @@
-/* Sepko UI — tamnija ljubičasta varijanta */
+/* Sepko UI â tamnija ljubiÄasta varijanta */
 :root {
   color-scheme: light;
   --shell: #0b0618;
@@ -43,7 +43,7 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  /* Hostinger-like dark: near-black + ljubičasti accent */
+  /* Hostinger-like dark: near-black + ljubiÄasti accent */
   --shell: #0d0b14;
   --shell-mid: #14121c;
   --bg: #12101a;
@@ -382,7 +382,7 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
-/* Veliki zaobljeni panel — kao Hostinger */
+/* Veliki zaobljeni panel â kao Hostinger */
 .app-body {
   display: flex;
   flex: 1;
@@ -865,7 +865,7 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
   animation: sepko-pop 0.18s ease;
 }
 .flash::before {
-  content: "✓";
+  content: "â";
   flex: 0 0 2.2rem;
   width: 2.2rem;
   height: 2.2rem;
@@ -1640,7 +1640,7 @@ body.sepko-dialog-open { overflow: hidden; }
 
 .toolbar { margin-bottom: 1rem; }
 
-/* Soft Hostinger table — svuda isti obrazac */
+/* Soft Hostinger table â svuda isti obrazac */
 .soft-table {
   width: 100%;
   border-collapse: collapse;
@@ -3501,7 +3501,7 @@ tr.inv-line {
   border-color: var(--input-line);
 }
 
-/* Invoice view — action bar + fiscal side */
+/* Invoice view â action bar + fiscal side */
 .inv-actions {
   display: flex;
   align-items: center;
@@ -4071,7 +4071,7 @@ tr.inv-line {
 }
 .color-dot input { position: absolute; opacity: 0; width: 0; height: 0; }
 .color-dot:has(input:checked)::after {
-  content: "✓"; color: #fff; font-size: 0.75rem; font-weight: 700;
+  content: "â"; color: #fff; font-size: 0.75rem; font-weight: 700;
 }
 .tax-head, .tax-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -4103,7 +4103,7 @@ i[data-lucide] {
   vertical-align: -0.125em;
 }
 
-/* —— Theme toggle —— */
+/* ââ Theme toggle ââ */
 .theme-toggle {
   width: 36px;
   height: 36px;
@@ -4129,7 +4129,7 @@ html:not([data-theme="dark"]) .theme-toggle .icon-sun { display: none; }
 html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
 
-/* —— Dark theme surface overrides —— */
+/* ââ Dark theme surface overrides ââ */
 html[data-theme="dark"] .card,
 html[data-theme="dark"] .plan-card,
 html[data-theme="dark"] .workspace,
@@ -4512,7 +4512,7 @@ html[data-theme="dark"] .soft-table tbody tr {
 }
 
 
-/* —— Sortabilne tabele —— */
+/* ââ Sortabilne tabele ââ */
 .th-sortable {
   cursor: pointer;
   user-select: none;
@@ -4526,16 +4526,16 @@ html[data-theme="dark"] .soft-table tbody tr {
   font-size: 0.75em;
   opacity: 0.9;
 }
-.th-sortable.sorted-asc::after { content: "↑"; }
-.th-sortable.sorted-desc::after { content: "↓"; }
+.th-sortable.sorted-asc::after { content: "â"; }
+.th-sortable.sorted-desc::after { content: "â"; }
 .th-sortable:not(.sorted-asc):not(.sorted-desc)::after {
-  content: "⇅";
+  content: "â";
   opacity: 0.35;
   margin-left: 0.25rem;
   font-size: 0.7em;
 }
 
-/* —— Komitent logo —— */
+/* ââ Komitent logo ââ */
 .logo-preview-row {
   display: flex;
   align-items: center;
@@ -4674,7 +4674,7 @@ html[data-theme="dark"] .soft-table tbody tr {
   background: var(--panel);
 }
 
-/* —— Platform admin —— */
+/* ââ Platform admin ââ */
 .badge.suspended { background: #fee2e2; color: var(--danger); }
 .badge.trial { background: #ffedd5; color: var(--warn); }
 .badge.active { background: #d1fae5; color: var(--ok); }
@@ -4719,7 +4719,7 @@ html[data-theme="dark"] .badge.trial { background: rgba(240, 180, 41, 0.16); col
 html[data-theme="dark"] .badge.active { background: rgba(61, 207, 154, 0.16); color: #3dcf9a; }
 
 
-/* —— Mini POS / kasa —— */
+/* ââ Mini POS / kasa ââ */
 body.pos-mode .app {
   height: 100dvh;
   max-height: 100dvh;
@@ -4866,6 +4866,87 @@ button.pos-custom-btn,
   font-size: 0.86rem !important;
   white-space: nowrap;
   flex: 0 0 auto;
+}
+
+.pos-custom-backdrop {
+  z-index: 130;
+  background: rgba(15, 12, 28, 0.45);
+  backdrop-filter: blur(2px);
+}
+.pos-custom-modal {
+  width: min(400px, 100%);
+  overflow: hidden;
+}
+.pos-custom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+.pos-custom-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pos-custom-field input {
+  width: 100%;
+  height: 2.55rem;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 0 0.8rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+}
+.pos-custom-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+#pos-custom-amount {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.pos-custom-vat-chips {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: -0.25rem;
+}
+button.pos-custom-chip {
+  flex: 1;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2, var(--bg));
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+button.pos-custom-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.pos-custom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+}
+html[data-theme="dark"] .pos-custom-field input,
+html[data-theme="dark"] button.pos-custom-chip {
+  background: var(--surface);
 }
 
 .pos-grid {
@@ -5035,7 +5116,7 @@ button.pos-tile.is-in-cart {
   100% { background: transparent; }
 }
 
-/* PWA kasa — bez sidebar-a, touch layout */
+/* PWA kasa â bez sidebar-a, touch layout */
 body.pos-pwa .sidebar,
 body.pos-pwa .nav-toggle,
 body.pos-pwa .nav-backdrop {
@@ -5563,7 +5644,7 @@ button.pos-clear:disabled {
   }
 }
 
-/* ——— Blagajna ——— */
+/* âââ Blagajna âââ */
 .cash-page {
   display: flex;
   flex-direction: column;
@@ -5850,7 +5931,7 @@ html[data-theme="dark"] .cash-form-actions wa-button[variant="brand"]::part(base
   .cash-hero-value { font-size: 2.05rem; }
 }
 
-/* —— Automatske fakture —— */
+/* ââ Automatske fakture ââ */
 .sched-lead {
   margin: 0 0 1.15rem;
   max-width: 40rem;
@@ -6153,7 +6234,7 @@ html[data-theme="dark"] .btn-icon-row-danger:hover {
   border-color: rgba(240, 113, 120, 0.28);
 }
 
-/* ── Incoming invoice compose form ── */
+/* ââ Incoming invoice compose form ââ */
 .inc-form {
   padding-bottom: 1.25rem;
 }
@@ -6539,7 +6620,7 @@ html[data-theme="dark"] .inc-status-form {
   }
 }
 
-/* —— Ulazne lista —— */
+/* ââ Ulazne lista ââ */
 .ulazne-list-card {
   overflow: hidden;
 }
@@ -6574,7 +6655,7 @@ html[data-theme="dark"] .inc-status-form {
 .ulazne-table .ulazne-id {
   margin: 0;
 }
-/* Jednostavan rail — bez „i” tačke, boja = status */
+/* Jednostavan rail â bez âiâ taÄke, boja = status */
 .ulazne-table .ulazne-rail {
   width: 3px;
   align-self: stretch;
@@ -6618,7 +6699,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 @media (min-width: 900px) {
-  /* Status/search auto-submit — Primijeni ostaje za a11y / mobile */
+  /* Status/search auto-submit â Primijeni ostaje za a11y / mobile */
   .ulazne-filters .ulazne-filter-apply {
     position: absolute;
     width: 1px;
@@ -6640,7 +6721,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   .ulazne-table .ulazne-col-amount { width: auto; }
 }
 
-/* ── Finansije ── */
+/* ââ Finansije ââ */
 .fin-page {
   display: flex;
   flex-direction: column;
@@ -6916,7 +6997,7 @@ html[data-theme="dark"] .fin-kpi--debt.is-credit .fin-kpi-value {
   .fin-kpi-value { font-size: 1.05rem; }
 }
 
-/* --- Izvje�taji --- */
+/* --- Izvjetaji --- */
 .rpt-period {
   display: flex;
   flex-wrap: wrap;

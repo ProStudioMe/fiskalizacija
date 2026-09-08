@@ -2208,7 +2208,7 @@ def _invoice_editor_context(
         .order_by(Customer.name)
         .all()
     )
-    next_num, next_ord = preview_inv_num(db, tenant)
+    _, next_ord = preview_inv_num(db, tenant)
     day = cash_day_summary(db, tenant)
     due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
 
@@ -2293,7 +2293,9 @@ def _invoice_editor_context(
         "articles": articles,
         "customers": customers,
         "next_inv_num": (
-            next_num if invoice is None else (invoice.inv_num or invoice.external_id or "—")
+            f"1-1-{next_ord}/{datetime.now(timezone.utc).year}"
+            if invoice is None
+            else display_inv_num(invoice)
         ),
         "next_ord": next_ord,
         "next_display_num": (
@@ -2425,7 +2427,7 @@ def invoice_new_submit(
 
     result = fiscalize_invoice(db, tenant, req)
     if result.status == "fiscalized":
-        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
         inv = (
             db.query(Invoice)
             .filter(Invoice.tenant_id == tenant.id, Invoice.external_id == result.external_id)
@@ -2576,7 +2578,7 @@ def invoice_edit_submit(
             flash(request, f"Greška: {exc}", "error")
             return redirect(f"/racuni/{invoice_id}")
         if result.status == "fiscalized":
-            flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+            flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
         else:
             flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
         return redirect(f"/racuni/{invoice_id}")
@@ -2616,7 +2618,7 @@ def invoice_fiscalize_one(
         flash(request, f"Greška: {exc}", "error")
         return redirect(f"/racuni/{invoice_id}")
     if result.status == "fiscalized":
-        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
     else:
         flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
     return redirect(f"/racuni/{invoice_id}")
@@ -2731,7 +2733,7 @@ def invoice_escpos(request: Request, invoice_id: int, db: Session = Depends(get_
     raw = build_receipt(
         seller_name=ctx["tenant"].name,
         seller_pib=ctx["tenant"].pib,
-        inv_num=invoice.inv_num or invoice.external_id or str(invoice.id),
+        inv_num=display_inv_num(invoice),
         issue_dt=ctx["issue_dt"],
         buyer_name=invoice.buyer_name,
         lines=ctx["line_rows"],

@@ -123,7 +123,7 @@
       <ul>
         {% for inv in recent[:5] %}
         <li>
-          <a href="/racuni/{{ inv.id }}">{{ inv.inv_num or ('#' ~ inv.id) }}</a>
+          <a href="/racuni/{{ inv.id }}">{{ inv|display_inv_num }}</a>
           <span>{{ inv.total_gross|money }} €</span>
         </li>
         {% endfor %}
@@ -154,6 +154,40 @@
 </nav>
 {% endif %}
 
+<div class="modal-backdrop pos-custom-backdrop" id="pos-custom-modal" hidden>
+  <div class="modal modal-sm pos-custom-modal" role="dialog" aria-modal="true" aria-labelledby="pos-custom-title">
+    <div class="modal-head">
+      <strong id="pos-custom-title">{{ t('pos.custom', 'Slobodan iznos') }}</strong>
+      <button type="button" class="icon-x" id="pos-custom-close" aria-label="{{ t('btn.close', 'Zatvori') }}">
+        <i data-lucide="x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <form id="pos-custom-form" class="pos-custom-form">
+      <label class="pos-custom-field">
+        <span>{{ t('col.item', 'Naziv / usluga') }}</span>
+        <input type="text" id="pos-custom-name" name="name" value="Usluga" autocomplete="off" maxlength="120">
+      </label>
+      <label class="pos-custom-field">
+        <span>{{ t('col.amount', 'Iznos bruto') }} (€)</span>
+        <input type="text" id="pos-custom-amount" name="amount" inputmode="decimal" placeholder="0,00" required autocomplete="off">
+      </label>
+      <label class="pos-custom-field">
+        <span>PDV %</span>
+        <input type="text" id="pos-custom-vat" name="vat" inputmode="decimal" value="21" autocomplete="off">
+      </label>
+      <div class="pos-custom-vat-chips" role="group" aria-label="PDV">
+        <button type="button" class="pos-custom-chip" data-vat="21">21%</button>
+        <button type="button" class="pos-custom-chip" data-vat="7">7%</button>
+        <button type="button" class="pos-custom-chip" data-vat="0">0%</button>
+      </div>
+      <div class="pos-custom-actions">
+        <button type="button" class="btn secondary" id="pos-custom-cancel">{{ t('btn.cancel', 'Odustani') }}</button>
+        <button type="submit" class="btn">{{ t('btn.add', 'Dodaj u korpu') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script type="application/json" id="pos-articles-data">{{ articles_json|tojson }}</script>
-<script src="/static/pos.js?v=8" defer></script>
+<script src="/static/pos.js?v=9" defer></script>
 {% endblock %}

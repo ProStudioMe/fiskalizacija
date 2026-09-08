@@ -11,6 +11,7 @@ from sqlalchemy import Date, cast, desc, func
 from sqlalchemy.orm import Session
 
 from sepko.db import get_db
+from sepko.efi import display_inv_num
 from sepko.models import (
     CashDeposit,
     Customer,
@@ -490,7 +491,7 @@ def izvjestaji_hub(
     biggest_table = [
         {
             "id": inv.id,
-            "num": inv.inv_num or inv.external_id,
+            "num": display_inv_num(inv),
             "buyer": inv.buyer_name or "—",
             "pib": inv.buyer_pib or "",
             "gross": _money(inv.total_gross),
@@ -962,7 +963,7 @@ def izvjestaji_komitent(
     invoices_table = [
         {
             "id": inv.id,
-            "num": inv.inv_num or inv.external_id,
+            "num": display_inv_num(inv),
             "gross": _money(inv.total_gross),
             "vat": _money(inv.total_vat),
             "pay": _PAY_LABELS.get(inv.payment_method or "", inv.payment_method or "—"),

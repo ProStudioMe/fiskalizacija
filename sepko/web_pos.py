@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from sepko.db import get_db
-from sepko.efi import CASH_PAY_METHODS, load_tenant_fiscal, load_tenant_ui
+from sepko.efi import CASH_PAY_METHODS, display_inv_num, load_tenant_fiscal, load_tenant_ui
 from sepko.models import Article, Invoice, InvoiceStatus
 from sepko.schemas import FiscalizeRequest, InvoiceLineIn, TotalsIn
 from sepko.services import cash_day_summary, fiscalize_invoice
@@ -293,7 +293,7 @@ def pos_fiscalize(
             )
             .first()
         )
-        msg = f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}"
+        msg = f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}"
         receipt = None
         if inv:
             receipt = f"/racuni/{inv.id}/stampa?{urlencode({'fmt': 'thermal', 'auto': '1'})}"
@@ -303,7 +303,7 @@ def pos_fiscalize(
                     "ok": True,
                     "message": msg,
                     "receipt_url": receipt,
-                    "inv_num": result.inv_num,
+                    "inv_num": display_inv_num(result),
                 }
             )
         flash(request, msg)
