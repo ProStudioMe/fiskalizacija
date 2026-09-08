@@ -1,4 +1,4 @@
-/* Sepko UI â tamnija ljubiÄasta varijanta */
+/* Sepko UI Ã¢ÂÂ tamnija ljubiÃÂasta varijanta */
 :root {
   color-scheme: light;
   --shell: #0b0618;
@@ -43,7 +43,7 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  /* Hostinger-like dark: near-black + ljubiÄasti accent */
+  /* Hostinger-like dark: near-black + ljubiÃÂasti accent */
   --shell: #0d0b14;
   --shell-mid: #14121c;
   --bg: #12101a;
@@ -382,7 +382,7 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
-/* Veliki zaobljeni panel â kao Hostinger */
+/* Veliki zaobljeni panel Ã¢ÂÂ kao Hostinger */
 .app-body {
   display: flex;
   flex: 1;
@@ -865,7 +865,7 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
   animation: sepko-pop 0.18s ease;
 }
 .flash::before {
-  content: "â";
+  content: "Ã¢ÂÂ";
   flex: 0 0 2.2rem;
   width: 2.2rem;
   height: 2.2rem;
@@ -1640,7 +1640,7 @@ body.sepko-dialog-open { overflow: hidden; }
 
 .toolbar { margin-bottom: 1rem; }
 
-/* Soft Hostinger table â svuda isti obrazac */
+/* Soft Hostinger table Ã¢ÂÂ svuda isti obrazac */
 .soft-table {
   width: 100%;
   border-collapse: collapse;
@@ -3501,7 +3501,7 @@ tr.inv-line {
   border-color: var(--input-line);
 }
 
-/* Invoice view â action bar + fiscal side */
+/* Invoice view Ã¢ÂÂ action bar + fiscal side */
 .inv-actions {
   display: flex;
   align-items: center;
@@ -4071,7 +4071,7 @@ tr.inv-line {
 }
 .color-dot input { position: absolute; opacity: 0; width: 0; height: 0; }
 .color-dot:has(input:checked)::after {
-  content: "â"; color: #fff; font-size: 0.75rem; font-weight: 700;
+  content: "Ã¢ÂÂ"; color: #fff; font-size: 0.75rem; font-weight: 700;
 }
 .tax-head, .tax-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -4103,7 +4103,7 @@ i[data-lucide] {
   vertical-align: -0.125em;
 }
 
-/* ââ Theme toggle ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Theme toggle Ã¢ÂÂÃ¢ÂÂ */
 .theme-toggle {
   width: 36px;
   height: 36px;
@@ -4129,7 +4129,7 @@ html:not([data-theme="dark"]) .theme-toggle .icon-sun { display: none; }
 html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
 
-/* ââ Dark theme surface overrides ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Dark theme surface overrides Ã¢ÂÂÃ¢ÂÂ */
 html[data-theme="dark"] .card,
 html[data-theme="dark"] .plan-card,
 html[data-theme="dark"] .workspace,
@@ -4512,7 +4512,7 @@ html[data-theme="dark"] .soft-table tbody tr {
 }
 
 
-/* ââ Sortabilne tabele ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Sortabilne tabele Ã¢ÂÂÃ¢ÂÂ */
 .th-sortable {
   cursor: pointer;
   user-select: none;
@@ -4526,16 +4526,16 @@ html[data-theme="dark"] .soft-table tbody tr {
   font-size: 0.75em;
   opacity: 0.9;
 }
-.th-sortable.sorted-asc::after { content: "â"; }
-.th-sortable.sorted-desc::after { content: "â"; }
+.th-sortable.sorted-asc::after { content: "Ã¢ÂÂ"; }
+.th-sortable.sorted-desc::after { content: "Ã¢ÂÂ"; }
 .th-sortable:not(.sorted-asc):not(.sorted-desc)::after {
-  content: "â";
+  content: "Ã¢ÂÂ";
   opacity: 0.35;
   margin-left: 0.25rem;
   font-size: 0.7em;
 }
 
-/* ââ Komitent logo ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Komitent logo Ã¢ÂÂÃ¢ÂÂ */
 .logo-preview-row {
   display: flex;
   align-items: center;
@@ -4674,7 +4674,7 @@ html[data-theme="dark"] .soft-table tbody tr {
   background: var(--panel);
 }
 
-/* ââ Platform admin ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Platform admin Ã¢ÂÂÃ¢ÂÂ */
 .badge.suspended { background: #fee2e2; color: var(--danger); }
 .badge.trial { background: #ffedd5; color: var(--warn); }
 .badge.active { background: #d1fae5; color: var(--ok); }
@@ -4719,20 +4719,31 @@ html[data-theme="dark"] .badge.trial { background: rgba(240, 180, 41, 0.16); col
 html[data-theme="dark"] .badge.active { background: rgba(61, 207, 154, 0.16); color: #3dcf9a; }
 
 
-/* ââ Mini POS / kasa ââ */
+/* ——— Mini POS / kasa ——— */
+body.pos-mode,
+body.pos-pwa {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
 body.pos-mode .app {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 body.pos-mode .app-body {
   flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 body.pos-mode .workspace {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
 }
 body.pos-mode .page-head {
@@ -4740,19 +4751,26 @@ body.pos-mode .page-head {
   padding-bottom: 0.4rem;
   flex: 0 0 auto;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 body.pos-mode .page-actions {
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
 }
 body.pos-mode .panel-body {
   --pos-edge: 0.75rem;
   flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   padding-top: var(--pos-edge);
   padding-bottom: var(--pos-edge);
   overflow: hidden;
+  overflow-x: hidden;
 }
 body.pos-mode .panel-body > .flash {
   flex: 0 0 auto;
@@ -5116,7 +5134,7 @@ button.pos-tile.is-in-cart {
   100% { background: transparent; }
 }
 
-/* PWA kasa â bez sidebar-a, touch layout */
+/* PWA kasa Ã¢ÂÂ bez sidebar-a, touch layout */
 body.pos-pwa .sidebar,
 body.pos-pwa .nav-toggle,
 body.pos-pwa .nav-backdrop {
@@ -5126,9 +5144,14 @@ body.pos-pwa .app-body {
   margin: 0;
   border-radius: 0;
   box-shadow: none;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 body.pos-pwa .workspace {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 body.pos-pwa .page-head {
   padding-left: 1rem;
@@ -5139,17 +5162,22 @@ body.pos-pwa .panel-body {
   padding-right: 0.85rem;
   padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
   overflow: auto;
+  overflow-x: hidden;
 }
 body.pos-pwa .pos-shell {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   flex: none;
   height: auto;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
 }
 body.pos-pwa .pos-catalog {
   height: auto;
   overflow: visible;
+  width: 100%;
+  max-width: 100%;
 }
 body.pos-pwa .pos-cart {
   position: sticky;
@@ -5158,12 +5186,16 @@ body.pos-pwa .pos-cart {
   z-index: 5;
   height: auto;
   max-height: 46vh;
+  width: 100%;
+  max-width: 100%;
 }
 body.pos-pwa .pos-grid {
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 0.85rem;
   overflow: visible;
   flex: none;
+  width: 100%;
+  max-width: 100%;
 }
 .pos-pwa-nav {
   display: none;
@@ -5273,15 +5305,19 @@ body.pos-pwa .pos-pwa-nav a.active {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .page-actions .pos-day-strip {
   margin-left: 0.15rem;
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 .pos-day-strip > div {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  min-width: 6.5rem;
+  min-width: 0;
   padding: 0.4rem 0.65rem;
   border-radius: 10px;
   background: var(--accent-soft);
@@ -5294,6 +5330,9 @@ body.pos-pwa .pos-pwa-nav a.active {
   letter-spacing: -0.02em;
   line-height: 1.1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .pos-day-strip small {
   color: var(--muted);
@@ -5301,6 +5340,8 @@ body.pos-pwa .pos-pwa-nav a.active {
   font-weight: 550;
   line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pos-cart-body {
@@ -5329,9 +5370,6 @@ body.pos-pwa .pos-pwa-nav a.active {
 }
 .pos-line.is-just-added {
   animation: pos-line-flash 0.85s ease;
-  margin: 0 -0.35rem;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
   border-radius: 8px;
 }
 .pos-line-top {
@@ -5612,13 +5650,43 @@ button.pos-clear:disabled {
     height: auto;
     max-height: none;
     overflow: visible;
+    overflow-x: hidden;
+  }
+  body.pos-mode .workspace {
+    overflow: visible;
+    overflow-x: hidden;
   }
   body.pos-mode .panel-body {
     overflow: auto;
+    overflow-x: hidden;
     flex: 1 1 auto;
   }
+  body.pos-mode .page-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+  body.pos-mode .page-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+  body.pos-mode .page-actions > .btn {
+    width: 100%;
+    justify-content: center;
+    min-width: 0;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    font-size: 0.8rem;
+  }
+  body.pos-mode .page-actions .pos-day-strip {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    width: 100%;
+  }
   .pos-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
     gap: 1rem;
     flex: none;
@@ -5626,6 +5694,17 @@ button.pos-clear:disabled {
     max-height: none;
     align-items: start;
     overflow: visible;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
+  .pos-catalog,
+  .pos-cart,
+  .pos-toolbar,
+  .pos-banner {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
   .pos-catalog {
     height: auto;
@@ -5641,10 +5720,39 @@ button.pos-clear:disabled {
   .pos-grid {
     overflow: visible;
     flex: none;
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 0.7rem;
+  }
+  .pos-day-strip > div {
+    padding: 0.35rem 0.5rem;
+  }
+  .pos-day-strip em {
+    font-size: 0.84rem;
   }
 }
 
-/* âââ Blagajna âââ */
+@media (max-width: 420px) {
+  body.pos-mode .page-actions {
+    grid-template-columns: 1fr;
+  }
+  .pos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pos-custom-btn {
+    width: 100%;
+  }
+  .pos-toolbar {
+    flex-direction: column;
+  }
+  .pos-search-wrap {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Blagajna Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */
 .cash-page {
   display: flex;
   flex-direction: column;
@@ -5931,7 +6039,7 @@ html[data-theme="dark"] .cash-form-actions wa-button[variant="brand"]::part(base
   .cash-hero-value { font-size: 2.05rem; }
 }
 
-/* ââ Automatske fakture ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Automatske fakture Ã¢ÂÂÃ¢ÂÂ */
 .sched-lead {
   margin: 0 0 1.15rem;
   max-width: 40rem;
@@ -6234,7 +6342,7 @@ html[data-theme="dark"] .btn-icon-row-danger:hover {
   border-color: rgba(240, 113, 120, 0.28);
 }
 
-/* ââ Incoming invoice compose form ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Incoming invoice compose form Ã¢ÂÂÃ¢ÂÂ */
 .inc-form {
   padding-bottom: 1.25rem;
 }
@@ -6620,7 +6728,7 @@ html[data-theme="dark"] .inc-status-form {
   }
 }
 
-/* ââ Ulazne lista ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Ulazne lista Ã¢ÂÂÃ¢ÂÂ */
 .ulazne-list-card {
   overflow: hidden;
 }
@@ -6655,7 +6763,7 @@ html[data-theme="dark"] .inc-status-form {
 .ulazne-table .ulazne-id {
   margin: 0;
 }
-/* Jednostavan rail â bez âiâ taÄke, boja = status */
+/* Jednostavan rail Ã¢ÂÂ bez Ã¢ÂÂiÃ¢ÂÂ taÃÂke, boja = status */
 .ulazne-table .ulazne-rail {
   width: 3px;
   align-self: stretch;
@@ -6699,7 +6807,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 @media (min-width: 900px) {
-  /* Status/search auto-submit â Primijeni ostaje za a11y / mobile */
+  /* Status/search auto-submit Ã¢ÂÂ Primijeni ostaje za a11y / mobile */
   .ulazne-filters .ulazne-filter-apply {
     position: absolute;
     width: 1px;
@@ -6721,7 +6829,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   .ulazne-table .ulazne-col-amount { width: auto; }
 }
 
-/* ââ Finansije ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Finansije Ã¢ÂÂÃ¢ÂÂ */
 .fin-page {
   display: flex;
   flex-direction: column;
@@ -6997,7 +7105,7 @@ html[data-theme="dark"] .fin-kpi--debt.is-credit .fin-kpi-value {
   .fin-kpi-value { font-size: 1.05rem; }
 }
 
-/* --- Izvjetaji --- */
+/* --- IzvjeÂtaji --- */
 .rpt-period {
   display: flex;
   flex-wrap: wrap;
