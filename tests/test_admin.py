@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +15,7 @@ from sepko.db import Base, get_db
 from sepko.i18n import ensure_translations, export_language_map, import_language_map
 from sepko.licenses import add_months, default_license_period, license_alert, license_days_left, license_extend_until, license_label
 from sepko.main import app
-from sepko.models import AdminAuditLog, LicenseInvoice, Tenant, TranslationKey, User
+from sepko.models import AdminAuditLog, Invoice, InvoiceStatus, LicenseInvoice, Tenant, TranslationKey, User
 from sepko.web_auth import hash_password
 
 
@@ -169,6 +170,73 @@ def test_pwa_install_prompt_skipped_for_admin(admin_client):
     assert kasir_page.status_code == 200
     assert 'data-skip="0"' in kasir_page.text
     assert 'id="btn-pwa-install"' in kasir_page.text
+
+
+def test_unfiscalized_invoice_opens_editor(admin_client):
+    client, Session = admin_client
+    page = client.get("/login")
+    client.post(
+        "/login",
+        data={"email": "admin@philia.me", "password": "sepko123", "csrf_token": _csrf(page.text)},
+        follow_redirects=False,
+    )
+    db = Session()
+    tenant = db.query(Tenant).filter_by(slug="philia").one()
+    draft = Invoice(
+        tenant_id=tenant.id,
+        external_id="draft-view-edit",
+        status=InvoiceStatus.draft.value,
+        invoice_type="NONCASH",
+        payment_method="ORDER",
+        currency="EUR",
+        issue_datetime=datetime.now(timezone.utc),
+        total_net=Decimal("10.00"),
+        total_vat=Decimal("2.10"),
+        total_gross=Decimal("12.10"),
+        payload_json="{}",
+    )
+    done = Invoice(
+        tenant_id=tenant.id,
+        external_id="fisc-view-keep",
+        status=InvoiceStatus.fiscalized.value,
+        invoice_type="NONCASH",
+        payment_method="ORDER",
+        currency="EUR",
+        issue_datetime=datetime.now(timezone.utc),
+        total_net=Decimal("10.00"),
+        total_vat=Decimal("2.10"),
+        total_gross=Decimal("12.10"),
+        payload_json="{}",
+        ikof="IKOF",
+        jikr="JIKR",
+    )
+    db.add_all([draft, done])
+    db.commit()
+    draft_id, done_id = draft.id, done.id
+    db.close()
+
+    to_edit = client.get(f"/racuni/{draft_id}", follow_redirects=False)
+    assert to_edit.status_code == 303
+    assert to_edit.headers.get("location", "").endswith(f"/racuni/{draft_id}/izmijeni")
+
+    combined = client.get(f"/racuni/{draft_id}/izmijeni")
+    assert combined.status_code == 200
+    assert "Pregled fakture" in combined.text
+    assert "Nefiskalizovan" in combined.text
+    assert "Izmjena fakture" not in combined.text
+    assert f"/racuni/{draft_id}/stampa" in combined.text
+    assert f"/racuni/{draft_id}/pdf" in combined.text
+    assert "Fiskalni podaci" in combined.text
+    assert 'id="invoice-form"' in combined.text
+
+    keep_view = client.get(f"/racuni/{done_id}", follow_redirects=False)
+    assert keep_view.status_code == 200
+    assert "Pregled fakture" in keep_view.text
+
+    listing = client.get("/racuni")
+    assert listing.status_code == 200
+    assert f'data-href="/racuni/{draft_id}/izmijeni"' in listing.text
+    assert f'data-href="/racuni/{done_id}" tabindex' in listing.text
 
 
 def test_login_shows_proracun_and_prostudio(admin_client):

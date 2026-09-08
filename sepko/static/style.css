@@ -1,4 +1,4 @@
-/* Sepko UI Ã¢ÂÂ tamnija ljubiÃÂasta varijanta */
+/* Sepko UI  -  tamnija ljubi - asta varijanta */
 :root {
   color-scheme: light;
   --shell: #0b0618;
@@ -43,7 +43,7 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  /* Hostinger-like dark: near-black + ljubiÃÂasti accent */
+  /* Hostinger-like dark: near-black + ljubi - asti accent */
   --shell: #0d0b14;
   --shell-mid: #14121c;
   --bg: #12101a;
@@ -382,7 +382,7 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
-/* Veliki zaobljeni panel Ã¢ÂÂ kao Hostinger */
+/* Veliki zaobljeni panel  -  kao Hostinger */
 .app-body {
   display: flex;
   flex: 1;
@@ -913,7 +913,7 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
   animation: sepko-pop 0.18s ease;
 }
 .flash::before {
-  content: "Ã¢ÂÂ";
+  content: "\2713";
   flex: 0 0 2.2rem;
   width: 2.2rem;
   height: 2.2rem;
@@ -1712,7 +1712,7 @@ body.sepko-dialog-open { overflow: hidden; }
 
 .toolbar { margin-bottom: 1rem; }
 
-/* Soft Hostinger table Ã¢ÂÂ svuda isti obrazac */
+/* Soft Hostinger table  -  svuda isti obrazac */
 .soft-table {
   width: 100%;
   border-collapse: collapse;
@@ -2231,7 +2231,7 @@ body.sepko-dialog-open { overflow: hidden; }
     margin: 0;
   }
   .invoices-table tbody tr.inv-row td:nth-child(5) .cell-secondary:not(:empty)::before {
-    content: "·";
+    content: "\00b7";
     margin-right: 0.25rem;
   }
   .invoices-table tbody tr.inv-row td.cell-amount {
@@ -2399,6 +2399,15 @@ body.sepko-dialog-open { overflow: hidden; }
 }
 .inv-compose-form.is-template .inv-totals-hero-value {
   color: var(--signal);
+}
+.inv-compose-form.is-existing .inv-compose {
+  gap: 1.15rem;
+}
+.inv-compose-form.is-existing .inv-compose-side {
+  gap: 0.85rem;
+}
+.inv-compose-form.is-existing .inv-fiscal-card {
+  margin: 0;
 }
 .inv-totals-break {
   margin: 0;
@@ -3692,7 +3701,7 @@ tr.inv-line {
   border-color: var(--input-line);
 }
 
-/* Invoice view Ã¢ÂÂ action bar + fiscal side */
+/* Invoice view  -  action bar + fiscal side */
 .inv-actions {
   display: flex;
   align-items: center;
@@ -4262,7 +4271,7 @@ tr.inv-line {
 }
 .color-dot input { position: absolute; opacity: 0; width: 0; height: 0; }
 .color-dot:has(input:checked)::after {
-  content: "Ã¢ÂÂ"; color: #fff; font-size: 0.75rem; font-weight: 700;
+  content: "\2713"; color: #fff; font-size: 0.75rem; font-weight: 700;
 }
 .tax-head, .tax-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -4294,7 +4303,7 @@ i[data-lucide] {
   vertical-align: -0.125em;
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Theme toggle Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Theme toggle  -  */
 .theme-toggle {
   width: 36px;
   height: 36px;
@@ -4320,7 +4329,7 @@ html:not([data-theme="dark"]) .theme-toggle .icon-sun { display: none; }
 html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
 
-/* Ã¢ÂÂÃ¢ÂÂ Dark theme surface overrides Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Dark theme surface overrides  -  */
 html[data-theme="dark"] .card,
 html[data-theme="dark"] .plan-card,
 html[data-theme="dark"] .workspace,
@@ -4703,7 +4712,7 @@ html[data-theme="dark"] .soft-table tbody tr {
 }
 
 
-/* Ã¢ÂÂÃ¢ÂÂ Sortabilne tabele Ã¢ÂÂÃ¢ÂÂ */
+/* --- Sortabilne tabele --- */
 .th-sortable {
   cursor: pointer;
   user-select: none;
@@ -4717,16 +4726,17 @@ html[data-theme="dark"] .soft-table tbody tr {
   font-size: 0.75em;
   opacity: 0.9;
 }
-.th-sortable.sorted-asc::after { content: "Ã¢ÂÂ"; }
-.th-sortable.sorted-desc::after { content: "Ã¢ÂÂ"; }
+.th-sortable.sorted-asc::after { content: "\2191"; }
+.th-sortable.sorted-desc::after { content: "\2193"; }
 .th-sortable:not(.sorted-asc):not(.sorted-desc)::after {
-  content: "Ã¢ÂÂ";
+  content: "\2195";
   opacity: 0.35;
   margin-left: 0.25rem;
   font-size: 0.7em;
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Komitent logo Ã¢ÂÂÃ¢ÂÂ */
+
+/*  -  Komitent logo  -  */
 .logo-preview-row {
   display: flex;
   align-items: center;
@@ -4865,7 +4875,7 @@ html[data-theme="dark"] .soft-table tbody tr {
   background: var(--panel);
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Platform admin Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Platform admin  -  */
 .badge.suspended { background: #fee2e2; color: var(--danger); }
 .badge.trial { background: #ffedd5; color: var(--warn); }
 .badge.active { background: #d1fae5; color: var(--ok); }
@@ -4910,7 +4920,7 @@ html[data-theme="dark"] .badge.trial { background: rgba(240, 180, 41, 0.16); col
 html[data-theme="dark"] .badge.active { background: rgba(61, 207, 154, 0.16); color: #3dcf9a; }
 
 
-/* ——— Mini POS / kasa ——— */
+/*  -  Mini POS / kasa  -  */
 body.pos-mode,
 body.pos-pwa {
   overflow-x: hidden;
@@ -5325,7 +5335,7 @@ button.pos-tile.is-in-cart {
   100% { background: transparent; }
 }
 
-/* PWA kasa Ã¢ÂÂ bez sidebar-a, touch layout */
+/* PWA kasa  -  bez sidebar-a, touch layout */
 body.pos-pwa .sidebar,
 body.pos-pwa .nav-toggle,
 body.pos-pwa .nav-backdrop {
@@ -5943,7 +5953,7 @@ button.pos-clear:disabled {
   }
 }
 
-/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Blagajna Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */
+/*  -  Blagajna  -  */
 .cash-page {
   display: flex;
   flex-direction: column;
@@ -6230,7 +6240,7 @@ html[data-theme="dark"] .cash-form-actions wa-button[variant="brand"]::part(base
   .cash-hero-value { font-size: 2.05rem; }
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Automatske fakture Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Automatske fakture  -  */
 .sched-lead {
   margin: 0 0 1.15rem;
   max-width: 40rem;
@@ -6533,7 +6543,7 @@ html[data-theme="dark"] .btn-icon-row-danger:hover {
   border-color: rgba(240, 113, 120, 0.28);
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Incoming invoice compose form Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Incoming invoice compose form  -  */
 .inc-form {
   padding-bottom: 1.25rem;
 }
@@ -6919,7 +6929,7 @@ html[data-theme="dark"] .inc-status-form {
   }
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Ulazne lista Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Ulazne lista  -  */
 .ulazne-list-card {
   overflow: hidden;
 }
@@ -6954,7 +6964,7 @@ html[data-theme="dark"] .inc-status-form {
 .ulazne-table .ulazne-id {
   margin: 0;
 }
-/* Jednostavan rail Ã¢ÂÂ bez Ã¢ÂÂiÃ¢ÂÂ taÃÂke, boja = status */
+/* Jednostavan rail  -  bez  - i -  ta - ke, boja = status */
 .ulazne-table .ulazne-rail {
   width: 3px;
   align-self: stretch;
@@ -6998,7 +7008,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 @media (min-width: 900px) {
-  /* Status/search auto-submit Ã¢ÂÂ Primijeni ostaje za a11y / mobile */
+  /* Status/search auto-submit  -  Primijeni ostaje za a11y / mobile */
   .ulazne-filters .ulazne-filter-apply {
     position: absolute;
     width: 1px;
@@ -7020,7 +7030,7 @@ html[data-theme="dark"] .page-actions > .btn.ulazne-qr-btn:hover {
   .ulazne-table .ulazne-col-amount { width: auto; }
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Finansije Ã¢ÂÂÃ¢ÂÂ */
+/*  -  Finansije  -  */
 .fin-page {
   display: flex;
   flex-direction: column;
@@ -7296,7 +7306,7 @@ html[data-theme="dark"] .fin-kpi--debt.is-credit .fin-kpi-value {
   .fin-kpi-value { font-size: 1.05rem; }
 }
 
-/* --- IzvjeÂtaji --- */
+/* --- Izvje - taji --- */
 .rpt-period {
   display: flex;
   flex-wrap: wrap;

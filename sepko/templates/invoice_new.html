@@ -2,8 +2,25 @@
 {% set is_edit = editing is defined and editing %}
 {% set is_template = as_template if as_template is defined else false %}
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
-{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
+{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_view', 'Pregled fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
+  {% if is_edit and not is_template %}
+  <span class="inv-page-title inv-page-title--with-back">
+    <a class="btn secondary inv-actions-icon inv-title-back" href="{% if return_to %}{{ return_to }}{% else %}/racuni{% endif %}" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+      <i data-lucide="arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="inv-page-title-body">
+      <span class="inv-page-heading">
+        <span>{{ t('page.invoice_view', 'Pregled fakture') }}</span>
+        {% if editing.status == 'failed' %}
+          <span class="pill-tag bad">{{ t('status.failed', 'Greška') }}</span>
+        {% else %}
+          <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
+        {% endif %}
+      </span>
+    </span>
+  </span>
+  {% else %}
   <span class="inv-page-title{% if is_template %} inv-page-title--template{% endif %}">
     {% if is_template %}
     <nav class="inv-crumb" aria-label="Lokacija">
@@ -13,7 +30,7 @@
     </nav>
     {% endif %}
     <span class="inv-page-heading">
-      {% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjena fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
+      {% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
       {% if is_template %}
       <span class="badge template">Šablon</span>
       {% else %}
@@ -24,15 +41,43 @@
     <span class="inv-page-sub">Kupac i fiksne stavke · broj fakture pri izdavanju</span>
     {% endif %}
   </span>
+  {% endif %}
 {% endblock %}
 {% block page_actions %}
-  {% if not is_template and not is_edit %}
+  {% if is_edit and not is_template %}
+  <div class="inv-actions">
+    <div class="inv-actions-btns">
+      <div class="inv-actions-group" role="group" aria-label="{{ t('btn.print', 'Štampa') }}">
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/stampa" target="sepko-print" rel="noopener"
+           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+           title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
+          <i data-lucide="printer" aria-hidden="true"></i>
+        </a>
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/pdf" target="sepko-print" rel="noopener"
+           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+           title="A4 PDF" aria-label="A4 PDF">
+          <i data-lucide="file-text" aria-hidden="true"></i>
+        </a>
+      </div>
+      <form method="post" action="/racuni/{{ editing.id }}/obrisi" class="inv-actions-delete"
+            data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
+            data-confirm-title="{{ t('inv.delete_draft', 'Brisanje nacrta') }}"
+            data-confirm-tone="danger"
+            data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn secondary inv-actions-icon" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+          <i data-lucide="trash-2" aria-hidden="true"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% elif not is_template %}
   <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="Šablon za automatsku fakturu">+ Nova Automatska faktura</a>
   {% endif %}
 {% endblock %}
 {% block content %}
 
-<form method="post" action="{{ form_action or '/racuni/novi' }}" id="invoice-form" class="inv-form inv-compose-form{% if is_template %} is-template{% endif %}">
+<form method="post" action="{{ form_action or '/racuni/novi' }}" id="invoice-form" class="inv-form inv-compose-form{% if is_template %} is-template{% endif %}{% if is_edit and not is_template %} is-existing{% endif %}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="customer_id" id="customer_id" value="{{ (prefill.customer_id if prefill else '') }}">
   <input type="hidden" name="discount_pct" id="discount_pct" value="{{ (prefill.discount_pct if prefill else 0) }}">
@@ -89,7 +134,7 @@
         </div>
 
         <div class="inv-dock inv-dock--foot" role="toolbar" aria-label="Akcije fakture">
-          <wa-button href="{% if return_to %}{{ return_to }}{% elif is_template %}/racuni/raspored{% elif is_edit %}/racuni/{{ editing.id }}{% else %}/racuni{% endif %}" variant="neutral" appearance="outlined" class="inv-dock-cancel">{{ t('btn.cancel', 'Odustani') }}</wa-button>
+          <wa-button href="{% if return_to %}{{ return_to }}{% elif is_template %}/racuni/raspored{% else %}/racuni{% endif %}" variant="neutral" appearance="outlined" class="inv-dock-cancel">{{ t('btn.cancel', 'Odustani') }}</wa-button>
           <div class="inv-dock-primary">
             {% if not is_template %}
             <wa-button type="submit" data-action="save" data-template="1" variant="neutral" appearance="plain" class="inv-dock-quiet" title="Sačuvaj kao šablon za automatsku fakturu">Kao automatsku</wa-button>
@@ -147,7 +192,7 @@
         <div class="inv-meta-num">
           <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
           <div class="inv-num-stack">
-            <span class="inv-status-rail pending" aria-hidden="true"></span>
+            <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
             <span class="inv-num-local">{{ next_display_num }}</span>
           </div>
         </div>
@@ -186,6 +231,36 @@
           </details>
         </div>
       </div>
+      {% if is_edit and not is_template %}
+      <div class="card inv-fiscal-card {% if editing.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">
+        <div class="inv-section-title">Fiskalni podaci</div>
+        <dl class="inv-fiscal-dl">
+          <div>
+            <dt>IKOF</dt>
+            <dd>
+              {% if editing.ikof %}
+                <code class="inv-fiscal-code">{{ editing.ikof }}</code>
+              {% else %}
+                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt>JIKR</dt>
+            <dd>
+              {% if editing.jikr %}
+                <code class="inv-fiscal-code">{{ editing.jikr }}</code>
+              {% else %}
+                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+        {% if editing.error_message %}
+        <div class="flash error" style="margin-top:0.85rem;margin-bottom:0">{{ editing.error_message }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
     </aside>
   </div>
 </form>

@@ -2638,6 +2638,8 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
     if not invoice:
         flash(request, "Račun nije pronađen.", "error")
         return redirect("/racuni")
+    if invoice_is_editable(invoice):
+        return redirect(f"/racuni/{invoice_id}/izmijeni")
 
     readonly = not invoice_is_editable(invoice)
     parsed = _parse_invoice_notes(invoice.notes)
