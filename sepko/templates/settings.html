@@ -4,8 +4,6 @@
 {% block content %}
 <div class="settings-layout">
   <nav class="settings-nav">
-    <a href="/podesavanja/artikli" class="{% if section == 'artikli' %}active{% endif %}">{{ t('settings.articles', 'Artikli') }} <span class="chevron">›</span></a>
-    <a href="/kupci">{{ t('nav.komitenti', 'Komitenti') }} <span class="chevron">›</span></a>
     <a href="/podesavanja" class="{% if section == 'osnovna' %}active{% endif %}">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
     <a href="/podesavanja/stampa" class="{% if section == 'stampa' %}active{% endif %}">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
     <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail', 'Mail') }} (izvodi) <span class="chevron">›</span></a>
