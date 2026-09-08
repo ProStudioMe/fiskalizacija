@@ -35,14 +35,15 @@
         radial-gradient(ellipse 80% 55% at 50% -10%, rgba(124, 92, 255, 0.34), transparent 55%),
         radial-gradient(ellipse 60% 45% at 85% 100%, rgba(46, 196, 167, 0.12), transparent 50%),
         linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a0616);
-      display: grid;
-      place-items: center;
-      padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem max(1.5rem, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
       overflow: hidden;
     }
 
     .stage {
       width: min(28rem, 100%);
+      margin: auto;
       text-align: center;
       animation: rise 0.9s ease both;
     }
@@ -66,6 +67,32 @@
       animation: fade 1.2s ease 0.25s both;
     }
 
+    .byline {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: center;
+      padding-top: 1rem;
+      animation: fade 1.2s ease 0.45s both;
+    }
+
+    .byline a {
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.72;
+      transition: opacity 0.2s ease;
+    }
+
+    .byline a:hover,
+    .byline a:focus-visible {
+      opacity: 1;
+    }
+
+    .byline img {
+      display: block;
+      height: 18px;
+      width: auto;
+    }
+
     @keyframes rise {
       from { opacity: 0; transform: translateY(14px); }
       to { opacity: 1; transform: none; }
@@ -82,7 +109,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .stage, .logo, .soon { animation: none; }
+      .stage, .logo, .soon, .byline { animation: none; }
     }
   </style>
 </head>
@@ -97,5 +124,10 @@
     >
     <p class="soon">Uskoro</p>
   </main>
+  <footer class="byline">
+    <a href="https://prostudio.me" target="_blank" rel="noopener noreferrer" aria-label="prostudio.me">
+      <img src="/img/prostudio-logo.png" width="160" height="25" alt="prostudio.me">
+    </a>
+  </footer>
 </body>
 </html>
