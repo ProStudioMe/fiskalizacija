@@ -104,18 +104,39 @@
   <div class="inv-compose">
     <div class="inv-compose-main">
       <div class="card inv-compose-card inv-buyer-card">
-        <div class="inv-section-title" style="margin:0 0 0.65rem">Kupac</div>
-        <div class="inv-quick-add" id="inv-buyer-add">
-          <wa-input type="search" id="cust-inline" placeholder="Traži komitenta… Enter bira" with-clear size="medium" class="inv-cust-input" autocomplete="off" value="{{ (prefill.customer_label if prefill else '') }}"></wa-input>
-          <div class="inv-suggest" id="cust-suggest" hidden></div>
+        <div class="inv-buyer-card-head">
+          {% if is_template %}
+          <span class="inv-meta-label">Tip</span>
+          <div class="inv-num-stack">
+            <span class="inv-status-rail template" aria-hidden="true"></span>
+            <span class="inv-num-local">Šablon · ponavlja se</span>
+          </div>
+          {% else %}
+          <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
+          <div class="inv-num-stack">
+            <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
+            <span class="inv-num-local">{{ next_display_num }}</span>
+          </div>
+          {% endif %}
         </div>
-        <input type="hidden" id="customer_label" value="{{ (prefill.customer_label if prefill else '') }}">
-        <div class="inv-buyer-meta" id="buyer-email-wrap"{% if not prefill or not prefill.customer_email %} hidden{% endif %}>
-          <wa-input id="buyer-email" label="E-mail" value="{{ (prefill.customer_email if prefill else '') }}" readonly></wa-input>
+
+        <div class="inv-buyer-pick">
+          <div class="inv-section-title inv-buyer-pick-title">Kupac</div>
+          <div class="inv-quick-add" id="inv-buyer-add">
+            <wa-input type="search" id="cust-inline" placeholder="Traži komitenta… Enter bira" with-clear size="medium" class="inv-cust-input" autocomplete="off" value="{{ (prefill.customer_label if prefill else '') }}"></wa-input>
+            <div class="inv-suggest" id="cust-suggest" hidden></div>
+          </div>
+          <input type="hidden" id="customer_label" value="{{ (prefill.customer_label if prefill else '') }}">
         </div>
-        <div class="wa-form-stack" id="manual-buyer" style="{% if prefill and prefill.manual_buyer %}{% else %}display:none{% endif %};margin-top:0.75rem">
-          <wa-input name="buyer_pib" id="buyer_pib" label="PIB (ručno)" value="{{ (prefill.buyer_pib if prefill else '') }}"></wa-input>
-          <wa-input name="buyer_name" id="buyer_name" label="Naziv (ručno)" value="{{ (prefill.buyer_name if prefill else '') }}"></wa-input>
+
+        {% set show_buyer_fields = prefill and (prefill.customer_id or prefill.manual_buyer or prefill.buyer_pib or prefill.buyer_name or prefill.customer_email) %}
+        <div class="inv-buyer-fields wa-form-stack" id="buyer-fields"{% if not show_buyer_fields %} hidden{% endif %}>
+          <div class="row">
+            <wa-input name="buyer_name" id="buyer_name" label="Naziv" value="{{ (prefill.buyer_name if prefill else '') }}"></wa-input>
+            <wa-input name="buyer_pib" id="buyer_pib" label="PIB / JMBG" value="{{ (prefill.buyer_pib if prefill else '') }}"></wa-input>
+          </div>
+          <wa-input name="buyer_email" id="buyer_email" type="email" label="E-mail" value="{{ (prefill.customer_email if prefill else '') }}"></wa-input>
+          <p class="muted inv-buyer-fields-hint" id="buyer-fields-hint">{% if prefill and prefill.customer_id %}Izmjene se snimaju i na komitenta{% else %}Ručni unos — nije u šifrarniku{% endif %}</p>
         </div>
       </div>
 
@@ -123,6 +144,27 @@
         <div class="inv-lines-head-row">
           <div class="inv-section-title" style="margin:0">Stavke</div>
           <span class="inv-lines-count" id="lines-count-label">0 stavki</span>
+        </div>
+
+        <div class="inv-totals-strip" id="totals-bar" aria-label="Iznosi računa">
+          <div class="inv-totals-strip-item">
+            <span class="inv-totals-strip-label">Vrijednost bez PDV-a</span>
+            <span class="inv-totals-strip-value"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></span>
+          </div>
+          <div class="inv-totals-strip-item">
+            <span class="inv-totals-strip-label">PDV ukupno</span>
+            <span class="inv-totals-strip-value"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></span>
+          </div>
+          <div class="inv-totals-strip-item">
+            <span class="inv-totals-strip-label">Popust</span>
+            <button type="button" class="inv-totals-strip-value inv-totals-strip-disc" id="btn-discount" title="Popust na račun">
+              <span id="sum-disc">0,00</span><span class="totals-cur"> €</span>
+            </button>
+          </div>
+          <div class="inv-totals-strip-item inv-totals-strip-item--pay">
+            <span class="inv-totals-strip-label">{% if is_template %}Iznos šablona{% else %}Za uplatu{% endif %}</span>
+            <span class="inv-totals-strip-value inv-totals-strip-pay"><span id="sum-gross">0,00</span><span class="totals-cur"> €</span></span>
+          </div>
         </div>
 
         <div class="lines-empty" id="lines-empty" hidden>
@@ -171,55 +213,8 @@
     </div>
 
     <aside class="inv-compose-side">
-      <div class="card fb-table-card inv-compose-totals" id="totals-bar">
-        <div class="inv-totals-hero">
-          <span class="inv-totals-hero-label">{% if is_template %}Iznos šablona{% else %}Za uplatu{% endif %}</span>
-          <span class="inv-totals-hero-value"><span id="sum-gross">0,00</span><span class="totals-cur"> €</span></span>
-        </div>
-        <details class="inv-totals-break"{% if not is_template %} open{% endif %}>
-          <summary>Raspored iznosa</summary>
-          <div class="fb-table-wrap">
-            <table class="fb-table fb-table--compact fb-table--totals">
-              <tbody>
-                <tr>
-                  <th scope="row">Bez PDV-a</th>
-                  <td class="num"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">PDV</th>
-                  <td class="num"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">Popust</th>
-                  <td class="num">
-                    <button type="button" class="linkish" id="btn-discount"><span id="sum-disc">0,00</span><span class="totals-cur"> €</span></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-
       <div class="card inv-meta-card{% if is_template %} inv-meta-card--template{% endif %}">
-        {% if is_template %}
-        <div class="inv-meta-num inv-meta-num--soft">
-          <span class="inv-meta-label">Tip</span>
-          <div class="inv-num-stack">
-            <span class="inv-status-rail template" aria-hidden="true"></span>
-            <span class="inv-num-local">Šablon · ponavlja se</span>
-          </div>
-        </div>
-        {% else %}
-        <div class="inv-meta-num">
-          <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
-          <div class="inv-num-stack">
-            <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
-            <span class="inv-num-local">{{ next_display_num }}</span>
-          </div>
-        </div>
-        {% endif %}
-        <div class="inv-meta-body wa-form-stack">
+        <div class="inv-meta-body wa-form-stack inv-meta-body--flush">
           <wa-input type="date" name="due_date" id="due_date" label="{% if is_template %}Zadani rok{% else %}Rok plaćanja{% endif %}" value="{{ due_date_default }}"></wa-input>
           <div class="inv-period-row">
             <wa-select name="period_month" id="period_month" label="Porezni period" value="{{ period_month }}">
@@ -740,7 +735,17 @@ function applyPrefill(){
   if (PREFILL.customer_label && custInline) {
     custInline.value = PREFILL.customer_label;
   }
-  setBuyerEmail(PREFILL.customer_email || '');
+  if (PREFILL.customer_id || PREFILL.manual_buyer || PREFILL.buyer_pib || PREFILL.buyer_name || PREFILL.customer_email) {
+    fillBuyerFields({
+      name: PREFILL.buyer_name || (PREFILL.customer_label || '').replace(/\s*\([^)]*\)\s*$/, ''),
+      pib: PREFILL.buyer_pib || '',
+      email: PREFILL.customer_email || '',
+    });
+    setBuyerFieldsHint(!!PREFILL.customer_id);
+    setBuyerFieldsVisible(true);
+  } else {
+    setBuyerFieldsVisible(false);
+  }
   if (PREFILL.lines && PREFILL.lines.length){
     lines = PREFILL.lines.map(l => ({
       id: l.id,
@@ -776,12 +781,24 @@ function setInvoiceDiscount(pct){
   recalc();
 }
 
-function setBuyerEmail(email){
-  const wrap = document.getElementById('buyer-email-wrap');
-  const field = document.getElementById('buyer-email');
-  const val = (email || '').trim();
-  if (field) field.value = val;
-  if (wrap) wrap.hidden = !val;
+function setBuyerFieldsVisible(show){
+  const wrap = document.getElementById('buyer-fields');
+  if (wrap) wrap.hidden = !show;
+}
+function setBuyerFieldsHint(fromCustomer){
+  const hint = document.getElementById('buyer-fields-hint');
+  if (!hint) return;
+  hint.textContent = fromCustomer
+    ? 'Izmjene se snimaju i na komitenta'
+    : 'Ručni unos — nije u šifrarniku';
+}
+function fillBuyerFields({ name = '', pib = '', email = '' } = {}){
+  const nameEl = document.getElementById('buyer_name');
+  const pibEl = document.getElementById('buyer_pib');
+  const emailEl = document.getElementById('buyer_email');
+  if (nameEl) nameEl.value = name || '';
+  if (pibEl) pibEl.value = pib || '';
+  if (emailEl) emailEl.value = email || '';
 }
 function selectCustomer(c){
   if (!c) return;
@@ -789,8 +806,9 @@ function selectCustomer(c){
   const label = c.name + (c.pib ? ' ('+c.pib+')' : '');
   document.getElementById('customer_label').value = label;
   if (custInline) custInline.value = c.name;
-  document.getElementById('manual-buyer').style.display = 'none';
-  setBuyerEmail(c.email);
+  fillBuyerFields({ name: c.name || '', pib: c.pib || '', email: c.email || '' });
+  setBuyerFieldsHint(true);
+  setBuyerFieldsVisible(true);
   hideCustSuggest();
   setInvoiceDiscount(c.discount || 0);
   requestAnimationFrame(() => artInline && artInline.focus());
@@ -799,21 +817,22 @@ function selectManualBuyer(){
   document.getElementById('customer_id').value = '';
   document.getElementById('customer_label').value = '— ručni unos —';
   if (custInline) custInline.value = 'Ručni unos';
-  document.getElementById('manual-buyer').style.display = 'flex';
-  setBuyerEmail('');
+  fillBuyerFields({ name: '', pib: '', email: '' });
+  setBuyerFieldsHint(false);
+  setBuyerFieldsVisible(true);
   hideCustSuggest();
   setInvoiceDiscount(0);
   requestAnimationFrame(() => {
-    const pib = document.getElementById('buyer_pib');
-    if (pib && pib.focus) pib.focus();
+    const nameEl = document.getElementById('buyer_name');
+    if (nameEl && nameEl.focus) nameEl.focus();
   });
 }
 function clearCustomer(){
   document.getElementById('customer_id').value = '';
   document.getElementById('customer_label').value = '';
   if (custInline) custInline.value = '';
-  document.getElementById('manual-buyer').style.display = 'none';
-  setBuyerEmail('');
+  fillBuyerFields();
+  setBuyerFieldsVisible(false);
   setInvoiceDiscount(0);
 }
 function filterCustomers(q){
@@ -890,6 +909,7 @@ if (custInline) {
   custInline.addEventListener('click', openCustSuggest);
   custInline.addEventListener('input', ()=>{
     document.getElementById('customer_id').value = '';
+    setBuyerFieldsHint(false);
     custSuggestIndex = -1;
     renderCustSuggest(custQuery());
   });

@@ -2085,6 +2085,7 @@ def _build_fiscalize_request_from_form(
     customer_id: str = "",
     buyer_pib: str = "",
     buyer_name: str = "",
+    buyer_email: str = "",
     due_date: str = "",
     fiscal_note: str = "",
     notes: str = "",
@@ -2218,19 +2219,37 @@ def _build_fiscalize_request_from_form(
 
     buyer = None
     customer_id = (customer_id or "").strip()
+    form_pib = (buyer_pib or "").strip() or None
+    form_name = (buyer_name or "").strip() or None
+    form_email = (buyer_email or "").strip()
     if customer_id:
         customer = _get_customer(db, tenant, int(customer_id))
         if customer:
+            if form_name and form_name != customer.name:
+                customer.name = form_name[:255]
+            new_email = form_email[:255] or None
+            if new_email != (customer.email or None):
+                customer.email = new_email
+            if form_pib and form_pib != customer.pib:
+                clash = (
+                    db.query(Customer)
+                    .filter(
+                        Customer.tenant_id == tenant.id,
+                        Customer.pib == form_pib,
+                        Customer.id != customer.id,
+                    )
+                    .first()
+                )
+                if not clash:
+                    customer.pib = form_pib[:32]
             buyer = BuyerIn(
                 pib=customer.pib,
                 name=customer.name,
                 address=customer.composed_address(),
             )
     else:
-        buyer_pib = (buyer_pib or "").strip() or None
-        buyer_name = (buyer_name or "").strip() or None
-        if buyer_pib or buyer_name:
-            buyer = BuyerIn(pib=buyer_pib, name=buyer_name)
+        if form_pib or form_name:
+            buyer = BuyerIn(pib=form_pib, name=form_name)
 
     note_parts: list[str] = []
     due = (due_date or "").strip()
@@ -2333,6 +2352,8 @@ def _invoice_editor_context(
         customer_id = ""
         customer_label = ""
         customer_email = ""
+        buyer_pib = invoice.buyer_pib or ""
+        buyer_name = invoice.buyer_name or ""
         if invoice.buyer_pib:
             cust = (
                 db.query(Customer)
@@ -2347,6 +2368,8 @@ def _invoice_editor_context(
                 customer_id = str(cust.id)
                 customer_label = f"{cust.name} ({cust.pib})"
                 customer_email = (cust.email or "").strip()
+                buyer_pib = cust.pib or buyer_pib
+                buyer_name = cust.name or buyer_name
             elif invoice.buyer_name:
                 customer_label = f"{invoice.buyer_name} ({invoice.buyer_pib})"
         elif invoice.buyer_name:
@@ -2361,9 +2384,9 @@ def _invoice_editor_context(
             "customer_id": customer_id,
             "customer_label": customer_label,
             "customer_email": customer_email,
-            "buyer_pib": "" if customer_id else (invoice.buyer_pib or ""),
-            "buyer_name": "" if customer_id else (invoice.buyer_name or ""),
-            "manual_buyer": not customer_id and bool(invoice.buyer_pib or invoice.buyer_name),
+            "buyer_pib": buyer_pib,
+            "buyer_name": buyer_name,
+            "manual_buyer": not customer_id and bool(buyer_pib or buyer_name),
             "payment_method": invoice.payment_method or "ORDER",
             "due_date": parsed["due_date_iso"] or due_default,
             "fiscal_note": parsed["fiscal_note"],
@@ -2467,6 +2490,7 @@ def invoice_new_submit(
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
+    buyer_email: str = Form(""),
     due_date: str = Form(""),
     fiscal_note: str = Form(""),
     notes: str = Form(""),
@@ -2505,6 +2529,7 @@ def invoice_new_submit(
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
+        buyer_email=buyer_email,
         due_date=due_date,
         fiscal_note=fiscal_note,
         notes=notes,
@@ -2600,6 +2625,7 @@ def invoice_edit_submit(
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
+    buyer_email: str = Form(""),
     due_date: str = Form(""),
     fiscal_note: str = Form(""),
     notes: str = Form(""),
@@ -2651,6 +2677,7 @@ def invoice_edit_submit(
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
+        buyer_email=buyer_email,
         due_date=due_date,
         fiscal_note=fiscal_note,
         notes=notes,
