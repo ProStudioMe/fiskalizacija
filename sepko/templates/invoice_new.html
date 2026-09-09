@@ -101,23 +101,44 @@
   <input type="hidden" name="action" id="form-action" value="save">
   <input type="hidden" name="as_template" id="as_template" value="{% if is_template %}1{% endif %}">
 
-  <div class="inv-compose">
+  <div class="inv-compose inv-compose--single">
     <div class="inv-compose-main">
       <div class="card inv-compose-card inv-buyer-card">
-        <div class="inv-buyer-card-head">
-          {% if is_template %}
-          <span class="inv-meta-label">Tip</span>
-          <div class="inv-num-stack">
-            <span class="inv-status-rail template" aria-hidden="true"></span>
-            <span class="inv-num-local">Šablon · ponavlja se</span>
+        <div class="inv-top-pack">
+          <div class="inv-top-num">
+            {% if is_template %}
+            <span class="inv-meta-label">Tip</span>
+            <div class="inv-num-stack">
+              <span class="inv-status-rail template" aria-hidden="true"></span>
+              <span class="inv-num-local">Šablon</span>
+            </div>
+            {% else %}
+            <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
+            <div class="inv-num-stack">
+              <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
+              <span class="inv-num-local">{{ next_display_num }}</span>
+            </div>
+            {% endif %}
           </div>
-          {% else %}
-          <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
-          <div class="inv-num-stack">
-            <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
-            <span class="inv-num-local">{{ next_display_num }}</span>
+
+          <div class="inv-top-fields">
+            <wa-input type="date" name="due_date" id="due_date" size="small" label="{% if is_template %}Zadani rok{% else %}Rok plaćanja{% endif %}" value="{{ due_date_default }}"></wa-input>
+            <wa-select name="payment_method" id="payment_method" size="small" label="Plaćanje" value="{{ pay }}">
+              <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>Gotovina</wa-option>
+              <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>Kartica</wa-option>
+              <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>Poslovna kartica</wa-option>
+              <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>Virman</wa-option>
+              <wa-option value="ADVANCE" {% if pay == 'ADVANCE' %}selected{% endif %}>Avans</wa-option>
+              <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>Drugo</wa-option>
+              <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>Na račun</wa-option>
+            </wa-select>
           </div>
-          {% endif %}
+
+          <div class="inv-top-meta">
+            <span><strong>EUR</strong></span>
+            <span class="inv-top-meta-sep" aria-hidden="true">·</span>
+            <span title="{{ user.full_name or user.email }}">{% if is_template %}Uredio{% else %}Izdao{% endif %} {{ user.full_name or user.email }}</span>
+          </div>
         </div>
 
         <div class="inv-buyer-pick">
@@ -138,6 +159,41 @@
           <wa-input name="buyer_email" id="buyer_email" type="email" label="E-mail" value="{{ (prefill.customer_email if prefill else '') }}"></wa-input>
           <p class="muted inv-buyer-fields-hint" id="buyer-fields-hint">{% if prefill and prefill.customer_id %}Izmjene se snimaju i na komitenta{% else %}Ručni unos — nije u šifrarniku{% endif %}</p>
         </div>
+
+        <details class="inv-notes-soft inv-notes-soft--compact">
+          <summary>Napomene</summary>
+          <div class="wa-form-stack inv-notes-stack">
+            <div class="inv-period-row inv-period-row--notes">
+              <wa-select name="period_month" id="period_month" size="small" label="Porezni period (opciono)" value="{{ period_month }}">
+                {% for num, label in period_months %}
+                <wa-option value="{{ num }}" {% if period_month == num %}selected{% endif %}>{{ label }}</wa-option>
+                {% endfor %}
+              </wa-select>
+              <wa-select name="period_year" id="period_year" size="small" label="Godina" value="{{ period_year }}">
+                {% for y in period_years %}
+                <wa-option value="{{ y }}" {% if period_year == y %}selected{% endif %}>{{ y }}</wa-option>
+                {% endfor %}
+              </wa-select>
+            </div>
+            {% if not is_template %}
+            <wa-textarea name="fiscal_note" id="fiscal_note" label="Napomena za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
+            {% else %}
+            <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
+            {% endif %}
+            <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Opis za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
+          </div>
+        </details>
+
+        {% if is_edit and not is_template %}
+        <div class="inv-fiscal-inline {% if editing.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">
+          <span class="inv-fiscal-inline-label">Fiskalni</span>
+          <span class="inv-fiscal-inline-item"><span class="muted">IKOF</span> {% if editing.ikof %}<code>{{ editing.ikof }}</code>{% else %}<span class="muted">—</span>{% endif %}</span>
+          <span class="inv-fiscal-inline-item"><span class="muted">JIKR</span> {% if editing.jikr %}<code>{{ editing.jikr }}</code>{% else %}<span class="muted">—</span>{% endif %}</span>
+          {% if editing.error_message %}
+          <span class="inv-fiscal-inline-err">{{ editing.error_message }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
 
       <div class="card inv-compose-card inv-lines-compose">
@@ -180,7 +236,7 @@
                 <th>Artikal</th>
                 <th class="inv-col-desk">JM</th>
                 <th class="num">Kol.</th>
-                <th class="num inv-col-desk">VP</th>
+                <th class="num">VP</th>
                 <th class="num">Pop. %</th>
                 <th class="num inv-col-desk">PDV %</th>
                 <th class="num">Ukupno</th>
@@ -211,86 +267,6 @@
         </div>
       </div>
     </div>
-
-    <aside class="inv-compose-side">
-      <div class="card inv-meta-card{% if is_template %} inv-meta-card--template{% endif %}">
-        <div class="inv-meta-body wa-form-stack inv-meta-body--flush">
-          <wa-input type="date" name="due_date" id="due_date" label="{% if is_template %}Zadani rok{% else %}Rok plaćanja{% endif %}" value="{{ due_date_default }}"></wa-input>
-          <div class="inv-period-row">
-            <wa-select name="period_month" id="period_month" label="Porezni period" value="{{ period_month }}">
-              {% for num, label in period_months %}
-              <wa-option value="{{ num }}" {% if period_month == num %}selected{% endif %}>{{ label }}</wa-option>
-              {% endfor %}
-            </wa-select>
-            <wa-select name="period_year" id="period_year" label="Godina" value="{{ period_year }}">
-              {% for y in period_years %}
-              <wa-option value="{{ y }}" {% if period_year == y %}selected{% endif %}>{{ y }}</wa-option>
-              {% endfor %}
-            </wa-select>
-          </div>
-          <wa-select name="payment_method" id="payment_method" label="Tip plaćanja" value="{{ pay }}">
-            <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>Gotovina</wa-option>
-            <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>Kartica (fizičko lice)</wa-option>
-            <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>Poslovna kartica</wa-option>
-            <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>Virman</wa-option>
-            <wa-option value="ADVANCE" {% if pay == 'ADVANCE' %}selected{% endif %}>Avans</wa-option>
-            <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>Drugo bezgotovinsko</wa-option>
-            <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>Na račun</wa-option>
-          </wa-select>
-          <div class="inv-meta-quiet-row">
-            <div>
-              <span class="inv-meta-label">Valuta</span>
-              <span class="inv-meta-plain">EUR</span>
-            </div>
-            <div>
-              <span class="inv-meta-label">{% if is_template %}Uredio{% else %}Izdao{% endif %}</span>
-              <span class="inv-meta-plain" title="{{ user.full_name or user.email }}">{{ user.full_name or user.email }}</span>
-            </div>
-          </div>
-          <details class="inv-notes-soft" open>
-            <summary>Napomene</summary>
-            <div class="wa-form-stack inv-notes-stack">
-              {% if not is_template %}
-              <wa-textarea name="fiscal_note" id="fiscal_note" label="Napomena za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
-              {% else %}
-              <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
-              {% endif %}
-              <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Opis za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
-            </div>
-          </details>
-        </div>
-      </div>
-      {% if is_edit and not is_template %}
-      <div class="card inv-fiscal-card {% if editing.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">
-        <div class="inv-section-title">Fiskalni podaci</div>
-        <dl class="inv-fiscal-dl">
-          <div>
-            <dt>IKOF</dt>
-            <dd>
-              {% if editing.ikof %}
-                <code class="inv-fiscal-code">{{ editing.ikof }}</code>
-              {% else %}
-                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
-              {% endif %}
-            </dd>
-          </div>
-          <div>
-            <dt>JIKR</dt>
-            <dd>
-              {% if editing.jikr %}
-                <code class="inv-fiscal-code">{{ editing.jikr }}</code>
-              {% else %}
-                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
-              {% endif %}
-            </dd>
-          </div>
-        </dl>
-        {% if editing.error_message %}
-        <div class="flash error" style="margin-top:0.85rem;margin-bottom:0">{{ editing.error_message }}</div>
-        {% endif %}
-      </div>
-      {% endif %}
-    </aside>
   </div>
 </form>
 {% if is_edit and not is_template %}
@@ -645,7 +621,7 @@ function renderLines(){
         <input type="hidden" name="line_name" value="${esc(l.name)}">
         <input type="hidden" name="line_vat" value="${l.vat||0}">
         <input type="hidden" name="line_note" value="${esc(l.note||'')}">
-        <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="Više detalja">
+        <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="Opis i detalji">
           <span class="inv-line-chev" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
           <span class="inv-line-text">
             <span class="inv-line-name">${esc(l.name)}${l.note ? '<span class="inv-line-note-inline"> · '+esc(l.note)+'</span>' : ''}</span>
@@ -661,16 +637,21 @@ function renderLines(){
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
         </div>
       </td>
-      <td class="num inv-col-desk">${money(l.price, 4)}</td>
+      <td class="num inv-line-price-cell">
+        <label class="inv-line-price" title="VP cijena">
+          <input class="inv-price-input${isZero ? ' is-empty' : ''}" data-i="${i}" data-f="price" inputmode="decimal" aria-label="VP cijena" value="${money(l.price)}">
+          <span class="inv-price-suffix">€</span>
+        </label>
+      </td>
       <td class="num inv-line-disc-cell">
         <label class="inv-line-disc" title="Popust %">
           <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="Popust %" value="${money(l.discount||0)}">
           <span class="inv-disc-suffix">%</span>
         </label>
       </td>
-      <td class="num inv-col-desk">${money(l.vat||0)}%</td>
+      <td class="num inv-col-desk muted">${money(l.vat||0)}%</td>
       <td class="num inv-line-total">${isZero
-        ? '<span class="inv-line-zero-tag" title="Cijena je 0 — proširi red i unesi VP cijenu">bez cijene</span>'
+        ? '<span class="inv-line-zero-tag" title="Unesi VP cijenu u polje VP">bez cijene</span>'
         : (money(a.gross) + ' €')}</td>
       <td class="inv-line-actions">
         <button type="button" class="inv-line-del" data-del="${i}" aria-label="Ukloni" title="Ukloni">
@@ -685,7 +666,6 @@ function renderLines(){
     detail.innerHTML = `
       <td colspan="8">
         <div class="inv-line-fields">
-          <label>VP cijena<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
           <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)} €</strong></div>
           <div class="inv-line-stat"><span class="muted">MP</span><strong>${money(l.price * (1 + (l.vat||0)/100) * (1 - (l.discount||0)/100))} €</strong></div>
           <label class="inv-line-note-field">Opis<input class="cell-input" data-i="${i}" data-f="note" value="${esc(l.note||'')}" placeholder="npr. Avgust 2026"></label>
@@ -702,7 +682,7 @@ function renderLines(){
       renderLines();
     });
   });
-  linesBody.querySelectorAll('.cell-input, .inv-qty-input, .inv-disc-input').forEach(el=>{
+  linesBody.querySelectorAll('.cell-input, .inv-qty-input, .inv-disc-input, .inv-price-input').forEach(el=>{
     el.addEventListener('change', ()=>{
       const i = +el.dataset.i; const f = el.dataset.f;
       let v = el.dataset.f === 'note' ? el.value : parseMoney(el.value);
@@ -712,6 +692,9 @@ function renderLines(){
       lines[i][f] = v;
       recalc();
     });
+    if (el.classList.contains('inv-price-input')) {
+      el.addEventListener('focus', ()=>{ el.select && el.select(); });
+    }
   });
   linesBody.querySelectorAll('[data-qty]').forEach(el=>{
     el.addEventListener('click', ()=>{
