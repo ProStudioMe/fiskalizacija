@@ -73,7 +73,7 @@
     <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="sepko-dialog-title" aria-describedby="sepko-dialog-msg">
       <div class="confirm-icon" data-tone="warn" aria-hidden="true">!</div>
       <div class="confirm-body">
-        <strong id="sepko-dialog-title">Obavještenje</strong>
+        <strong id="sepko-dialog-title">{{ t('dialog.title', 'Obavještenje') }}</strong>
         <p id="sepko-dialog-msg"></p>
       </div>
       <div class="confirm-actions">
@@ -98,7 +98,7 @@
         </a>
       </div>
       <div class="topbar-right">
-        <button type="button" class="theme-toggle" id="theme-toggle" title="Svijetla / tamna tema" aria-label="Promijeni temu">
+        <button type="button" class="theme-toggle" id="theme-toggle" title="{{ t('theme.toggle', 'Svijetla / tamna tema') }}" aria-label="{{ t('theme.aria', 'Promijeni temu') }}">
           <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
           <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
         </button>
@@ -117,14 +117,14 @@
     <div class="nav-backdrop" id="nav-backdrop" hidden></div>
 
     <div class="app-body">
-      <aside class="sidebar" id="sidebar" aria-label="Navigacija">
+      <aside class="sidebar" id="sidebar" aria-label="{{ t('nav.aria', 'Navigacija') }}">
         <div class="sidebar-mobile-head">
           <strong>{{ t('nav.meni', 'Meni') }}</strong>
           <button type="button" class="nav-close" id="nav-close" aria-label="{{ t('nav.meni', 'Meni') }}"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="nav-group">
           {% if is_admin_portal %}
-          <div class="nav-label">Platforma</div>
+          <div class="nav-label">{{ t('nav.platform', 'Platforma') }}</div>
           <a href="/admin/tenanti" class="nav-item {% if path.startswith('/admin/tenanti') %}active{% endif %}">
             <i data-lucide="building-2" aria-hidden="true"></i>
             Tenanti
@@ -222,7 +222,7 @@
 
       <div class="workspace">
         <div class="page-head">
-          <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}Platforma{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
+          <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}{{ t('nav.platform', 'Platforma') }}{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
           <div class="page-actions">{% block page_actions %}{% endblock %}</div>
         </div>
         <main class="panel-body">
@@ -302,7 +302,7 @@
   }
   </script>
   {% if user and not is_admin_portal %}
-  <nav class="pwa-bottom-nav" aria-label="Mobilna navigacija">
+  <nav class="pwa-bottom-nav" aria-label="{{ t('nav.mobile_aria', 'Mobilna navigacija') }}">
     <a href="/" class="{% if path == '/' %}active{% endif %}">{{ t('nav.pregled', 'Pregled') }}</a>
     <a href="/racuni/novi" class="{% if path.startswith('/racuni/novi') %}active{% endif %}">{{ t('nav.izdaj', 'Izlaz') }}</a>
     <a href="/ulazne/qr" class="{% if path.startswith('/ulazne') %}active{% endif %}">{{ t('nav.ulazne', 'Ulaz') }}</a>
@@ -326,8 +326,8 @@
       btn.type = 'button';
       btn.className = 'theme-toggle';
       btn.id = 'theme-toggle-login';
-      btn.title = 'Svijetla / tamna tema';
-      btn.setAttribute('aria-label', 'Promijeni temu');
+      btn.title = {{ t('theme.toggle', 'Svijetla / tamna tema')|tojson }};
+      btn.setAttribute('aria-label', {{ t('theme.aria', 'Promijeni temu')|tojson }});
       btn.innerHTML = '<i data-lucide="moon" class="icon-moon" aria-hidden="true"></i><i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>';
       btn.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:20';
       document.body.appendChild(btn);

@@ -24,7 +24,7 @@
   </label>
   <label class="rpt-period-field" style="flex:1;min-width:160px">
     <span>Pretraga</span>
-    <input type="search" name="q" value="{{ q or '' }}" placeholder="Naziv / PIB…" maxlength="64">
+    <input type="search" name="q" value="{{ q or '' }}" placeholder="{{ t('reports.customer_search_ph', 'Naziv / PIB…') }}" maxlength="64">
   </label>
   <button type="submit" class="btn">Primijeni</button>
 </form>

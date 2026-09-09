@@ -2,7 +2,7 @@
 {% set is_edit = editing is defined and editing %}
 {% set is_template = as_template if as_template is defined else false %}
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
-{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjeni fakturu') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
+{% block title %}{% if is_template %}{% if is_edit %}{{ t('tpl.edit_title', 'Izmjena šablona') }}{% else %}{{ t('tpl.new_title', 'Novi šablon') }}{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjeni fakturu') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
   {% if is_edit and not is_template %}
   <span class="inv-page-title inv-page-title--with-back">
@@ -23,22 +23,22 @@
   {% else %}
   <span class="inv-page-title{% if is_template %} inv-page-title--template{% endif %}">
     {% if is_template %}
-    <nav class="inv-crumb" aria-label="Lokacija">
-      <a href="/racuni/raspored">Automatske fakture</a>
+    <nav class="inv-crumb" aria-label="{{ t('col.location', 'Lokacija') }}">
+      <a href="/racuni/raspored">{{ t('sched.title', 'Automatske fakture') }}</a>
       <span class="inv-crumb-sep" aria-hidden="true">/</span>
-      <span class="inv-crumb-current">{% if is_edit %}Šablon{% else %}Novi šablon{% endif %}</span>
+      <span class="inv-crumb-current">{% if is_edit %}{{ t('sched.template', 'Šablon') }}{% else %}{{ t('tpl.new_title', 'Novi šablon') }}{% endif %}</span>
     </nav>
     {% endif %}
     <span class="inv-page-heading">
-      {% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
+      {% if is_template %}{% if is_edit %}{{ t('tpl.edit_title', 'Izmjena šablona') }}{% else %}{{ t('tpl.new_title', 'Novi šablon') }}{% endif %}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %}
       {% if is_template %}
-      <span class="badge template">Šablon</span>
+      <span class="badge template">{{ t('sched.template', 'Šablon') }}</span>
       {% else %}
       <span class="badge draft">{{ t('status.pending', 'U pripremi') }}</span>
       {% endif %}
     </span>
     {% if is_template %}
-    <span class="inv-page-sub">Kupac i fiksne stavke · broj fakture pri izdavanju</span>
+    <span class="inv-page-sub">{{ t('tpl.subtitle', 'Kupac i fiksne stavke · broj fakture pri izdavanju') }}</span>
     {% endif %}
   </span>
   {% endif %}
@@ -54,7 +54,7 @@
           <span class="inv-actions-name">{{ t('btn.print', 'Štampa') }}</span>
         </a>
         <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/pdf" data-print-pane="/racuni/{{ editing.id }}/pdf?embed=1"
-           title="A4 PDF" aria-label="A4 PDF">
+           title="{{ t('btn.pdf_a4', 'A4 PDF') }}" aria-label="{{ t('btn.pdf_a4', 'A4 PDF') }}">
           <i data-lucide="file-text" aria-hidden="true"></i>
           <span class="inv-actions-name">PDF</span>
         </a>
@@ -76,13 +76,13 @@
       </form>
     </div>
     {% if prefill and prefill.last_change %}
-    <div class="inv-last-change muted">Posljednja promjena: {{ prefill.last_change }}</div>
+    <div class="inv-last-change muted">{{ t('inv.last_change', 'Posljednja promjena') }}: {{ prefill.last_change }}</div>
     {% endif %}
   </div>
   {% elif not is_template %}
   <div class="inv-actions">
     <div class="inv-actions-btns">
-      <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="Šablon za automatsku fakturu">+ Nova Automatska faktura</a>
+      <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="{{ t('tpl.new_auto_hint', 'Šablon za automatsku fakturu') }}">+ {{ t('tpl.new_auto', 'Nova Automatska faktura') }}</a>
       <button type="submit" form="invoice-form" class="btn inv-action-loud" data-action="fiscalize">
         <i data-lucide="badge-check" aria-hidden="true"></i>
         <span class="inv-actions-name">{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
@@ -107,43 +107,43 @@
         <div class="inv-meta-top-row">
           {% if is_template %}
           <div class="inv-meta-num inv-meta-num--soft">
-            <span class="inv-meta-label">Tip</span>
+            <span class="inv-meta-label">{{ t('col.tip', 'Tip') }}</span>
             <div class="inv-num-stack">
               <span class="inv-status-rail template" aria-hidden="true"></span>
-              <span class="inv-num-local">Šablon · ponavlja se</span>
+              <span class="inv-num-local">{{ t('tpl.repeats', 'Šablon · ponavlja se') }}</span>
             </div>
           </div>
           {% else %}
           <div class="inv-meta-num">
-            <span class="inv-meta-label">{% if is_edit %}Broj fakture{% else %}Broj{% endif %}</span>
+            <span class="inv-meta-label">{% if is_edit %}{{ t('inv.number', 'Broj fakture') }}{% else %}{{ t('inv.number_short', 'Broj') }}{% endif %}</span>
             <div class="inv-num-stack">
               <span class="inv-status-rail {% if is_edit and editing.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
               <span class="inv-num-local">{{ next_display_num }}</span>
             </div>
           </div>
           {% endif %}
-          <wa-input type="date" name="due_date" id="due_date" size="small" label="{% if is_template %}Zadani rok{% else %}Rok plaćanja{% endif %}" value="{{ due_date_default }}"></wa-input>
-          <wa-select name="payment_method" id="payment_method" size="small" label="Tip plaćanja" value="{{ pay }}">
-            <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>Gotovina</wa-option>
-            <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>Kartica (fizičko lice)</wa-option>
-            <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>Poslovna kartica</wa-option>
-            <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>Virman</wa-option>
-            <wa-option value="ADVANCE" {% if pay == 'ADVANCE' %}selected{% endif %}>Avans</wa-option>
-            <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>Drugo bezgotovinsko</wa-option>
-            <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>Na račun</wa-option>
+          <wa-input type="date" name="due_date" id="due_date" size="small" label="{% if is_template %}{{ t('tpl.default_due', 'Zadani rok') }}{% else %}{{ t('inv.due', 'Rok plaćanja') }}{% endif %}" value="{{ due_date_default }}"></wa-input>
+          <wa-select name="payment_method" id="payment_method" size="small" label="{{ t('inv.payment_type', 'Tip plaćanja') }}" value="{{ pay }}">
+            <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>{{ t('pay.cash', 'Gotovina') }}</wa-option>
+            <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>{{ t('pay.card', 'Kartica (fizičko lice)') }}</wa-option>
+            <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>{{ t('pay.business_card', 'Poslovna kartica') }}</wa-option>
+            <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>{{ t('pay.wire', 'Virman') }}</wa-option>
+            <wa-option value="ADVANCE" {% if pay == 'ADVANCE' %}selected{% endif %}>{{ t('pay.advance', 'Avans') }}</wa-option>
+            <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>{{ t('pay.other_noncash', 'Drugo bezgotovinsko') }}</wa-option>
+            <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>{{ t('pay.account', 'Na račun') }}</wa-option>
           </wa-select>
           {% if not is_template %}
-          <wa-input name="fiscal_note" id="fiscal_note" size="small" class="inv-note-field" label="Napomena fisk." placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-input>
+          <wa-input name="fiscal_note" id="fiscal_note" size="small" class="inv-note-field" label="{{ t('inv.fiscal_note_short', 'Napomena fisk.') }}" placeholder="{{ t('inv.optional', 'Opciono') }}" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-input>
           {% else %}
           <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
           {% endif %}
-          <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field" label="{% if is_template %}Napomena{% else %}Opis za račun{% endif %}" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
+          <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field" label="{% if is_template %}{{ t('inv.note', 'Napomena') }}{% else %}{{ t('inv.notes', 'Opis za račun') }}{% endif %}" placeholder="{{ t('inv.optional', 'Opciono') }}" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
         </div>
       </div>
 
       {% if is_edit and not is_template and (editing.status == 'failed' or editing.ikof or editing.jikr or editing.error_message) %}
       <div class="card inv-fiscal-card {% if editing.status == 'failed' %}is-bad{% else %}is-pending{% endif %}">
-        <div class="inv-section-title">Fiskalni podaci</div>
+        <div class="inv-section-title">{{ t('inv.fiscal_data', 'Fiskalni podaci') }}</div>
         <dl class="inv-fiscal-dl">
           <div>
             <dt>IKOF</dt>
@@ -151,7 +151,7 @@
               {% if editing.ikof %}
                 <code class="inv-fiscal-code">{{ editing.ikof }}</code>
               {% else %}
-                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+                <span class="inv-fiscal-empty">{{ t('inv.assigned_after_fiscalization', 'Biće dodijeljen nakon fiskalizacije') }}</span>
               {% endif %}
             </dd>
           </div>
@@ -161,7 +161,7 @@
               {% if editing.jikr %}
                 <code class="inv-fiscal-code">{{ editing.jikr }}</code>
               {% else %}
-                <span class="inv-fiscal-empty">Biće dodijeljen nakon fiskalizacije</span>
+                <span class="inv-fiscal-empty">{{ t('inv.assigned_after_fiscalization', 'Biće dodijeljen nakon fiskalizacije') }}</span>
               {% endif %}
             </dd>
           </div>
@@ -173,12 +173,12 @@
       {% endif %}
 
       <div class="card inv-compose-card inv-buyer-card">
-        <div class="inv-section-title" style="margin:0 0 0.65rem">Kupac</div>
+        <div class="inv-section-title" style="margin:0 0 0.65rem">{{ t('inv.buyer', 'Kupac') }}</div>
         {% set buyer_return = ('/racuni/' ~ editing.id ~ '/izmijeni') if (is_edit and not is_template) else (return_to or '/racuni/novi') %}
         {% set show_selected = prefill and prefill.customer_id %}
         <div class="inv-buyer-row{% if show_selected %} has-selected{% endif %}" id="inv-buyer-row">
           <div class="inv-quick-add" id="inv-buyer-add">
-            <wa-input type="search" id="cust-inline" placeholder="Traži komitenta… Enter bira" with-clear size="medium" class="inv-cust-input" autocomplete="off" value="{{ (prefill.customer_label if prefill else '') }}"></wa-input>
+            <wa-input type="search" id="cust-inline" placeholder="{{ t('inv.search_customer', 'Traži komitenta… Enter bira') }}" with-clear size="medium" class="inv-cust-input" autocomplete="off" value="{{ (prefill.customer_label if prefill else '') }}"></wa-input>
             <div class="inv-suggest" id="cust-suggest" hidden></div>
           </div>
           <div class="inv-buyer-selected" id="buyer-selected"{% if not show_selected %} hidden{% endif %}>
@@ -188,62 +188,62 @@
             </div>
             <a class="btn secondary inv-buyer-edit" id="buyer-edit-link"
                href="{% if show_selected %}/kupci?edit={{ prefill.customer_id }}&return_to={{ buyer_return|urlencode }}{% else %}#{% endif %}"
-               {% if not show_selected %}hidden{% endif %}>Izmijeni komitenta</a>
+               {% if not show_selected %}hidden{% endif %}>{{ t('inv.edit_customer', 'Izmijeni komitenta') }}</a>
           </div>
         </div>
         <input type="hidden" id="customer_label" value="{{ (prefill.customer_label if prefill else '') }}">
         <input type="hidden" id="buyer-return-to" value="{{ buyer_return }}">
         <div class="wa-form-stack" id="manual-buyer" style="{% if prefill and prefill.manual_buyer %}{% else %}display:none{% endif %};margin-top:0.75rem">
-          <wa-input name="buyer_pib" id="buyer_pib" label="PIB (ručno)" value="{{ (prefill.buyer_pib if prefill else '') }}"></wa-input>
-          <wa-input name="buyer_name" id="buyer_name" label="Naziv (ručno)" value="{{ (prefill.buyer_name if prefill else '') }}"></wa-input>
+          <wa-input name="buyer_pib" id="buyer_pib" label="{{ t('inv.pib_manual', 'PIB (ručno)') }}" value="{{ (prefill.buyer_pib if prefill else '') }}"></wa-input>
+          <wa-input name="buyer_name" id="buyer_name" label="{{ t('inv.name_manual', 'Naziv (ručno)') }}" value="{{ (prefill.buyer_name if prefill else '') }}"></wa-input>
         </div>
       </div>
 
       <div class="card inv-compose-card inv-lines-compose">
         <div class="inv-lines-head-row">
-          <div class="inv-section-title" style="margin:0">Stavke</div>
-          <span class="inv-lines-count" id="lines-count-label">0 stavki</span>
+          <div class="inv-section-title" style="margin:0">{{ t('inv.lines', 'Stavke') }}</div>
+          <span class="inv-lines-count" id="lines-count-label">0 {{ t('inv.count_many', 'stavki') }}</span>
         </div>
 
-        <div class="inv-totals-strip" id="totals-bar" aria-label="Iznosi računa">
+        <div class="inv-totals-strip" id="totals-bar" aria-label="{{ t('inv.totals_aria', 'Iznosi računa') }}">
           <div class="inv-totals-strip-item">
-            <span class="inv-totals-strip-label">Vrijednost bez PDV-a</span>
+            <span class="inv-totals-strip-label">{{ t('inv.net_amount', 'Vrijednost bez PDV-a') }}</span>
             <span class="inv-totals-strip-value"><span id="sum-net">0,00</span><span class="totals-cur"> €</span></span>
           </div>
           <div class="inv-totals-strip-item">
-            <span class="inv-totals-strip-label">PDV ukupno</span>
+            <span class="inv-totals-strip-label">{{ t('inv.vat_total', 'PDV ukupno') }}</span>
             <span class="inv-totals-strip-value"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></span>
           </div>
           <div class="inv-totals-strip-item">
-            <span class="inv-totals-strip-label">Popust</span>
-            <button type="button" class="inv-totals-strip-value inv-totals-strip-disc" id="btn-discount" title="Popust na račun">
+            <span class="inv-totals-strip-label">{{ t('inv.discount', 'Popust') }}</span>
+            <button type="button" class="inv-totals-strip-value inv-totals-strip-disc" id="btn-discount" title="{{ t('inv.invoice_discount', 'Popust na račun') }}">
               <span id="sum-disc">0,00</span><span class="totals-cur"> €</span>
             </button>
           </div>
           <div class="inv-totals-strip-item inv-totals-strip-item--pay">
-            <span class="inv-totals-strip-label">{% if is_template %}Iznos šablona{% else %}Za uplatu{% endif %}</span>
+            <span class="inv-totals-strip-label">{% if is_template %}{{ t('tpl.amount', 'Iznos šablona') }}{% else %}{{ t('inv.to_pay', 'Za uplatu') }}{% endif %}</span>
             <span class="inv-totals-strip-value inv-totals-strip-pay"><span id="sum-gross">0,00</span><span class="totals-cur"> €</span></span>
           </div>
         </div>
 
         <div class="lines-empty" id="lines-empty" hidden>
-          <p class="lines-empty-title">Dodaj prvu stavku</p>
-          <p class="muted lines-empty-hint">Kucaj ime ili šifru ispod, pa Enter. Česti artikli su na vrhu.</p>
-          <p class="lines-empty-keys"><kbd>/</kbd> fokus pretrage</p>
+          <p class="lines-empty-title">{{ t('empty.add_first_line', 'Dodaj prvu stavku') }}</p>
+          <p class="muted lines-empty-hint">{{ t('empty.add_first_line_hint', 'Kucaj ime ili šifru ispod, pa Enter. Česti artikli su na vrhu.') }}</p>
+          <p class="lines-empty-keys"><kbd>/</kbd> {{ t('inv.focus_search', 'fokus pretrage') }}</p>
         </div>
 
         <div class="fb-table-wrap inv-lines-table-wrap" id="lines-wrap" hidden>
           <table class="fb-table fb-table--compact fb-table--lines fb-table--hover">
             <thead>
               <tr>
-                <th>Artikal</th>
-                <th class="inv-col-desk">JM</th>
-                <th class="num">Kol.</th>
-                <th class="num inv-col-desk">VP</th>
-                <th class="num">Pop. %</th>
-                <th class="num inv-col-desk">PDV %</th>
-                <th class="num">Ukupno</th>
-                <th class="inv-line-actions-h"><span class="sr-only">Akcije</span></th>
+                <th>{{ t('col.article', 'Artikal') }}</th>
+                <th class="inv-col-desk">{{ t('col.unit', 'JM') }}</th>
+                <th class="num">{{ t('col.qty_short', 'Kol.') }}</th>
+                <th class="num inv-col-desk">{{ t('col.wholesale_short', 'VP') }}</th>
+                <th class="num">{{ t('col.discount_short', 'Pop. %') }}</th>
+                <th class="num inv-col-desk">{{ t('col.vat_pct', 'PDV %') }}</th>
+                <th class="num">{{ t('col.total', 'Ukupno') }}</th>
+                <th class="inv-line-actions-h"><span class="sr-only">{{ t('col.actions', 'Akcije') }}</span></th>
               </tr>
             </thead>
             <tbody id="lines-body"></tbody>
@@ -251,18 +251,18 @@
         </div>
 
         <div class="inv-quick-add inv-quick-add--lines" id="inv-quick-add">
-          <wa-input type="search" id="art-inline" placeholder="Traži artikal… Enter dodaje" with-clear size="medium" class="inv-art-input" autocomplete="off"></wa-input>
+          <wa-input type="search" id="art-inline" placeholder="{{ t('inv.search_item', 'Traži artikal… Enter dodaje') }}" with-clear size="medium" class="inv-art-input" autocomplete="off"></wa-input>
           <div class="inv-suggest" id="art-suggest" hidden></div>
           <p class="inv-art-block" id="inv-art-block" hidden role="alert"></p>
         </div>
 
-        <div class="inv-dock inv-dock--foot" role="toolbar" aria-label="Akcije fakture">
+        <div class="inv-dock inv-dock--foot" role="toolbar" aria-label="{{ t('inv.actions_aria', 'Akcije fakture') }}">
           <wa-button href="{% if return_to %}{{ return_to }}{% elif is_template %}/racuni/raspored{% else %}/racuni{% endif %}" variant="neutral" appearance="outlined" class="inv-dock-cancel">{{ t('btn.cancel', 'Odustani') }}</wa-button>
           <div class="inv-dock-primary">
             {% if not is_template %}
-            <wa-button type="submit" data-action="save" data-template="1" variant="neutral" appearance="plain" class="inv-dock-quiet" title="Sačuvaj kao šablon za automatsku fakturu">Kao automatsku</wa-button>
+            <wa-button type="submit" data-action="save" data-template="1" variant="neutral" appearance="plain" class="inv-dock-quiet" title="{{ t('tpl.save_as_hint', 'Sačuvaj kao šablon za automatsku fakturu') }}">{{ t('inv.as_schedule', 'Kao automatsku') }}</wa-button>
             {% endif %}
-            <wa-button type="submit" data-action="save" variant="{% if is_template %}brand{% else %}neutral{% endif %}" {% if not is_template %}appearance="outlined"{% endif %}>{{ t('btn.save', 'Sačuvaj') }}{% if is_template %} šablon{% endif %}</wa-button>
+            <wa-button type="submit" data-action="save" variant="{% if is_template %}brand{% else %}neutral{% endif %}" {% if not is_template %}appearance="outlined"{% endif %}>{% if is_template %}{{ t('tpl.save_template', 'Sačuvaj šablon') }}{% else %}{{ t('btn.save', 'Sačuvaj') }}{% endif %}</wa-button>
             {% if not is_template %}
             <wa-button type="submit" data-action="fiscalize" variant="brand">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
             {% endif %}
@@ -275,43 +275,43 @@
 {% if is_edit and not is_template %}
 <aside class="inv-print-pane" id="inv-print-pane" hidden>
   <div class="inv-print-pane-head">
-    <span class="inv-print-pane-title">Pregled štampe</span>
-    <button type="button" class="btn secondary" id="inv-print-do">Štampa</button>
-    <a class="btn secondary" id="inv-print-newwin" href="/racuni/{{ editing.id }}/pdf" target="sepko-print" rel="noopener">Novi prozor</a>
-    <button type="button" class="btn secondary" id="inv-print-close">Zatvori</button>
+    <span class="inv-print-pane-title">{{ t('inv.print_preview', 'Pregled štampe') }}</span>
+    <button type="button" class="btn secondary" id="inv-print-do">{{ t('btn.print', 'Štampa') }}</button>
+    <a class="btn secondary" id="inv-print-newwin" href="/racuni/{{ editing.id }}/pdf" target="sepko-print" rel="noopener">{{ t('btn.new_window', 'Novi prozor') }}</a>
+    <button type="button" class="btn secondary" id="inv-print-close">{{ t('btn.close', 'Zatvori') }}</button>
   </div>
-  <iframe class="inv-print-frame" id="inv-print-frame" title="Pregled računa" src="about:blank" data-src="/racuni/{{ editing.id }}/pdf?embed=1"></iframe>
+  <iframe class="inv-print-frame" id="inv-print-frame" title="{{ t('inv.preview_frame', 'Pregled računa') }}" src="about:blank" data-src="/racuni/{{ editing.id }}/pdf?embed=1"></iframe>
 </aside>
 {% endif %}
 </div>
 
 {# —— Modals (Web Awesome / Shoelace) —— #}
-<wa-dialog id="modal-customers" label="Komitenti" light-dismiss with-footer style="--width: 28rem">
+<wa-dialog id="modal-customers" label="{{ t('nav.komitenti', 'Komitenti') }}" light-dismiss with-footer style="--width: 28rem">
   <div class="modal-search">
-    <wa-input type="search" id="cust-search" placeholder="Pretraga" with-clear size="small"></wa-input>
+    <wa-input type="search" id="cust-search" placeholder="{{ t('label.search', 'Pretraga') }}" with-clear size="small"></wa-input>
     <a href="/kupci" class="btn secondary" style="padding:0.45rem 0.7rem">+</a>
   </div>
   <div class="modal-list" id="cust-list"></div>
-  <wa-button slot="footer" variant="neutral" appearance="outlined" id="btn-no-customer">Bez kupca / ručni unos</wa-button>
+  <wa-button slot="footer" variant="neutral" appearance="outlined" id="btn-no-customer">{{ t('inv.no_customer', 'Bez kupca / ručni unos') }}</wa-button>
 </wa-dialog>
 
-<wa-dialog id="modal-articles" label="Artikli" light-dismiss style="--width: 32rem">
+<wa-dialog id="modal-articles" label="{{ t('nav.artikli', 'Artikli') }}" light-dismiss style="--width: 32rem">
   <div class="modal-search">
-    <wa-input type="search" id="art-search" placeholder="Pretraga" with-clear size="small"></wa-input>
+    <wa-input type="search" id="art-search" placeholder="{{ t('label.search', 'Pretraga') }}" with-clear size="small"></wa-input>
     <a href="/artikli" class="btn secondary" style="padding:0.45rem 0.7rem">+</a>
   </div>
   <div class="modal-list" id="art-list"></div>
 </wa-dialog>
 
-<wa-dialog id="modal-discount" label="Popust na račun" light-dismiss with-footer style="--width: 22rem">
-  <wa-input inputmode="decimal" id="discount-input" value="0,00" label="Popust %"></wa-input>
+<wa-dialog id="modal-discount" label="{{ t('inv.invoice_discount', 'Popust na račun') }}" light-dismiss with-footer style="--width: 22rem">
+  <wa-input inputmode="decimal" id="discount-input" value="0,00" label="{{ t('inv.discount_pct', 'Popust %') }}"></wa-input>
   <div class="disc-grid" style="margin-top:0.75rem">
     {% for p in [5,10,15,20,30,40,50,75] %}
     <button type="button" class="disc-btn" data-pct="{{ p }}">{{ p }}%</button>
     {% endfor %}
   </div>
-  <wa-button slot="footer" variant="brand" id="discount-ok">OK</wa-button>
-  <wa-button slot="footer" variant="neutral" appearance="outlined" data-dialog="close">Poništi</wa-button>
+  <wa-button slot="footer" variant="brand" id="discount-ok">{{ t('btn.ok', 'U redu') }}</wa-button>
+  <wa-button slot="footer" variant="neutral" appearance="outlined" data-dialog="close">{{ t('btn.cancel', 'Odustani') }}</wa-button>
 </wa-dialog>
 
 <script>
@@ -326,6 +326,50 @@ const CUSTOMERS = [
   {% endfor %}
 ];
 const PREFILL = {{ (prefill or none)|tojson }};
+const LBL = {
+  noResults: {{ t('common.no_results', 'Nema rezultata')|tojson }},
+  noCustomers: {{ t('inv.no_customers', 'Nema komitenata')|tojson }},
+  countOne: {{ t('inv.count_one', 'stavka')|tojson }},
+  countFew: {{ t('inv.count_few', 'stavke')|tojson }},
+  countMany: {{ t('inv.count_many', 'stavki')|tojson }},
+  articleNotFound: {{ t('inv.article_not_found', 'Artikal nije pronađen')|tojson }},
+  unknownLine: {{ t('inv.unknown_line', 'Nepoznata stavka')|tojson }},
+  line: {{ t('inv.line', 'Stavka')|tojson }},
+  noPrice: {{ t('inv.no_price', 'bez cijene')|tojson }},
+  noVatRate: {{ t('inv.no_vat_rate', 'bez PDV stope')|tojson }},
+  noVat: {{ t('inv.no_vat', 'bez PDV-a')|tojson }},
+  and: {{ t('common.and', 'i')|tojson }},
+  cannotAdd: {{ t('inv.cannot_add', 'Ne može se dodati')|tojson }},
+  article: {{ t('inv.article', 'artikal')|tojson }},
+  fixArticleHint: {{ t('inv.fix_article_hint', 'Dopuni artikal u šifrarniku.')|tojson }},
+  frequent: {{ t('inv.frequent', 'Često')|tojson }},
+  other: {{ t('common.other', 'Ostalo')|tojson }},
+  unit: {{ t('inv.unit_default', 'kom')|tojson }},
+  alreadyOnInvoice: {{ t('inv.already_on_invoice', 'Već na računu')|tojson }},
+  added: {{ t('inv.added', 'Dodato')|tojson }},
+  timesOne: {{ t('inv.times_one', 'put')|tojson }},
+  timesMany: {{ t('inv.times_many', 'puta')|tojson }},
+  vat: {{ t('settings.pdv', 'PDV')|tojson }},
+  noVatTag: {{ t('inv.no_vat_tag', 'Bez PDV')|tojson }},
+  moreDetails: {{ t('inv.more_details', 'Više detalja')|tojson }},
+  less: {{ t('common.less', 'Manje')|tojson }},
+  more: {{ t('common.more', 'Više')|tojson }},
+  discountPct: {{ t('inv.discount_pct', 'Popust %')|tojson }},
+  discount: {{ t('inv.discount', 'Popust')|tojson }},
+  remove: {{ t('btn.remove', 'Ukloni')|tojson }},
+  zeroPriceHint: {{ t('inv.zero_price_hint', 'Cijena je 0 — proširi red i unesi VP cijenu')|tojson }},
+  wholesalePrice: {{ t('inv.wholesale_price', 'VP cijena')|tojson }},
+  retailShort: {{ t('inv.retail_short', 'MP')|tojson }},
+  description: {{ t('inv.description', 'Opis')|tojson }},
+  noteExample: {{ t('inv.note_example', 'npr. Avgust 2026')|tojson }},
+  manualEntry: {{ t('inv.manual_entry', 'Ručni unos')|tojson }},
+  noCustomer: {{ t('inv.no_customer', 'Bez kupca / ručni unos')|tojson }},
+  manualEntryHint: {{ t('inv.manual_entry_hint', 'Unesi PIB i naziv ručno')|tojson }},
+  customers: {{ t('nav.komitenti', 'Komitenti')|tojson }},
+  articles: {{ t('nav.artikli', 'Artikli')|tojson }},
+  needLine: {{ t('inv.need_line', 'Dodajte barem jednu stavku.')|tojson }},
+  fixLines: {{ t('inv.fix_lines', 'Ispravi stavke prije čuvanja:')|tojson }}
+};
 const RECENT_KEY = 'sepko-recent-articles';
 const FREQ_KEY = 'sepko-freq-articles';
 
@@ -428,7 +472,7 @@ function recalc(){
   const countEl = document.getElementById('lines-count-label');
   if (countEl) {
     const n = lines.length;
-    countEl.textContent = n === 1 ? '1 stavka' : (n >= 2 && n <= 4 ? n + ' stavke' : n + ' stavki');
+    countEl.textContent = n + ' ' + (n === 1 ? LBL.countOne : (n >= 2 && n <= 4 ? LBL.countFew : LBL.countMany));
   }
   renderLines();
 }
@@ -452,24 +496,24 @@ function markJustAdded(id){
 }
 
 function articleBlockReason(a){
-  if (!a) return 'Artikal nije pronađen';
+  if (!a) return LBL.articleNotFound;
   const price = Number(a.price);
   const vat = Number(a.vat);
   const tax = String(a.tax || '').trim();
   const problems = [];
-  if (!(isFinite(price) && price > 0)) problems.push('bez cijene');
-  if (!tax || !isFinite(vat) || vat < 0) problems.push('bez PDV stope');
-  return problems.length ? problems.join(' i ') : '';
+  if (!(isFinite(price) && price > 0)) problems.push(LBL.noPrice);
+  if (!tax || !isFinite(vat) || vat < 0) problems.push(LBL.noVatRate);
+  return problems.length ? problems.join(' ' + LBL.and + ' ') : '';
 }
 
 function lineBlockReason(l){
-  if (!l) return 'Nepoznata stavka';
+  if (!l) return LBL.unknownLine;
   const price = Number(l.price);
   const vat = Number(l.vat);
   const problems = [];
-  if (!(isFinite(price) && price > 0)) problems.push('bez cijene');
-  if (!isFinite(vat) || vat < 0) problems.push('bez PDV-a');
-  return problems.length ? (l.name || l.code || 'Stavka') + ': ' + problems.join(' i ') : '';
+  if (!(isFinite(price) && price > 0)) problems.push(LBL.noPrice);
+  if (!isFinite(vat) || vat < 0) problems.push(LBL.noVat);
+  return problems.length ? (l.name || l.code || LBL.line) + ': ' + problems.join(' ' + LBL.and + ' ') : '';
 }
 
 function showArtBlock(msg){
@@ -488,7 +532,7 @@ function addArticle(a){
   if (!a) return;
   const block = articleBlockReason(a);
   if (block) {
-    showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + block + '). Dopuni artikal u šifrarniku.');
+    showArtBlock(LBL.cannotAdd + ' — ' + (a.name || a.code || LBL.article) + ' (' + block + '). ' + LBL.fixArticleHint);
     return;
   }
   const existing = lines.find(l => l.id === a.id);
@@ -528,8 +572,8 @@ function buildSuggestSections(q){
   const freqIds = new Set(freq.map(a => a.id));
   const rest = ARTICLES.filter(a => !freqIds.has(a.id)).slice(0, 8);
   const sections = [];
-  if (freq.length) sections.push({ label: 'Često', items: freq });
-  if (rest.length) sections.push({ label: freq.length ? 'Ostalo' : null, items: rest });
+  if (freq.length) sections.push({ label: LBL.frequent, items: freq });
+  if (rest.length) sections.push({ label: freq.length ? LBL.other : null, items: rest });
   if (!sections.length) sections.push({ label: null, items: [] });
   return { items: [...freq, ...rest], sections };
 }
@@ -561,7 +605,7 @@ function renderSuggest(q){
   const built = buildSuggestSections(q);
   suggestItems = built.items;
   if (!suggestItems.length){
-    artSuggest.innerHTML = '<div class="inv-suggest-empty muted">Nema rezultata</div>';
+    artSuggest.innerHTML = '<div class="inv-suggest-empty muted">' + esc(LBL.noResults) + '</div>';
     artSuggest.hidden = false;
     return;
   }
@@ -574,13 +618,13 @@ function renderSuggest(q){
       const isOnInv = qtyOnInv > 0;
       const block = articleBlockReason(a);
       const disabled = !!block;
-      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${disabled?' is-blocked':''}" data-si="${idx}" data-aid="${a.id}" ${disabled?'aria-disabled="true"':''} title="${disabled ? esc('Ne može se dodati — ' + block) : ''}">
+      html += `<button type="button" class="inv-suggest-row${idx===suggestIndex?' is-active':''}${isOnInv?' is-on-invoice':''}${disabled?' is-blocked':''}" data-si="${idx}" data-aid="${a.id}" ${disabled?'aria-disabled="true"':''} title="${disabled ? esc(LBL.cannotAdd + ' — ' + block) : ''}">
         <span class="modal-code">${esc(a.code)}</span>
-        <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||'kom')}${disabled ? ' · ' + esc(block) : ''}</span></span>
-        ${isOnInv ? `<span class="inv-suggest-added" title="Već na računu"><i data-lucide="check" aria-hidden="true"></i><span>Dodato ${qtyFmt(qtyOnInv)} ${qtyOnInv === 1 ? 'put' : 'puta'}</span></span>` : (disabled ? `<span class="inv-suggest-blocked">${esc(block)}</span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>')}
+        <span class="modal-row-body"><strong>${esc(a.name)}</strong><span class="modal-row-meta">${esc(a.unit||LBL.unit)}${disabled ? ' · ' + esc(block) : ''}</span></span>
+        ${isOnInv ? `<span class="inv-suggest-added" title="${esc(LBL.alreadyOnInvoice)}"><i data-lucide="check" aria-hidden="true"></i><span>${esc(LBL.added)} ${qtyFmt(qtyOnInv)} ${esc(qtyOnInv === 1 ? LBL.timesOne : LBL.timesMany)}</span></span>` : (disabled ? `<span class="inv-suggest-blocked">${esc(block)}</span>` : '<span class="inv-suggest-added-slot" aria-hidden="true"></span>')}
         <span class="modal-row-side">
           <span class="modal-row-price">${money(a.price)} €</span>
-          <span class="modal-row-vat">${a.tax ? ('PDV ' + a.vat + '%') : 'Bez PDV'}</span>
+          <span class="modal-row-vat">${a.tax ? (LBL.vat + ' ' + a.vat + '%') : LBL.noVatTag}</span>
         </span>
       </button>`;
       idx += 1;
@@ -594,7 +638,7 @@ function renderSuggest(q){
       e.preventDefault();
       const a = suggestItems[+btn.dataset.si];
       if (articleBlockReason(a)) {
-        showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + articleBlockReason(a) + '). Dopuni artikal u šifrarniku.');
+        showArtBlock(LBL.cannotAdd + ' — ' + (a.name || a.code || LBL.article) + ' (' + articleBlockReason(a) + '). ' + LBL.fixArticleHint);
         return;
       }
       addArticle(a);
@@ -624,35 +668,35 @@ function renderLines(){
         <input type="hidden" name="line_name" value="${esc(l.name)}">
         <input type="hidden" name="line_vat" value="${l.vat||0}">
         <input type="hidden" name="line_note" value="${esc(l.note||'')}">
-        <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="Više detalja">
+        <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="${esc(LBL.moreDetails)}">
           <span class="inv-line-chev" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
           <span class="inv-line-text">
             <span class="inv-line-name">${esc(l.name)}${l.note ? '<span class="inv-line-note-inline"> · '+esc(l.note)+'</span>' : ''}</span>
-            <span class="inv-line-sub muted">${esc(l.code)} · ${esc(l.unit||'kom')}</span>
+            <span class="inv-line-sub muted">${esc(l.code)} · ${esc(l.unit||LBL.unit)}</span>
           </span>
         </button>
       </td>
-      <td class="inv-col-desk muted">${esc(l.unit||'kom')}</td>
+      <td class="inv-col-desk muted">${esc(l.unit||LBL.unit)}</td>
       <td class="num inv-line-qty-cell">
         <div class="inv-qty">
-          <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="-1" aria-label="Manje">−</button>
+          <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="-1" aria-label="${esc(LBL.less)}">−</button>
           <input class="inv-qty-input" data-i="${i}" data-f="qty" inputmode="decimal" value="${qtyFmt(l.qty)}">
-          <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
+          <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="${esc(LBL.more)}">+</button>
         </div>
       </td>
       <td class="num inv-col-desk">${money(l.price, 4)}</td>
       <td class="num inv-line-disc-cell">
-        <label class="inv-line-disc" title="Popust %">
-          <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="Popust %" value="${money(l.discount||0)}">
+        <label class="inv-line-disc" title="${esc(LBL.discountPct)}">
+          <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="${esc(LBL.discountPct)}" value="${money(l.discount||0)}">
           <span class="inv-disc-suffix">%</span>
         </label>
       </td>
       <td class="num inv-col-desk">${money(l.vat||0)}%</td>
       <td class="num inv-line-total">${isZero
-        ? '<span class="inv-line-zero-tag" title="Cijena je 0 — proširi red i unesi VP cijenu">bez cijene</span>'
+        ? '<span class="inv-line-zero-tag" title="' + esc(LBL.zeroPriceHint) + '">' + esc(LBL.noPrice) + '</span>'
         : (money(a.gross) + ' €')}</td>
       <td class="inv-line-actions">
-        <button type="button" class="inv-line-del" data-del="${i}" aria-label="Ukloni" title="Ukloni">
+        <button type="button" class="inv-line-del" data-del="${i}" aria-label="${esc(LBL.remove)}" title="${esc(LBL.remove)}">
           <i data-lucide="x"></i>
         </button>
       </td>`;
@@ -664,10 +708,10 @@ function renderLines(){
     detail.innerHTML = `
       <td colspan="8">
         <div class="inv-line-fields">
-          <label>VP cijena<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
-          <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)} €</strong></div>
-          <div class="inv-line-stat"><span class="muted">MP</span><strong>${money(l.price * (1 + (l.vat||0)/100) * (1 - (l.discount||0)/100))} €</strong></div>
-          <label class="inv-line-note-field">Opis<input class="cell-input" data-i="${i}" data-f="note" value="${esc(l.note||'')}" placeholder="npr. Avgust 2026"></label>
+          <label>${esc(LBL.wholesalePrice)}<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
+          <div class="inv-line-stat"><span class="muted">${esc(LBL.vat)}</span><strong>${money(l.vat)}% · ${money(a.vat)} €</strong></div>
+          <div class="inv-line-stat"><span class="muted">${esc(LBL.retailShort)}</span><strong>${money(l.price * (1 + (l.vat||0)/100) * (1 - (l.discount||0)/100))} €</strong></div>
+          <label class="inv-line-note-field">${esc(LBL.description)}<input class="cell-input" data-i="${i}" data-f="note" value="${esc(l.note||'')}" placeholder="${esc(LBL.noteExample)}"></label>
         </div>
       </td>`;
     linesBody.appendChild(detail);
@@ -729,7 +773,7 @@ function applyPrefill(){
       id: l.id,
       code: l.code,
       name: l.name,
-      unit: l.unit || 'kom',
+      unit: l.unit || LBL.unit,
       price: parseMoney(l.price)||0,
       vat: parseMoney(l.vat)||0,
       tax: l.tax || '',
@@ -809,7 +853,7 @@ function selectCustomer(c){
 function selectManualBuyer(){
   document.getElementById('customer_id').value = '';
   document.getElementById('customer_label').value = '— ručni unos —';
-  if (custInline) custInline.value = 'Ručni unos';
+  if (custInline) custInline.value = LBL.manualEntry;
   document.getElementById('manual-buyer').style.display = 'flex';
   clearSelectedBuyer();
   hideCustSuggest();
@@ -862,13 +906,13 @@ function renderCustSuggest(q){
   custSuggestItems = filterCustomers(q);
   let html = '';
   if (!custSuggestItems.length && (q || '').trim()) {
-    html = '<div class="inv-suggest-empty muted">Nema rezultata</div>';
+    html = '<div class="inv-suggest-empty muted">' + esc(LBL.noResults) + '</div>';
   } else {
     custSuggestItems.forEach((c, idx) => {
       const meta = [
         c.pib ? `PIB ${c.pib}` : '',
-        c.pdv ? `PDV ${c.pdv}` : '',
-        (c.discount > 0) ? `Popust ${money(c.discount)}%` : '',
+        c.pdv ? `${LBL.vat} ${c.pdv}` : '',
+        (c.discount > 0) ? `${LBL.discount} ${money(c.discount)}%` : '',
       ].filter(Boolean).join(' · ');
       html += `<button type="button" class="inv-suggest-row${idx===custSuggestIndex?' is-active':''}" data-ci="${idx}">
         <span class="avatar">${esc((c.name||'?').slice(0,2).toUpperCase())}</span>
@@ -876,11 +920,11 @@ function renderCustSuggest(q){
       </button>`;
     });
     if (!(q || '').trim() && !custSuggestItems.length) {
-      html = '<div class="inv-suggest-empty muted">Nema komitenata</div>';
+      html = '<div class="inv-suggest-empty muted">' + esc(LBL.noCustomers) + '</div>';
     }
   }
   html += `<button type="button" class="inv-suggest-row inv-suggest-manual" data-manual="1">
-    <span class="modal-row-body"><strong>Bez kupca / ručni unos</strong><span class="modal-row-meta">Unesi PIB i naziv ručno</span></span>
+    <span class="modal-row-body"><strong>${esc(LBL.noCustomer)}</strong><span class="modal-row-meta">${esc(LBL.manualEntryHint)}</span></span>
   </button>`;
   custSuggest.innerHTML = html;
   custSuggest.hidden = false;
@@ -940,14 +984,14 @@ function renderCustomers(filter=''){
     || String(c.pib||'').includes(q)
     || String(c.pdv||'').toLowerCase().includes(q));
   const dlg = document.getElementById('modal-customers');
-  if (dlg) dlg.label = 'Komitenti (' + list.length + ')';
+  if (dlg) dlg.label = LBL.customers + ' (' + list.length + ')';
   const box = document.getElementById('cust-list');
   if (!box) return;
   box.innerHTML = list.map(c=>{
     const meta = [
       c.pib ? `PIB ${c.pib}` : '',
-      c.pdv ? `PDV ${c.pdv}` : '',
-      (c.discount > 0) ? `Popust ${money(c.discount)}%` : '',
+      c.pdv ? `${LBL.vat} ${c.pdv}` : '',
+      (c.discount > 0) ? `${LBL.discount} ${money(c.discount)}%` : '',
     ].filter(Boolean).join(' · ');
     return `
     <button type="button" class="modal-row" data-cid="${c.id}">
@@ -957,7 +1001,7 @@ function renderCustomers(filter=''){
         <span class="modal-row-meta">${meta || '—'}</span>
       </span>
     </button>`;
-  }).join('') || '<div class="muted" style="padding:1rem">Nema rezultata</div>';
+  }).join('') || '<div class="muted" style="padding:1rem">' + esc(LBL.noResults) + '</div>';
   box.querySelectorAll('[data-cid]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const c = CUSTOMERS.find(x=>x.id==btn.dataset.cid);
@@ -971,28 +1015,28 @@ function renderArticles(filter=''){
   const q = filter.toLowerCase();
   const list = ARTICLES.filter(a => !q || a.name.toLowerCase().includes(q) || String(a.code).toLowerCase().includes(q));
   const dlg = document.getElementById('modal-articles');
-  if (dlg) dlg.label = 'Artikli (' + list.length + ')';
+  if (dlg) dlg.label = LBL.articles + ' (' + list.length + ')';
   const box = document.getElementById('art-list');
   box.innerHTML = list.map(a=>{
     const block = articleBlockReason(a);
     return `
-    <button type="button" class="modal-row${block?' is-blocked':''}" data-aid="${a.id}" ${block?'aria-disabled="true"':''} title="${block ? esc('Ne može se dodati — ' + block) : ''}">
+    <button type="button" class="modal-row${block?' is-blocked':''}" data-aid="${a.id}" ${block?'aria-disabled="true"':''} title="${block ? esc(LBL.cannotAdd + ' — ' + block) : ''}">
       <span class="modal-code">${esc(a.code)}</span>
       <span class="modal-row-body">
         <strong>${esc(a.name)}</strong>
-        <span class="modal-row-meta">${esc(a.unit || 'kom')}${block ? ' · ' + esc(block) : ''}</span>
+        <span class="modal-row-meta">${esc(a.unit || LBL.unit)}${block ? ' · ' + esc(block) : ''}</span>
       </span>
       <span class="modal-row-side">
         <span class="modal-row-price">${money(a.price)} €</span>
-        <span class="modal-row-vat">${a.tax ? ('PDV ' + a.vat + '%') : 'Bez PDV'}</span>
+        <span class="modal-row-vat">${a.tax ? (LBL.vat + ' ' + a.vat + '%') : LBL.noVatTag}</span>
       </span>
     </button>`;
-  }).join('') || '<div class="muted" style="padding:1rem">Nema rezultata</div>';
+  }).join('') || '<div class="muted" style="padding:1rem">' + esc(LBL.noResults) + '</div>';
   box.querySelectorAll('[data-aid]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const a = ARTICLES.find(x=>x.id==btn.dataset.aid);
       if (articleBlockReason(a)) {
-        showArtBlock('Ne može se dodati — ' + (a.name || a.code || 'artikal') + ' (' + articleBlockReason(a) + '). Dopuni artikal u šifrarniku.');
+        showArtBlock(LBL.cannotAdd + ' — ' + (a.name || a.code || LBL.article) + ' (' + articleBlockReason(a) + '). ' + LBL.fixArticleHint);
         return;
       }
       closeWaDialog('modal-articles');
@@ -1074,11 +1118,11 @@ document.getElementById('discount-ok').addEventListener('click', ()=>{
 });
 
 document.getElementById('invoice-form').addEventListener('submit', e=>{
-  if(!lines.length){ e.preventDefault(); alert('Dodajte barem jednu stavku.'); artInline.focus(); return; }
+  if(!lines.length){ e.preventDefault(); alert(LBL.needLine); artInline.focus(); return; }
   const bad = lines.map(lineBlockReason).filter(Boolean);
   if (bad.length) {
     e.preventDefault();
-    showArtBlock('Ispravi stavke prije čuvanja: ' + bad.join('; '));
+    showArtBlock(LBL.fixLines + ' ' + bad.join('; '));
     return;
   }
 });

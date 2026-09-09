@@ -1,13 +1,13 @@
 <div class="row-icon-actions">
 {% if edit_href is defined and edit_href %}
-  <a class="btn-icon" href="{{ edit_href }}" title="Izmijeni" aria-label="Izmijeni">
+  <a class="btn-icon" href="{{ edit_href }}" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
     <i data-lucide="pencil" aria-hidden="true"></i>
   </a>
 {% endif %}
 {% if delete_url is defined and delete_url %}
   <form method="post" action="{{ delete_url }}" class="row-icon-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn-icon danger" type="submit" title="Ukloni" aria-label="Ukloni">
+    <button class="btn-icon danger" type="submit" title="{{ t('btn.remove', 'Ukloni') }}" aria-label="{{ t('btn.remove', 'Ukloni') }}">
       <i data-lucide="trash-2" aria-hidden="true"></i>
     </button>
   </form>

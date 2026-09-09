@@ -2,7 +2,7 @@
 {% block title %}{{ t('page.artikli', 'Artikli') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.artikli', 'Artikli') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/podesavanja/artikli">← Hub</a>
+  <a class="btn secondary" href="/podesavanja/artikli">← {{ t('btn.hub', 'Hub') }}</a>
   {% if return_to and has_active_articles %}
   <a class="btn" href="{{ return_to }}">{{ t('btn.continue_invoice', 'Nastavi na fakturu') }} →</a>
   {% elif not return_to %}
@@ -14,7 +14,7 @@
   {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
   <div class="search-bar" style="margin:0;flex:1;min-width:200px">
     <i data-lucide="search" aria-hidden="true"></i>
-    <input name="q" value="{{ q }}" placeholder="Pretraga naziv / šifra / barkod…">
+    <input name="q" value="{{ q }}" placeholder="{{ t('article.search_ph', 'Pretraga naziv / šifra / barkod…') }}">
   </div>
   {% include "_per_page.html" %}
 </form>
@@ -25,27 +25,27 @@
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
     <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input label="Šifra artikla" value="{{ editing.code }}" disabled></wa-input>
-      <wa-input name="name" label="Naziv" value="{{ editing.name }}" required maxlength="255"></wa-input>
-      <wa-input name="unit" label="Jedinica mjere" value="{{ editing.unit }}"></wa-input>
+      <wa-input label="{{ t('article.code', 'Šifra artikla') }}" value="{{ editing.code }}" disabled></wa-input>
+      <wa-input name="name" label="{{ t('article.name', 'Naziv') }}" value="{{ editing.name }}" required maxlength="255"></wa-input>
+      <wa-input name="unit" label="{{ t('article.unit', 'Jedinica mjere') }}" value="{{ editing.unit }}"></wa-input>
       <div class="row">
-        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="{% if editing.price_retail is not none %}{{ editing.price_retail|money(4) }}{% endif %}"></wa-input>
-        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="{{ editing.price_gross|money(4) }}" required></wa-input>
+        <wa-input name="price_retail" label="{{ t('article.price_retail', 'Maloprodajna cijena') }}" inputmode="decimal" placeholder="0,00" value="{% if editing.price_retail is not none %}{{ editing.price_retail|money(4) }}{% endif %}"></wa-input>
+        <wa-input name="price_gross" label="{{ t('article.price_vp', 'Veleprodajna cijena (VP, bez PDV)') }}" inputmode="decimal" placeholder="0,00" value="{{ editing.price_gross|money(4) }}" required></wa-input>
       </div>
-      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" value="{% if editing.stock_qty is not none %}{{ editing.stock_qty|money(4) }}{% endif %}"></wa-input>
-      <wa-input name="barcode" label="Barkod" value="{{ editing.barcode or '' }}"></wa-input>
-      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
+      <wa-input name="stock_qty" label="{{ t('article.stock', 'Količina na lageru') }}" inputmode="decimal" value="{% if editing.stock_qty is not none %}{{ editing.stock_qty|money(4) }}{% endif %}"></wa-input>
+      <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}" value="{{ editing.barcode or '' }}"></wa-input>
+      <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
         {% for tax_rate in tax_rates %}
         <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
         {% endfor %}
       </wa-select>
-      <wa-select name="category_id" label="Kategorija" value="{{ editing.category_id or '' }}">
+      <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="{{ editing.category_id or '' }}">
         <wa-option value="">—</wa-option>
         {% for c in categories %}
         <wa-option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</wa-option>
         {% endfor %}
       </wa-select>
-      <wa-textarea name="description" label="Opis" rows="3" value="{{ editing.description or '' }}"></wa-textarea>
+      <wa-textarea name="description" label="{{ t('article.description', 'Opis') }}" rows="3" value="{{ editing.description or '' }}"></wa-textarea>
       <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
         {% set preview_src = thumb_url if thumb_url else none %}
@@ -56,7 +56,7 @@
         {% include "_thumb_upload.html" %}
       </div>
       <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
+        <label>{{ t('article.color', 'Izaberite boju') }}</label>
         <div class="color-row">
           {% for col in colors %}
           <label class="color-dot" style="background:{{ col }}">
@@ -72,34 +72,34 @@
     </form>
     <form method="post" action="/artikli/{{ editing.id }}/obrisi" style="margin-top:0.75rem">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-button type="submit" variant="danger">{{ t('btn.delete', 'Obriši') }} (deaktiviraj)</wa-button>
+      <wa-button type="submit" variant="danger">{{ t('article.deactivate', 'Obriši (deaktiviraj)') }}</wa-button>
     </form>
     {% else %}
     <h2>{{ t('btn.add', 'Novi') }}</h2>
     <form method="post" action="/artikli" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-      <wa-input name="code" label="Šifra artikla" required maxlength="64"></wa-input>
-      <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
-      <wa-input name="unit" label="Jedinica mjere" value="kom"></wa-input>
+      <wa-input name="code" label="{{ t('article.code', 'Šifra artikla') }}" required maxlength="64"></wa-input>
+      <wa-input name="name" label="{{ t('article.name', 'Naziv') }}" required maxlength="255"></wa-input>
+      <wa-input name="unit" label="{{ t('article.unit', 'Jedinica mjere') }}" value="kom"></wa-input>
       <div class="row">
-        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="0,00"></wa-input>
-        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="1,00" required></wa-input>
+        <wa-input name="price_retail" label="{{ t('article.price_retail', 'Maloprodajna cijena') }}" inputmode="decimal" placeholder="0,00" value="0,00"></wa-input>
+        <wa-input name="price_gross" label="{{ t('article.price_vp', 'Veleprodajna cijena (VP, bez PDV)') }}" inputmode="decimal" placeholder="0,00" value="1,00" required></wa-input>
       </div>
-      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" placeholder="0"></wa-input>
-      <wa-input name="barcode" label="Barkod"></wa-input>
-      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
+      <wa-input name="stock_qty" label="{{ t('article.stock', 'Količina na lageru') }}" inputmode="decimal" placeholder="0"></wa-input>
+      <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}"></wa-input>
+      <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
         {% for tax_rate in tax_rates %}
         <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
         {% endfor %}
       </wa-select>
-      <wa-select name="category_id" label="Kategorija" value="">
+      <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="">
         <wa-option value="" selected>—</wa-option>
         {% for c in categories %}
         <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
         {% endfor %}
       </wa-select>
-      <wa-textarea name="description" label="Opis" rows="3"></wa-textarea>
+      <wa-textarea name="description" label="{{ t('article.description', 'Opis') }}" rows="3"></wa-textarea>
       <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
         {% set preview_src = none %}
@@ -109,7 +109,7 @@
         {% include "_thumb_upload.html" %}
       </div>
       <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
+        <label>{{ t('article.color', 'Izaberite boju') }}</label>
         <div class="color-row">
           {% for col in colors %}
           <label class="color-dot" style="background:{{ col }}">
@@ -128,16 +128,16 @@
   <div class="plan-card">
     <div class="plan-head">
       <div>
-        <h2>{{ t('page.artikli', 'Artikli') }} ({{ articles|length }} od {{ total }})</h2>
-        <div class="cell-secondary">Dodaj / izmijeni</div>
+        <h2>{{ t('page.artikli', 'Artikli') }} ({{ articles|length }} {{ t('common.of', 'od') }} {{ total }})</h2>
+        <div class="cell-secondary">{{ t('article.list_hint', 'Dodaj / izmijeni') }}</div>
       </div>
     </div>
     <table class="soft-table">
       <thead>
         <tr>
-          <th>Artikal</th>
-          <th class="num">VP cijena</th>
-          <th>PDV</th>
+          <th>{{ t('article.col_item', 'Artikal') }}</th>
+          <th class="num">{{ t('article.col_vp', 'VP cijena') }}</th>
+          <th>{{ t('col.vat', 'PDV') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -153,7 +153,7 @@
               {% endif %}
               {{ a.name }}{% if not a.active %} <span class="pill-tag bad">off</span>{% endif %}
             </div>
-            <div class="cell-secondary">Šifra {{ a.code }} · {{ a.unit }}</div>
+            <div class="cell-secondary">{{ t('col.code', 'Šifra') }} {{ a.code }} · {{ a.unit }}</div>
           </td>
           <td class="num"><strong>{{ a.price_gross|money }} €</strong></td>
           <td><span class="pill-tag">{{ "%.0f"|format(a.vat_rate) }}%</span></td>
@@ -163,7 +163,7 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="4" class="muted" style="padding:1.25rem">{% if return_to %}Nema artikala. Dodaj prvi u formi lijevo, pa nastavi na fakturu.{% else %}Nema artikala.{% endif %}</td></tr>
+        <tr><td colspan="4" class="muted" style="padding:1.25rem">{% if return_to %}{{ t('article.empty_return', 'Nema artikala. Dodaj prvi u formi lijevo, pa nastavi na fakturu.') }}{% else %}{{ t('article.empty', 'Nema artikala.') }}{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>

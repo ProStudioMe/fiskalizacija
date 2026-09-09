@@ -29,7 +29,7 @@
   <a class="btn secondary" href="/izvjestaji/komitenti?year={{ year }}&month={{ month }}">Po komitentima</a>
 </form>
 
-<nav class="rpt-toc no-print" aria-label="Sekcije na stranici">
+<nav class="rpt-toc no-print" aria-label="{{ t('reports.toc_aria', 'Sekcije na stranici') }}">
   <a href="#rpt-kpi">Sažetak</a>
   <a href="#rpt-daily">Dnevno</a>
   <a href="#rpt-trend">Trend</a>
@@ -42,7 +42,7 @@
   <a href="#rpt-cash">Blagajna</a>
 </nav>
 
-<section id="rpt-kpi" class="rpt-kpis" aria-label="Sažetak">
+<section id="rpt-kpi" class="rpt-kpis" aria-label="{{ t('reports.summary_aria', 'Sažetak') }}">
   <div class="rpt-kpi">
     <span class="rpt-kpi-label">Izlazne (bruto)</span>
     <strong class="rpt-kpi-value">{{ out_gross|money }} €</strong>
@@ -160,7 +160,7 @@
     <h2>Dnevni promet — izlazne</h2>
     <p class="muted">Fiskalizovani bruto po danu</p>
   </header>
-  <div class="rpt-bars" role="img" aria-label="Dnevni izlazni promet">
+  <div class="rpt-bars" role="img" aria-label="{{ t('reports.daily_out_aria', 'Dnevni izlazni promet') }}">
     {% for b in daily_chart %}
     <div class="rpt-bar" title="{{ b.label }}. — {{ '%.2f'|format(b.value)|replace('.', ',') }} € ({{ b.count }})">
       <div class="rpt-bar-fill" style="height:{{ b.height_pct }}%"></div>
@@ -175,7 +175,7 @@
     <h2>Dnevni ulaz</h2>
     <p class="muted">Ulazne fakture po datumu izdavanja</p>
   </header>
-  <div class="rpt-bars rpt-bars--in" role="img" aria-label="Dnevni ulaz">
+  <div class="rpt-bars rpt-bars--in" role="img" aria-label="{{ t('reports.daily_in_aria', 'Dnevni ulaz') }}">
     {% for b in daily_in_chart %}
     <div class="rpt-bar" title="{{ b.label }}. — {{ '%.2f'|format(b.value)|replace('.', ',') }} € ({{ b.count }})">
       <div class="rpt-bar-fill is-in" style="height:{{ b.height_pct }}%"></div>

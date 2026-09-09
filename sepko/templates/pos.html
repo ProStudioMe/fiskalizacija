@@ -134,7 +134,7 @@
 </div>
 
 {% if pwa %}
-<nav class="pos-pwa-nav" aria-label="Kasa">
+<nav class="pos-pwa-nav" aria-label="{{ t('page.kasa', 'Kasa') }}">
   <a href="/app/kasa" class="active">
     <i data-lucide="monitor" aria-hidden="true"></i>
     {{ t('page.kasa', 'Kasa') }}
@@ -175,7 +175,7 @@
         <span>PDV %</span>
         <input type="text" id="pos-custom-vat" name="vat" inputmode="decimal" value="21" autocomplete="off">
       </label>
-      <div class="pos-custom-vat-chips" role="group" aria-label="PDV">
+      <div class="pos-custom-vat-chips" role="group" aria-label="{{ t('inv.tax', 'PDV') }}">
         <button type="button" class="pos-custom-chip" data-vat="21">21%</button>
         <button type="button" class="pos-custom-chip" data-vat="7">7%</button>
         <button type="button" class="pos-custom-chip" data-vat="0">0%</button>

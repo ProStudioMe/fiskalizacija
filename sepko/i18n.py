@@ -3220,6 +3220,10 @@ STRINGS_SEED: list[dict] = [
     },
 ]
 
+from sepko.i18n_complements import apply_complements
+
+apply_complements(STRINGS_SEED)
+
 
 def ensure_languages(db: Session) -> list[Language]:
     rows: list[Language] = []
@@ -3303,8 +3307,8 @@ def list_languages(db: Session, *, active_only: bool = True) -> list[tuple[str, 
         q = q.filter(Language.active.is_(True))
     rows = q.order_by(Language.sort_order, Language.code).all()
     if not rows:
-        return [(x["code"], x["name"]) for x in LANGUAGES_SEED]
-    return [(r.code, r.name) for r in rows]
+        return [(x["code"], x["native_name"] or x["name"]) for x in LANGUAGES_SEED]
+    return [(r.code, (r.native_name or r.name)) for r in rows]
 
 
 def get_translations_map(db: Session, language_code: str) -> dict[str, str]:

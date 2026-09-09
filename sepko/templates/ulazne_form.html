@@ -55,7 +55,7 @@
           <button type="button" class="btn secondary" id="supplier-clear">{{ t('ulazne.change_supplier_short', 'Promijeni') }}</button>
         </div>
         <div class="row inc-supplier-manual" id="supplier-manual">
-          <wa-input name="supplier_pib" id="supplier_pib" label="PIB" value="{{ prefill.supplier_pib or '' }}" placeholder="8 cifara"></wa-input>
+          <wa-input name="supplier_pib" id="supplier_pib" label="{{ t('label.pib', 'PIB') }}" value="{{ prefill.supplier_pib or '' }}" placeholder="{{ t('label.pib_digits', '8 cifara') }}"></wa-input>
           <wa-input name="supplier_name" id="supplier_name" label="{{ t('col.name', 'Naziv') }}" value="{{ prefill.supplier_name or '' }}"></wa-input>
         </div>
       </div>
@@ -77,7 +77,7 @@
           <div class="row">
             <wa-input name="line_qty" id="line_qty" label="{{ t('col.qty', 'Kol.') }}" inputmode="decimal" value="{{ prefill.line_qty|money if prefill.line_qty is defined and prefill.line_qty is not none else '1' }}" required></wa-input>
             <wa-input name="line_price" id="line_price" label="{{ t('ulazne.line_price', 'Cijena neto') }}" inputmode="decimal" placeholder="0,00" value="{{ prefill.line_price|money(4) if prefill.line_price is defined and prefill.line_price is not none else '' }}" required></wa-input>
-            <wa-input name="line_vat" id="line_vat" label="PDV %" inputmode="decimal" value="{{ prefill.line_vat|money if prefill.line_vat is defined and prefill.line_vat is not none else '21' }}" required></wa-input>
+            <wa-input name="line_vat" id="line_vat" label="{{ t('col.vat_pct', 'PDV %') }}" inputmode="decimal" value="{{ prefill.line_vat|money if prefill.line_vat is defined and prefill.line_vat is not none else '21' }}" required></wa-input>
           </div>
           <label class="inc-sync-check">
             <input type="checkbox" id="sync_from_line" checked>
@@ -99,9 +99,9 @@
           <span class="inv-totals-hero-value" id="totals-hero">0,00<span class="totals-cur">€</span></span>
         </div>
         <div class="inc-totals-fields wa-form-stack">
-          <wa-input name="total_net" id="total_net" label="Neto" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_net is defined and prefill.total_net not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_net|money }}{% endif %}"></wa-input>
-          <wa-input name="total_vat" id="total_vat" label="PDV" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_vat is defined and prefill.total_vat not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_vat|money }}{% endif %}"></wa-input>
-          <wa-input name="total_gross" id="total_gross" label="Bruto" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_gross is defined and prefill.total_gross not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_gross|money }}{% endif %}"></wa-input>
+          <wa-input name="total_net" id="total_net" label="{{ t('inv.net', 'Neto') }}" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_net is defined and prefill.total_net not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_net|money }}{% endif %}"></wa-input>
+          <wa-input name="total_vat" id="total_vat" label="{{ t('inv.tax', 'PDV') }}" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_vat is defined and prefill.total_vat not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_vat|money }}{% endif %}"></wa-input>
+          <wa-input name="total_gross" id="total_gross" label="{{ t('inv.gross', 'Bruto') }}" inputmode="decimal" placeholder="0,00" value="{% if prefill.total_gross is defined and prefill.total_gross not in [None, '', 0, '0', '0.0', '0,00'] %}{{ prefill.total_gross|money }}{% endif %}"></wa-input>
           <wa-select name="status" label="{{ t('col.status', 'Status') }}" value="{{ st }}">
             <wa-option value="recorded" {% if st == 'recorded' %}selected{% endif %}>{{ t('status.recorded', 'Evidencija') }}</wa-option>
             <wa-option value="draft" {% if st == 'draft' %}selected{% endif %}>{{ t('status.draft', 'Nacrt') }}</wa-option>

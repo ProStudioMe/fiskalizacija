@@ -3,12 +3,12 @@
 {% block page_title %}{{ t('page.komitenti', 'Komitenti') }}{% endblock %}
 {% block page_actions %}
   {% if return_to %}
-  <a class="btn secondary" href="{{ return_to }}">Nazad na fakturu</a>
+  <a class="btn secondary" href="{{ return_to }}">{{ t('customer.back_invoice', 'Nazad na fakturu') }}</a>
   {% endif %}
-  <a class="btn" href="/kupci{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
+  <a class="btn" href="/kupci{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">{% if editing %}{{ t('customer.list', 'Lista') }}{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
 {% endblock %}
 {% block content %}
-<p class="muted" style="margin-top:0">Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.</p>
+<p class="muted" style="margin-top:0">{{ t('customer.intro', 'Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.') }}</p>
 
 <div class="grid grid-2">
   <div class="card">
@@ -17,9 +17,9 @@
     <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-      <wa-input label="PIB / JMBG broj" value="{{ editing.pib }}" disabled></wa-input>
-      <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
-      <wa-input name="name" label="Naziv komitenta" value="{{ editing.name }}" required></wa-input>
+      <wa-input label="{{ t('customer.pib', 'PIB / JMBG broj') }}" value="{{ editing.pib }}" disabled></wa-input>
+      <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}" value="{{ editing.pdv_number or '' }}"></wa-input>
+      <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" value="{{ editing.name }}" required></wa-input>
       <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
         {% set preview_src = ('/kupci/' ~ editing.id ~ '/logo') if editing.logo_filename else None %}
@@ -27,22 +27,22 @@
         {% set input_id = 'logo-edit' %}
         {% include "_logo_upload.html" %}
       </div>
-      <wa-input name="street" label="Ulica i broj" value="{{ editing.street or '' }}"></wa-input>
+      <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}" value="{{ editing.street or '' }}"></wa-input>
       <div class="row">
-        <wa-input name="city" label="Mjesto" value="{{ editing.city or '' }}"></wa-input>
+        <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}" value="{{ editing.city or '' }}"></wa-input>
         {% set ctry = editing.country or 'Crna Gora' %}
-        <wa-select name="country" label="Država" value="{{ ctry }}">
+        <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="{{ ctry }}">
           {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
           <wa-option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</wa-option>
           {% endfor %}
         </wa-select>
       </div>
-      <wa-input name="email" type="email" label="E-mail" value="{{ editing.email or '' }}"></wa-input>
-      <wa-input name="phone" label="Broj telefona" value="{{ editing.phone or '' }}" placeholder="+382 …"></wa-input>
-      <wa-input name="tax_card_number" label="Broj poreske identifikacione kartice" value="{{ editing.tax_card_number or '' }}"></wa-input>
-      <wa-input name="contact" label="Kontakt" value="{{ editing.contact or '' }}" placeholder="Ime kontakt osobe"></wa-input>
-      <wa-input name="discount_pct" label="Stalni popust (%)" inputmode="decimal" placeholder="0,00" value="{{ (editing.discount_pct or 0)|money }}" hint="Automatski se primjenjuje kao popust na račun pri izdavanju fakture."></wa-input>
-      <wa-textarea name="notes" label="Napomena" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
+      <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}" value="{{ editing.email or '' }}"></wa-input>
+      <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" value="{{ editing.phone or '' }}" placeholder="+382 …"></wa-input>
+      <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}" value="{{ editing.tax_card_number or '' }}"></wa-input>
+      <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" value="{{ editing.contact or '' }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
+      <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="{{ (editing.discount_pct or 0)|money }}" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
+      <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
       <div class="wa-form-actions">
         <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
@@ -52,9 +52,9 @@
     <h2>{{ t('btn.add', 'Novi') }}</h2>
     <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="pib" label="PIB / JMBG broj" required></wa-input>
-      <wa-input name="pdv_number" label="PDV broj"></wa-input>
-      <wa-input name="name" label="Naziv komitenta" required></wa-input>
+      <wa-input name="pib" label="{{ t('customer.pib', 'PIB / JMBG broj') }}" required></wa-input>
+      <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}"></wa-input>
+      <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" required></wa-input>
       <div class="field logo-field" style="margin-bottom:0">
         <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
         {% set preview_src = None %}
@@ -62,24 +62,21 @@
         {% set input_id = 'logo-new' %}
         {% include "_logo_upload.html" %}
       </div>
-      <wa-input name="street" label="Ulica i broj"></wa-input>
+      <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}"></wa-input>
       <div class="row">
-        <wa-input name="city" label="Mjesto"></wa-input>
-        <wa-select name="country" label="Država" value="Crna Gora">
-          <wa-option value="Crna Gora" selected>Crna Gora</wa-option>
-          <wa-option value="Srbija">Srbija</wa-option>
-          <wa-option value="Bosna i Hercegovina">Bosna i Hercegovina</wa-option>
-          <wa-option value="Hrvatska">Hrvatska</wa-option>
-          <wa-option value="Slovenija">Slovenija</wa-option>
-          <wa-option value="Ostalo">Ostalo</wa-option>
+        <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}"></wa-input>
+        <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="Crna Gora">
+          {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
+          <wa-option value="{{ c }}" {% if c == 'Crna Gora' %}selected{% endif %}>{{ c }}</wa-option>
+          {% endfor %}
         </wa-select>
       </div>
-      <wa-input name="email" type="email" label="E-mail"></wa-input>
-      <wa-input name="phone" label="Broj telefona" placeholder="+382 …"></wa-input>
-      <wa-input name="tax_card_number" label="Broj poreske identifikacione kartice"></wa-input>
-      <wa-input name="contact" label="Kontakt" placeholder="Ime kontakt osobe"></wa-input>
-      <wa-input name="discount_pct" label="Stalni popust (%)" inputmode="decimal" placeholder="0,00" value="0,00" hint="Automatski se primjenjuje kao popust na račun pri izdavanju fakture."></wa-input>
-      <wa-textarea name="notes" label="Napomena" rows="2"></wa-textarea>
+      <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}"></wa-input>
+      <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" placeholder="+382 …"></wa-input>
+      <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}"></wa-input>
+      <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
+      <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="0,00" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
+      <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2"></wa-textarea>
       <div class="wa-form-actions">
         <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
       </div>
@@ -91,7 +88,7 @@
     <form method="get" action="/kupci" class="filter-bar">
       <div class="search-bar" style="margin:0;flex:1;min-width:180px">
         <i data-lucide="search" aria-hidden="true"></i>
-        <input name="q" value="{{ q or '' }}" placeholder="Pretraga naziv / PIB / mjesto…">
+        <input name="q" value="{{ q or '' }}" placeholder="{{ t('customer.search_ph', 'Pretraga naziv / PIB / mjesto…') }}">
       </div>
       {% include "_per_page.html" %}
     </form>
@@ -99,17 +96,17 @@
       <div class="plan-head">
         <div>
           <h2>{{ t('page.komitenti', 'Komitenti') }}</h2>
-          <div class="cell-secondary">{{ customers|length }} od {{ total }}</div>
+          <div class="cell-secondary">{{ customers|length }} {{ t('common.of', 'od') }} {{ total }}</div>
         </div>
       </div>
       <table class="soft-table">
         <thead>
           <tr>
             <th style="width:3.5rem"></th>
-            <th>Komitent</th>
-            <th>Lokacija</th>
-            <th>Kontakt</th>
-            <th class="num">Popust</th>
+            <th>{{ t('col.client', 'Komitent') }}</th>
+            <th>{{ t('col.location', 'Lokacija') }}</th>
+            <th>{{ t('col.contact', 'Kontakt') }}</th>
+            <th class="num">{{ t('customer.col_discount', 'Popust') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -152,7 +149,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="6" class="muted">Nema komitenata.</td></tr>
+          <tr><td colspan="6" class="muted">{{ t('customer.empty', 'Nema komitenata.') }}</td></tr>
         {% endfor %}
         </tbody>
       </table>

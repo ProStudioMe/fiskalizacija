@@ -7,15 +7,15 @@
     <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
     <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">
       <span class="tab-long">{{ t('status.fiscalized', 'Fiskalizovane') }}</span>
-      <span class="tab-short">Fisk.</span>
+      <span class="tab-short">{{ t('tab.fiscal_short', 'Fisk.') }}</span>
     </a>
     <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">
       <span class="tab-long">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</span>
-      <span class="tab-short">Nacrti</span>
+      <span class="tab-short">{{ t('tab.drafts_short', 'Nacrti') }}</span>
     </a>
     <a class="tab {% if status == 'failed' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='failed') }}">
       <span class="tab-long">{{ t('status.failed', 'Greške') }}</span>
-      <span class="tab-short">Greške</span>
+      <span class="tab-short">{{ t('tab.errors_short', 'Greške') }}</span>
     </a>
   </div>
 </nav>

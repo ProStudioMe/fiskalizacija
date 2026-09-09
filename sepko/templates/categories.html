@@ -11,10 +11,10 @@
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
     <form method="post" action="/artikli/kategorije/{{ editing.id }}" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="name" label="Naziv kategorije" value="{{ editing.name }}" required></wa-input>
-      <wa-input name="position" type="number" label="Pozicija" value="{{ editing.position }}"></wa-input>
+      <wa-input name="name" label="{{ t('category.name', 'Naziv kategorije') }}" value="{{ editing.name }}" required></wa-input>
+      <wa-input name="position" type="number" label="{{ t('category.position', 'Pozicija') }}" value="{{ editing.position }}"></wa-input>
       <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
+        <label>{{ t('article.color', 'Izaberite boju') }}</label>
         <div class="color-row">
           {% for col in colors %}
           <label class="color-dot" style="background:{{ col }}">
@@ -32,10 +32,10 @@
     <h2>{{ t('btn.add', 'Nova') }}</h2>
     <form method="post" action="/artikli/kategorije" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="name" label="Naziv kategorije" required></wa-input>
-      <wa-input name="position" type="number" label="Pozicija" value="1"></wa-input>
+      <wa-input name="name" label="{{ t('category.name', 'Naziv kategorije') }}" required></wa-input>
+      <wa-input name="position" type="number" label="{{ t('category.position', 'Pozicija') }}" value="1"></wa-input>
       <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
+        <label>{{ t('article.color', 'Izaberite boju') }}</label>
         <div class="color-row">
           {% for col in colors %}
           <label class="color-dot" style="background:{{ col }}">
