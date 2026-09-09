@@ -68,7 +68,7 @@ Endpointi: `/v1/register-invoice`, `/v1/register-cash-deposit` (EFI-shaped JSON)
 Paralelno sa Navira wire:
 
 1. **Navira `HttpPartnerAdapter`** — `POST {base}/v1/register-invoice` i `/v1/register-cash-deposit`, Bearer/X-Api-Key, retry 5xx; mock ostaje default (`SEPKO_PARTNER_MODE=mock`)
-2. **Ulazne fakture** — `Supplier`, `IncomingInvoice` (+ stavke); UI `/ulazne`, `/ulazne/qr`, `/dobavljaci`
+2. **Ulazne fakture** — `Customer` (isti šifarnik kao izlazne), `IncomingInvoice` (+ stavke); UI `/ulazne`, `/ulazne/qr`, `/kupci`
 3. **QR import** — parse `tax.gov.me` / `efitest` / `mapr` verify URL → predpopuna; kamera (`BarcodeDetector` + jsQR)
 4. **Troškovnik** — kategorije + `/troskovi`; kreiranje troška iz ulazne
 5. **PWA** — `manifest.webmanifest`, `/sw.js`, `/app` shell, brza fiskalizacija `/app/brzo`

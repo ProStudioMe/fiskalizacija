@@ -59,6 +59,17 @@
       padding: 8px 10px;
       min-height: 78px;
     }
+    .seller-box.has-logo {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .seller-logo {
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+    }
     .seller-box .name { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
     .meta-col { padding-top: 2px; }
     .meta-col .doc-title { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
@@ -181,6 +192,11 @@
       color: #333;
     }
     .notes { margin-top: 10px; white-space: pre-wrap; }
+    body.is-embed {
+      background: #fff;
+      padding: 8px;
+    }
+    body.is-embed .noprint { display: none !important; }
     @media print {
       .noprint { display: none !important; }
       body { padding: 0; }
@@ -188,7 +204,7 @@
     }
   </style>
 </head>
-<body>
+<body class="{% if embed %}is-embed{% endif %}">
   <div class="sheet">
     <p class="noprint">
       <button type="button" onclick="window.close()">Zatvori</button>
@@ -198,13 +214,18 @@
     </p>
 
     <div class="top">
-      <div class="seller-box">
+      <div class="seller-box {% if company_logo_uri %}has-logo{% endif %}">
+        {% if company_logo_uri %}
+        <img class="seller-logo" src="{{ company_logo_uri }}" alt="">
+        {% endif %}
+        <div class="seller-text">
         <div class="name">{{ tenant.name }}</div>
         {% if company.address %}<div>{{ company.address }}</div>{% endif %}
         {% if company.address2 %}<div>{{ company.address2 }}</div>{% endif %}
         <div>PIB: {{ tenant.pib }}</div>
         {% if company.pdv_number %}<div>PDV broj: {{ company.pdv_number }}</div>{% endif %}
         {% if company.bank_account %}<div>HB: {{ company.bank_account }}</div>{% endif %}
+        </div>
       </div>
       <div class="meta-col">
         <div class="doc-title">RAČUN</div>

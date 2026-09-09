@@ -13,7 +13,7 @@
   <div class="settings-panel card">
     {% if section == 'osnovna' %}
     <h2>{{ t('settings.basic', 'Osnovna podešavanja') }}</h2>
-    <form method="post" action="/podesavanja" class="wa-form-stack">
+    <form method="post" action="/podesavanja" class="wa-form-stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="section" value="osnovna">
 
@@ -41,6 +41,14 @@
       <h2>Firma</h2>
       <wa-input name="name" label="Naziv" value="{{ tenant.name }}" required></wa-input>
       <wa-input name="pib" label="PIB (TIN)" value="{{ tenant.pib }}" required></wa-input>
+      <div class="field logo-field" style="margin-bottom:0">
+        <label>{{ t('upload.logo_company', 'Logo firme') }}</label>
+        <p class="muted" style="margin:0.15rem 0 0.55rem">Prikazuje se u zaglavlju A4 i termalnog računa.</p>
+        {% set preview_src = '/podesavanja/logo' if company.logo_filename else None %}
+        {% set show_remove = true if company.logo_filename else false %}
+        {% set input_id = 'logo-company' %}
+        {% include "_logo_upload.html" %}
+      </div>
       <wa-input name="company_address" label="Adresa (linija 1)" value="{{ company.address }}" placeholder="npr. BUL. 21. MAJ BR. 24, Podgorica"></wa-input>
       <wa-input name="company_address2" label="Adresa (linija 2)" value="{{ company.address2 }}"></wa-input>
       <wa-input name="company_pdv_number" label="PDV broj" value="{{ company.pdv_number }}"></wa-input>

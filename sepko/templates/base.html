@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ brand }}{% endblock %}</title>
   <script>
+    window.__sepkoDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      window.__sepkoDeferredPrompt = e;
+    }, true);
+  </script>
+  <script>
     (function () {
       try {
         var t = localStorage.getItem('sepko-theme');
@@ -21,23 +28,14 @@
       }
     })();
   </script>
-  <script>
-    (function () {
-      window.__sepkoDeferredPrompt = null;
-      window.addEventListener("beforeinstallprompt", function (e) {
-        e.preventDefault();
-        window.__sepkoDeferredPrompt = e;
-      });
-    })();
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=159">
+  <link rel="stylesheet" href="/static/style.css?v=163">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
-  <link rel="stylesheet" href="/static/webawesome-theme.css?v=11">
+  <link rel="stylesheet" href="/static/webawesome-theme.css?v=12">
   <link rel="stylesheet" href="/static/pwa.css?v=3">
   {% block head_extra %}{% endblock %}
   {% block extra_css %}{% endblock %}
@@ -104,7 +102,7 @@
           <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
           <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
         </button>
-        {% if not is_admin_portal and user.role not in ['admin', 'superadmin'] %}
+        {% if not is_admin_portal %}
         <button type="button" class="topbar-install" id="btn-pwa-install" hidden>{{ t('pwa.install', 'Instaliraj') }}</button>
         {% endif %}
         <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
@@ -201,10 +199,6 @@
           <a href="/kupci" class="nav-item {% if path.startswith('/kupci') %}active{% endif %}">
             <i data-lucide="users" aria-hidden="true"></i>
             {{ t('nav.komitenti', 'Komitenti') }}
-          </a>
-          <a href="/dobavljaci" class="nav-item {% if path.startswith('/dobavljaci') %}active{% endif %}">
-            <i data-lucide="truck" aria-hidden="true"></i>
-            {{ t('nav.dobavljaci', 'Dobavljači') }}
           </a>
         </div>
         <div class="nav-group nav-bottom">
@@ -350,8 +344,8 @@
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=5"
-          data-skip="{% if is_admin_portal or (user and user.role in ['admin', 'superadmin']) %}1{% else %}0{% endif %}"
+  <script src="/static/pwa-install.js?v=6"
+          data-skip="{% if is_admin_portal %}1{% else %}0{% endif %}"
           data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
           data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"
           data-ok="{{ t('pwa.install', 'Instaliraj') }}"

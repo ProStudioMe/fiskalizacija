@@ -501,7 +501,7 @@ def izvjestaji_hub(
         for inv in biggest
     ]
 
-    # Dobavljači (ulaz)
+    # Komitenti (ulazne)
     top_suppliers = (
         db.query(
             IncomingInvoice.supplier_name,
@@ -518,7 +518,7 @@ def izvjestaji_hub(
     )
     suppliers_table = [
         {
-            "name": (r.supplier_name or "Bez dobavljača").strip() or "Bez dobavljača",
+            "name": (r.supplier_name or "Bez komitenta").strip() or "Bez komitenta",
             "pib": r.supplier_pib or "",
             "gross": _money(r.gross),
             "vat": _money(r.vat),

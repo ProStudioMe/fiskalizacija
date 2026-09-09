@@ -93,8 +93,13 @@
     if (!w) window.location.assign(url);
   }
 
-  function showInstall() {
-    if (shown || !deferred || !window.sepkoDialog) return;
+  function showInstall(attempt) {
+    attempt = attempt || 0;
+    if (shown || !deferred) return;
+    if (!window.sepkoDialog) {
+      if (attempt < 25) window.setTimeout(function () { showInstall(attempt + 1); }, 80);
+      return;
+    }
     shown = true;
     if (btn) btn.hidden = false;
     window.sepkoDialog.confirm({

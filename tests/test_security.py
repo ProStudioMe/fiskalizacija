@@ -54,8 +54,9 @@ def test_security_headers_middleware():
     response = client.get("/")
     assert response.status_code == 200
     assert response.headers.get("X-Content-Type-Options") == "nosniff"
-    assert response.headers.get("X-Frame-Options") == "DENY"
+    assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
     assert "Content-Security-Policy" in response.headers
+    assert "frame-ancestors 'self'" in response.headers.get("Content-Security-Policy", "")
 
 
 def test_negative_price_rejected_on_normal_invoice():

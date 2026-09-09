@@ -2,7 +2,7 @@
 {% set is_edit = editing is defined and editing %}
 {% set is_template = as_template if as_template is defined else false %}
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
-{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_view', 'Pregled fakture') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
+{% block title %}{% if is_template %}{% if is_edit %}Izmjena šablona{% else %}Novi šablon{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjeni fakturu') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
   {% if is_edit and not is_template %}
   <span class="inv-page-title inv-page-title--with-back">
@@ -11,7 +11,7 @@
     </a>
     <span class="inv-page-title-body">
       <span class="inv-page-heading">
-        <span>{{ t('page.invoice_view', 'Pregled fakture') }}</span>
+        <span>{{ t('page.invoice_edit', 'Izmjeni fakturu') }}</span>
         {% if editing.status == 'failed' %}
           <span class="pill-tag bad">{{ t('status.failed', 'Greška') }}</span>
         {% else %}
@@ -48,35 +48,51 @@
   <div class="inv-actions">
     <div class="inv-actions-btns">
       <div class="inv-actions-group" role="group" aria-label="{{ t('btn.print', 'Štampa') }}">
-        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/stampa" target="sepko-print" rel="noopener"
-           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/stampa" data-print-pane="/racuni/{{ editing.id }}/pdf?embed=1"
            title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
           <i data-lucide="printer" aria-hidden="true"></i>
+          <span class="inv-actions-name">{{ t('btn.print', 'Štampa') }}</span>
         </a>
-        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/pdf" target="sepko-print" rel="noopener"
-           onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+        <a class="btn secondary inv-actions-icon" href="/racuni/{{ editing.id }}/pdf" data-print-pane="/racuni/{{ editing.id }}/pdf?embed=1"
            title="A4 PDF" aria-label="A4 PDF">
           <i data-lucide="file-text" aria-hidden="true"></i>
+          <span class="inv-actions-name">PDF</span>
         </a>
       </div>
+      <button type="submit" form="invoice-form" class="btn inv-action-loud" data-action="fiscalize">
+        <i data-lucide="badge-check" aria-hidden="true"></i>
+        <span class="inv-actions-name">{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
+      </button>
       <form method="post" action="/racuni/{{ editing.id }}/obrisi" class="inv-actions-delete"
             data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
             data-confirm-title="{{ t('inv.delete_draft', 'Brisanje nacrta') }}"
             data-confirm-tone="danger"
             data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn secondary inv-actions-icon" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+        <button type="submit" class="btn danger inv-action-loud" title="{{ t('btn.delete', 'Obriši') }}">
           <i data-lucide="trash-2" aria-hidden="true"></i>
+          <span class="inv-actions-name">{{ t('btn.delete', 'Obriši') }}</span>
         </button>
       </form>
     </div>
+    {% if prefill and prefill.last_change %}
+    <div class="inv-last-change muted">Posljednja promjena: {{ prefill.last_change }}</div>
+    {% endif %}
   </div>
   {% elif not is_template %}
-  <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="Šablon za automatsku fakturu">+ Nova Automatska faktura</a>
+  <div class="inv-actions">
+    <div class="inv-actions-btns">
+      <a class="btn secondary inv-page-quiet" href="/racuni/novi?as_template=1&return_to={{ '/racuni/raspored?new=1'|urlencode }}" title="Šablon za automatsku fakturu">+ Nova Automatska faktura</a>
+      <button type="submit" form="invoice-form" class="btn inv-action-loud" data-action="fiscalize">
+        <i data-lucide="badge-check" aria-hidden="true"></i>
+        <span class="inv-actions-name">{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
+      </button>
+    </div>
+  </div>
   {% endif %}
 {% endblock %}
 {% block content %}
-
+<div class="inv-workspace" id="inv-workspace">
 <form method="post" action="{{ form_action or '/racuni/novi' }}" id="invoice-form" class="inv-form inv-compose-form{% if is_template %} is-template{% endif %}{% if is_edit and not is_template %} is-existing{% endif %}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="customer_id" id="customer_id" value="{{ (prefill.customer_id if prefill else '') }}">
@@ -94,6 +110,9 @@
           <div class="inv-suggest" id="cust-suggest" hidden></div>
         </div>
         <input type="hidden" id="customer_label" value="{{ (prefill.customer_label if prefill else '') }}">
+        <div class="inv-buyer-meta" id="buyer-email-wrap"{% if not prefill or not prefill.customer_email %} hidden{% endif %}>
+          <wa-input id="buyer-email" label="E-mail" value="{{ (prefill.customer_email if prefill else '') }}" readonly></wa-input>
+        </div>
         <div class="wa-form-stack" id="manual-buyer" style="{% if prefill and prefill.manual_buyer %}{% else %}display:none{% endif %};margin-top:0.75rem">
           <wa-input name="buyer_pib" id="buyer_pib" label="PIB (ručno)" value="{{ (prefill.buyer_pib if prefill else '') }}"></wa-input>
           <wa-input name="buyer_name" id="buyer_name" label="Naziv (ručno)" value="{{ (prefill.buyer_name if prefill else '') }}"></wa-input>
@@ -117,9 +136,12 @@
             <thead>
               <tr>
                 <th>Artikal</th>
-                <th class="num">Pop. %</th>
+                <th class="inv-col-desk">JM</th>
                 <th class="num">Kol.</th>
-                <th class="num">Iznos</th>
+                <th class="num inv-col-desk">VP</th>
+                <th class="num">Pop. %</th>
+                <th class="num inv-col-desk">PDV %</th>
+                <th class="num">Ukupno</th>
                 <th class="inv-line-actions-h"><span class="sr-only">Akcije</span></th>
               </tr>
             </thead>
@@ -198,8 +220,20 @@
         </div>
         {% endif %}
         <div class="inv-meta-body wa-form-stack">
-          <wa-input type="date" name="due_date" id="due_date" label="{% if is_template %}Zadani rok{% else %}Rok{% endif %}" value="{{ due_date_default }}"></wa-input>
-          <wa-select name="payment_method" id="payment_method" label="Plaćanje" value="{{ pay }}">
+          <wa-input type="date" name="due_date" id="due_date" label="{% if is_template %}Zadani rok{% else %}Rok plaćanja{% endif %}" value="{{ due_date_default }}"></wa-input>
+          <div class="inv-period-row">
+            <wa-select name="period_month" id="period_month" label="Porezni period" value="{{ period_month }}">
+              {% for num, label in period_months %}
+              <wa-option value="{{ num }}" {% if period_month == num %}selected{% endif %}>{{ label }}</wa-option>
+              {% endfor %}
+            </wa-select>
+            <wa-select name="period_year" id="period_year" label="Godina" value="{{ period_year }}">
+              {% for y in period_years %}
+              <wa-option value="{{ y }}" {% if period_year == y %}selected{% endif %}>{{ y }}</wa-option>
+              {% endfor %}
+            </wa-select>
+          </div>
+          <wa-select name="payment_method" id="payment_method" label="Tip plaćanja" value="{{ pay }}">
             <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>Gotovina</wa-option>
             <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>Kartica (fizičko lice)</wa-option>
             <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>Poslovna kartica</wa-option>
@@ -218,15 +252,15 @@
               <span class="inv-meta-plain" title="{{ user.full_name or user.email }}">{{ user.full_name or user.email }}</span>
             </div>
           </div>
-          <details class="inv-notes-soft"{% if prefill and (prefill.fiscal_note or prefill.notes) %} open{% endif %}>
-            <summary>Napomene <span class="muted">opciono</span></summary>
+          <details class="inv-notes-soft" open>
+            <summary>Napomene</summary>
             <div class="wa-form-stack inv-notes-stack">
               {% if not is_template %}
-              <wa-textarea name="fiscal_note" id="fiscal_note" label="Za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
+              <wa-textarea name="fiscal_note" id="fiscal_note" label="Napomena za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
               {% else %}
               <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
               {% endif %}
-              <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
+              <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Opis za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
             </div>
           </details>
         </div>
@@ -264,6 +298,18 @@
     </aside>
   </div>
 </form>
+{% if is_edit and not is_template %}
+<aside class="inv-print-pane" id="inv-print-pane" hidden>
+  <div class="inv-print-pane-head">
+    <span class="inv-print-pane-title">Pregled štampe</span>
+    <button type="button" class="btn secondary" id="inv-print-do">Štampa</button>
+    <a class="btn secondary" id="inv-print-newwin" href="/racuni/{{ editing.id }}/pdf" target="sepko-print" rel="noopener">Novi prozor</a>
+    <button type="button" class="btn secondary" id="inv-print-close">Zatvori</button>
+  </div>
+  <iframe class="inv-print-frame" id="inv-print-frame" title="Pregled računa" src="about:blank" data-src="/racuni/{{ editing.id }}/pdf?embed=1"></iframe>
+</aside>
+{% endif %}
+</div>
 
 {# —— Modals (Web Awesome / Shoelace) —— #}
 <wa-dialog id="modal-customers" label="Komitenti" light-dismiss with-footer style="--width: 28rem">
@@ -302,7 +348,7 @@ const ARTICLES = [
 ];
 const CUSTOMERS = [
   {% for c in customers %}
-  {id:{{ c.id }}, pib:{{ c.pib|tojson }}, pdv:{{ (c.pdv_number or '')|tojson }}, name:{{ c.name|tojson }}, discount:{{ c.discount_pct or 0 }}}{% if not loop.last %},{% endif %}
+  {id:{{ c.id }}, pib:{{ c.pib|tojson }}, pdv:{{ (c.pdv_number or '')|tojson }}, name:{{ c.name|tojson }}, email:{{ (c.email or '')|tojson }}, discount:{{ c.discount_pct or 0 }}}{% if not loop.last %},{% endif %}
   {% endfor %}
 ];
 const PREFILL = {{ (prefill or none)|tojson }};
@@ -475,7 +521,7 @@ function addArticle(a){
   if (existing) {
     existing.qty = (parseFloat(existing.qty)||0) + 1;
   } else {
-    lines.push({id:a.id, code:a.code, name:a.name, unit:a.unit, qty:1, price:+a.price, vat:+a.vat, tax:a.tax||'', discount:0, open:false});
+    lines.push({id:a.id, code:a.code, name:a.name, note:'', unit:a.unit, qty:1, price:+a.price, vat:+a.vat, tax:a.tax||'', discount:0, open:false});
   }
   bumpFreq(a.id);
   pushRecent(a.id);
@@ -603,20 +649,16 @@ function renderLines(){
         <input type="hidden" name="line_code" value="${esc(l.code)}">
         <input type="hidden" name="line_name" value="${esc(l.name)}">
         <input type="hidden" name="line_vat" value="${l.vat||0}">
+        <input type="hidden" name="line_note" value="${esc(l.note||'')}">
         <button type="button" class="inv-line-toggle" data-toggle="${i}" aria-expanded="${!!l.open}" title="Više detalja">
           <span class="inv-line-chev" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
           <span class="inv-line-text">
-            <span class="inv-line-name">${esc(l.name)}</span>
+            <span class="inv-line-name">${esc(l.name)}${l.note ? '<span class="inv-line-note-inline"> · '+esc(l.note)+'</span>' : ''}</span>
             <span class="inv-line-sub muted">${esc(l.code)} · ${esc(l.unit||'kom')}</span>
           </span>
         </button>
       </td>
-      <td class="num inv-line-disc-cell">
-        <label class="inv-line-disc" title="Popust %">
-          <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="Popust %" value="${money(l.discount||0)}">
-          <span class="inv-disc-suffix">%</span>
-        </label>
-      </td>
+      <td class="inv-col-desk muted">${esc(l.unit||'kom')}</td>
       <td class="num inv-line-qty-cell">
         <div class="inv-qty">
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="-1" aria-label="Manje">−</button>
@@ -624,6 +666,14 @@ function renderLines(){
           <button type="button" class="inv-qty-btn" data-qty="${i}" data-d="1" aria-label="Više">+</button>
         </div>
       </td>
+      <td class="num inv-col-desk">${money(l.price, 4)}</td>
+      <td class="num inv-line-disc-cell">
+        <label class="inv-line-disc" title="Popust %">
+          <input class="inv-disc-input" data-i="${i}" data-f="discount" inputmode="decimal" aria-label="Popust %" value="${money(l.discount||0)}">
+          <span class="inv-disc-suffix">%</span>
+        </label>
+      </td>
+      <td class="num inv-col-desk">${money(l.vat||0)}%</td>
       <td class="num inv-line-total">${isZero
         ? '<span class="inv-line-zero-tag" title="Cijena je 0 — proširi red i unesi VP cijenu">bez cijene</span>'
         : (money(a.gross) + ' €')}</td>
@@ -638,10 +688,12 @@ function renderLines(){
     detail.className = 'inv-line-detail-row' + (l.open ? ' is-open' : '');
     if (!l.open) detail.hidden = true;
     detail.innerHTML = `
-      <td colspan="5">
+      <td colspan="8">
         <div class="inv-line-fields">
           <label>VP cijena<input class="cell-input" data-i="${i}" data-f="price" inputmode="decimal" value="${money(l.price)}"></label>
           <div class="inv-line-stat"><span class="muted">PDV</span><strong>${money(l.vat)}% · ${money(a.vat)} €</strong></div>
+          <div class="inv-line-stat"><span class="muted">MP</span><strong>${money(l.price * (1 + (l.vat||0)/100) * (1 - (l.discount||0)/100))} €</strong></div>
+          <label class="inv-line-note-field">Opis<input class="cell-input" data-i="${i}" data-f="note" value="${esc(l.note||'')}" placeholder="npr. Avgust 2026"></label>
         </div>
       </td>`;
     linesBody.appendChild(detail);
@@ -658,9 +710,10 @@ function renderLines(){
   linesBody.querySelectorAll('.cell-input, .inv-qty-input, .inv-disc-input').forEach(el=>{
     el.addEventListener('change', ()=>{
       const i = +el.dataset.i; const f = el.dataset.f;
-      let v = parseMoney(el.value);
+      let v = el.dataset.f === 'note' ? el.value : parseMoney(el.value);
       if (f === 'discount') v = Math.max(0, Math.min(100, v));
       if (f === 'qty' || f === 'price') v = Math.max(0, v);
+      if (f === 'note') v = String(el.value || '').slice(0, 120);
       lines[i][f] = v;
       recalc();
     });
@@ -687,6 +740,7 @@ function applyPrefill(){
   if (PREFILL.customer_label && custInline) {
     custInline.value = PREFILL.customer_label;
   }
+  setBuyerEmail(PREFILL.customer_email || '');
   if (PREFILL.lines && PREFILL.lines.length){
     lines = PREFILL.lines.map(l => ({
       id: l.id,
@@ -698,6 +752,7 @@ function applyPrefill(){
       tax: l.tax || '',
       qty: parseMoney(l.qty)||1,
       discount: parseMoney(l.discount)||0,
+      note: l.note || '',
       open: false,
     }));
   }
@@ -721,6 +776,13 @@ function setInvoiceDiscount(pct){
   recalc();
 }
 
+function setBuyerEmail(email){
+  const wrap = document.getElementById('buyer-email-wrap');
+  const field = document.getElementById('buyer-email');
+  const val = (email || '').trim();
+  if (field) field.value = val;
+  if (wrap) wrap.hidden = !val;
+}
 function selectCustomer(c){
   if (!c) return;
   document.getElementById('customer_id').value = c.id;
@@ -728,6 +790,7 @@ function selectCustomer(c){
   document.getElementById('customer_label').value = label;
   if (custInline) custInline.value = c.name;
   document.getElementById('manual-buyer').style.display = 'none';
+  setBuyerEmail(c.email);
   hideCustSuggest();
   setInvoiceDiscount(c.discount || 0);
   requestAnimationFrame(() => artInline && artInline.focus());
@@ -737,6 +800,7 @@ function selectManualBuyer(){
   document.getElementById('customer_label').value = '— ručni unos —';
   if (custInline) custInline.value = 'Ručni unos';
   document.getElementById('manual-buyer').style.display = 'flex';
+  setBuyerEmail('');
   hideCustSuggest();
   setInvoiceDiscount(0);
   requestAnimationFrame(() => {
@@ -749,6 +813,7 @@ function clearCustomer(){
   document.getElementById('customer_label').value = '';
   if (custInline) custInline.value = '';
   document.getElementById('manual-buyer').style.display = 'none';
+  setBuyerEmail('');
   setInvoiceDiscount(0);
 }
 function filterCustomers(q){
@@ -1030,5 +1095,44 @@ document.addEventListener('keydown', e=>{
 applyPrefill();
 if (!PREFILL) recalc();
 if (window.sepkoIcons) window.sepkoIcons();
+
+(function setupPrintPane(){
+  const workspace = document.getElementById('inv-workspace');
+  const pane = document.getElementById('inv-print-pane');
+  const frame = document.getElementById('inv-print-frame');
+  if (!workspace || !pane || !frame) return;
+  const closeBtn = document.getElementById('inv-print-close');
+  const doBtn = document.getElementById('inv-print-do');
+  const newWin = document.getElementById('inv-print-newwin');
+  function openPane(src){
+    pane.hidden = false;
+    workspace.classList.add('is-print-open');
+    if (src) frame.src = src;
+    else if (!frame.src || frame.src === 'about:blank') {
+      frame.src = frame.getAttribute('data-src') || 'about:blank';
+    }
+    if (window.sepkoIcons) window.sepkoIcons();
+  }
+  function closePane(){
+    pane.hidden = true;
+    workspace.classList.remove('is-print-open');
+  }
+  document.querySelectorAll('[data-print-pane]').forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      openPane(el.getAttribute('data-print-pane'));
+    });
+  });
+  if (closeBtn) closeBtn.addEventListener('click', closePane);
+  if (doBtn) doBtn.addEventListener('click', function(){
+    try {
+      if (frame.contentWindow) frame.contentWindow.print();
+      else window.print();
+    } catch (err) {
+      const href = (newWin && newWin.href) || frame.src;
+      window.open(href, 'sepko-print', 'noopener,width=960,height=1100,scrollbars=yes,resizable=yes');
+    }
+  });
+})();
 </script>
 {% endblock %}

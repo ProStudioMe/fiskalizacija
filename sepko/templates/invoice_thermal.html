@@ -47,6 +47,7 @@
     .receipt { width: 72mm; max-width: 100%; margin: 0 auto; }
     .center { text-align: center; }
     .seller { font-weight: 700; font-size: 1.15em; }
+    .seller-logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 0 auto 4px; display: block; }
     .muted { color: #333; }
     hr { border: 0; border-top: 1px dashed #333; margin: 8px 0; }
     .row { display: flex; justify-content: space-between; gap: 8px; }
@@ -71,6 +72,9 @@
       <a href="{{ back_url or ('/racuni/' ~ invoice.id) }}">Otvori u app</a>
     </p>
     <div class="center">
+      {% if company_logo_uri %}
+      <img class="seller-logo" src="{{ company_logo_uri }}" alt="">
+      {% endif %}
       <div class="seller">{{ tenant.name }}</div>
       {% if company.address %}<div>{{ company.address }}</div>{% endif %}
       <div>PIB: {{ tenant.pib }}</div>

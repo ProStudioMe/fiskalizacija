@@ -8,7 +8,7 @@
     </a>
     <span class="inv-page-title-body">
       <span class="inv-page-heading">{% if is_edit %}{{ t('page.ulazne_edit', 'Izmjena ulazne fakture') }}{% else %}{{ t('page.ulazne_new', 'Nova ulazna faktura') }}{% endif %}</span>
-      <span class="inv-page-sub">{% if is_edit %}{{ invoice.number or ('#' ~ invoice.id) }}{% else %}{{ t('ulazne.form_sub', 'Dobavljač, stavka i iznosi') }}{% endif %}</span>
+      <span class="inv-page-sub">{% if is_edit %}{{ invoice.number or ('#' ~ invoice.id) }}{% else %}{{ t('ulazne.form_sub', 'Komitent, stavka i iznosi') }}{% endif %}</span>
     </span>
   </span>
 {% endblock %}
@@ -37,14 +37,15 @@
       </div>
 
       <div class="card inv-compose-card inc-card inc-supplier-card">
-        <div class="inv-section-title">{{ t('col.supplier', 'Dobavljač') }}</div>
-        <div id="supplier-pick-wrap">
-          <wa-select name="supplier_id" id="supplier_id" label="{{ t('ulazne.pick_supplier', 'Iz šifrarnika') }}" value="{{ prefill.supplier_id or '' }}">
+        <div class="inv-section-title">{{ t('nav.komitenti', 'Komitent') }}</div>
+        <div id="supplier-pick-wrap" class="inc-line-name-row">
+          <wa-select name="customer_id" id="supplier_id" label="{{ t('ulazne.pick_supplier', 'Iz šifrarnika') }}" value="{{ prefill.customer_id or '' }}">
             <wa-option value="" data-pib="" data-name="">{{ t('ulazne.manual_supplier', '— ručni unos PIB / naziv —') }}</wa-option>
-            {% for s in suppliers %}
-            <wa-option value="{{ s.id }}" data-pib="{{ s.pib }}" data-name="{{ s.name }}" {% if prefill.supplier_id == (s.id|string) %}selected{% endif %}>{{ s.name }} ({{ s.pib }})</wa-option>
+            {% for s in customers %}
+            <wa-option value="{{ s.id }}" data-pib="{{ s.pib }}" data-name="{{ s.name }}" {% if prefill.customer_id == (s.id|string) %}selected{% endif %}>{{ s.name }} ({{ s.pib }})</wa-option>
             {% endfor %}
           </wa-select>
+          <a href="/kupci" class="btn secondary inc-party-add" title="{{ t('btn.add', 'Novi') }} komitent">+</a>
         </div>
         <div class="inc-supplier-picked" id="supplier-picked" hidden>
           <div class="inc-supplier-picked-body">

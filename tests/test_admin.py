@@ -141,8 +141,8 @@ def test_pwa_install_prompt_skipped_for_admin(admin_client):
     )
     dash = client.get("/")
     assert dash.status_code == 200
-    assert 'data-skip="1"' in dash.text
-    assert 'id="btn-pwa-install"' not in dash.text
+    assert 'data-skip="0"' in dash.text
+    assert 'id="btn-pwa-install"' in dash.text
     assert "__sepkoDeferredPrompt" in dash.text
 
     db = Session()
@@ -222,13 +222,18 @@ def test_unfiscalized_invoice_opens_editor(admin_client):
 
     combined = client.get(f"/racuni/{draft_id}/izmijeni")
     assert combined.status_code == 200
-    assert "Pregled fakture" in combined.text
+    assert "Izmjeni fakturu" in combined.text
     assert "Nefiskalizovan" in combined.text
-    assert "Izmjena fakture" not in combined.text
+    assert "Fiskalizuj" in combined.text
+    assert "Obriši" in combined.text
     assert f"/racuni/{draft_id}/stampa" in combined.text
     assert f"/racuni/{draft_id}/pdf" in combined.text
     assert "Fiskalni podaci" in combined.text
     assert 'id="invoice-form"' in combined.text
+    assert 'id="inv-print-pane"' in combined.text
+    assert "Porezni period" in combined.text
+    assert "Napomena za fiskalizaciju" in combined.text
+    assert "Opis za račun" in combined.text
 
     keep_view = client.get(f"/racuni/{done_id}", follow_redirects=False)
     assert keep_view.status_code == 200
@@ -238,6 +243,25 @@ def test_unfiscalized_invoice_opens_editor(admin_client):
     assert listing.status_code == 200
     assert f'data-href="/racuni/{draft_id}/izmijeni"' in listing.text
     assert f'data-href="/racuni/{done_id}" tabindex' in listing.text
+
+
+def test_invoice_period_and_line_note_helpers():
+    from sepko.web import (
+        _compose_line_name,
+        _format_period_label,
+        _parse_period_month_year,
+        _split_line_name_note,
+    )
+
+    assert _format_period_label(8, 2026) == "Avgust 2026"
+    month, year = _parse_period_month_year("Avgust 2026 (01.08.2026 — 31.08.2026)")
+    assert month == 8
+    assert year == 2026
+    composed = _compose_line_name("Zakup hostinga", "Avgust 2026", Decimal("0"))
+    assert composed == "Zakup hostinga\nAvgust 2026"
+    name, note = _split_line_name_note(composed + " (popust 10%)")
+    assert name == "Zakup hostinga"
+    assert note == "Avgust 2026"
 
 
 def test_login_shows_proracun_and_prostudio(admin_client):

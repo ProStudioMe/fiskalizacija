@@ -28,6 +28,7 @@ class IncomingLineIn(BaseModel):
 class IncomingCreateIn(BaseModel):
     number: str = ""
     issue_date: str | None = None
+    customer_id: int | None = None
     supplier_pib: str | None = None
     supplier_name: str | None = None
     notes: str | None = None
@@ -48,6 +49,7 @@ class IncomingOut(BaseModel):
     number: str
     status: str
     source: str
+    customer_id: int | None = None
     supplier_pib: str | None
     supplier_name: str | None
     issue_date: date | None
@@ -89,6 +91,7 @@ def _incoming_out(inv: IncomingInvoice) -> IncomingOut:
         number=inv.number or "",
         status=inv.status,
         source=inv.source,
+        customer_id=inv.customer_id,
         supplier_pib=inv.supplier_pib,
         supplier_name=inv.supplier_name,
         issue_date=inv.issue_date,
@@ -129,6 +132,7 @@ def create_incoming(
             tenant,
             number=body.number,
             issue_date=parse_date(body.issue_date),
+            customer_id=body.customer_id,
             supplier_pib=body.supplier_pib,
             supplier_name=body.supplier_name,
             status=body.status,

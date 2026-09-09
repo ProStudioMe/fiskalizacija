@@ -89,6 +89,24 @@ html.wa-theme-shoelace.wa-dark {
   --wa-color-surface-border: var(--line);
   --wa-color-text-normal: var(--ink);
   --wa-color-text-quiet: var(--muted);
+  --wa-color-neutral-on-quiet: var(--ink);
+  --wa-color-neutral-on-normal: var(--ink);
+}
+
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(base),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(button),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(base),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(button) {
+  color: var(--ink);
+  border-color: var(--line);
+}
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(label),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(label) {
+  color: var(--ink);
+}
+html.wa-theme-shoelace.wa-dark wa-button[variant="neutral"][appearance="outlined"]::part(label),
+html.wa-theme-shoelace.wa-dark wa-button[variant="neutral"][appearance="plain"]::part(label) {
+  color: #f4f1ff;
 }
 
 /* Stack WA form controls like Sepko .field */

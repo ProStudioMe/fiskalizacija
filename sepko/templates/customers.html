@@ -5,7 +5,7 @@
   <a class="btn" href="/kupci">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
 {% endblock %}
 {% block content %}
-<p class="muted" style="margin-top:0">Šifarnik komitenata — PIB/JMBG ide u EFI kao TIN kupca. Svaki komitent može imati svoj logo.</p>
+<p class="muted" style="margin-top:0">Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.</p>
 
 <div class="grid grid-2">
   <div class="card">
@@ -13,9 +13,6 @@
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
     <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% set import_source_url = '/dobavljaci/lookup.json' %}
-      {% set import_source_label = 'Uvezi iz dobavljača' %}
-      {% include '_import_from_party.html' %}
       <wa-input label="PIB / JMBG broj" value="{{ editing.pib }}" disabled></wa-input>
       <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
       <wa-input name="name" label="Naziv komitenta" value="{{ editing.name }}" required></wa-input>
@@ -51,9 +48,6 @@
     <h2>{{ t('btn.add', 'Novi') }}</h2>
     <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% set import_source_url = '/dobavljaci/lookup.json' %}
-      {% set import_source_label = 'Uvezi iz dobavljača' %}
-      {% include '_import_from_party.html' %}
       <wa-input name="pib" label="PIB / JMBG broj" required></wa-input>
       <wa-input name="pdv_number" label="PDV broj"></wa-input>
       <wa-input name="name" label="Naziv komitenta" required></wa-input>

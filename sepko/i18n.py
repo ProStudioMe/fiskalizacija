@@ -145,12 +145,12 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "nav.dobavljaci",
         "category": "nav",
-        "description": "Meni Dobavljači",
+        "description": "Zastarjelo — dobavljači su u Komitentima",
         "values": {
-            "cnr": "Dobavljači",
-            "cnr-cyrl": "Добављачи",
-            "sr": "Dobavljači",
-            "en": "Suppliers",
+            "cnr": "Komitenti",
+            "cnr-cyrl": "Комитенти",
+            "sr": "Komitenti",
+            "en": "Counterparties",
         },
     },
     {
@@ -188,8 +188,8 @@ STRINGS_SEED: list[dict] = [
         "category": "ulazne",
         "description": "Podnaslov forme nove ulazne",
         "values": {
-            "cnr": "Dobavljač, stavka i iznosi",
-            "en": "Supplier, line and amounts",
+            "cnr": "Komitent, stavka i iznosi",
+            "en": "Counterparty, line and amounts",
         },
     },
     {
@@ -201,13 +201,13 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "ulazne.pick_supplier",
         "category": "ulazne",
-        "description": "Izbor dobavljača",
+        "description": "Izbor komitenta",
         "values": {"cnr": "Iz šifrarnika", "en": "From register"},
     },
     {
         "key": "ulazne.manual_supplier",
         "category": "ulazne",
-        "description": "Ručni unos dobavljača",
+        "description": "Ručni unos komitenta",
         "values": {
             "cnr": "— ručni unos PIB / naziv —",
             "en": "— enter PIB / name manually —",
@@ -216,13 +216,13 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "ulazne.change_supplier",
         "category": "ulazne",
-        "description": "Promijeni dobavljača",
+        "description": "Promijeni komitenta",
         "values": {"cnr": "Promijeni / ručni unos", "en": "Change / manual entry"},
     },
     {
         "key": "ulazne.change_supplier_short",
         "category": "ulazne",
-        "description": "Kratko Promijeni dobavljača",
+        "description": "Kratko Promijeni komitenta",
         "values": {"cnr": "Promijeni", "en": "Change"},
     },
     {
@@ -1419,11 +1419,11 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "page.invoice_edit",
         "category": "page",
-        "description": "Izmjena fakture",
+        "description": "Izmjeni fakturu",
         "values": {
-            "cnr": "Izmjena fakture",
-            "cnr-cyrl": "Измјена фактуре",
-            "sr": "Izmena fakture",
+            "cnr": "Izmjeni fakturu",
+            "cnr-cyrl": "Измијени фактуру",
+            "sr": "Izmeni fakturu",
             "sr-cyrl": "Измена фактуре",
             "sq": "Ndrysho faturën",
             "tr": "Fatura düzenle",

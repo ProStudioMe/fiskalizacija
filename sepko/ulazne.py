@@ -1,4 +1,4 @@
-"""Ulazne fakture, dobavljači, troškovnik — domain helpers."""
+"""Ulazne fakture, komitenti, troškovnik — domain helpers."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from sepko.audit import write_audit
 from sepko.models import (
+    Customer,
     Expense,
     ExpenseCategory,
     IncomingInvoice,
@@ -54,7 +55,7 @@ def ensure_expense_categories(db: Session, tenant: Tenant) -> list[ExpenseCatego
     return rows
 
 
-def get_or_create_supplier(
+def get_or_create_customer(
     db: Session,
     tenant: Tenant,
     *,
@@ -62,21 +63,24 @@ def get_or_create_supplier(
     name: str,
     street: str | None = None,
     city: str | None = None,
-) -> Supplier:
+) -> Customer:
+    """Komitent po PIB-u — isti šifarnik za izlazne i ulazne."""
     pib_c = (pib or "").strip()
-    name_c = (name or "").strip() or pib_c or "Dobavljač"
+    name_c = (name or "").strip() or pib_c or "Komitent"
     if not pib_c:
-        raise ValueError("PIB dobavljača je obavezan")
+        raise ValueError("PIB komitenta je obavezan")
     row = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.pib == pib_c)
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.pib == pib_c)
         .first()
     )
     if row:
         if name_c and row.name != name_c:
             row.name = name_c[:255]
+        if not row.active:
+            row.active = True
         return row
-    row = Supplier(
+    row = Customer(
         tenant_id=tenant.id,
         pib=pib_c[:32],
         name=name_c[:255],
@@ -88,6 +92,116 @@ def get_or_create_supplier(
     db.add(row)
     db.flush()
     return row
+
+
+def get_or_create_supplier(
+    db: Session,
+    tenant: Tenant,
+    *,
+    pib: str,
+    name: str,
+    street: str | None = None,
+    city: str | None = None,
+) -> Customer:
+    """Stari naziv — dobavljači su komitenti."""
+    return get_or_create_customer(db, tenant, pib=pib, name=name, street=street, city=city)
+
+
+def _copy_if_empty(dst: Customer, src: Supplier) -> None:
+    for field in ("pdv_number", "street", "city", "country", "email", "phone", "contact", "notes"):
+        if not getattr(dst, field) and getattr(src, field):
+            setattr(dst, field, getattr(src, field))
+
+
+def merge_suppliers_into_customers(db: Session) -> None:
+    """Jednokratno: dobavljače prebaci u komitente i veži ulazne fakture."""
+    from sqlalchemy import inspect as sa_inspect
+
+    try:
+        conn = db.connection()
+        cols = {c["name"] for c in sa_inspect(conn).get_columns("incoming_invoices")}
+    except Exception:
+        return
+    if "customer_id" not in cols:
+        return
+    try:
+        if "suppliers" not in sa_inspect(conn).get_table_names():
+            return
+    except Exception:
+        return
+
+    for s in db.query(Supplier).all():
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == s.tenant_id, Customer.pib == s.pib)
+            .first()
+        )
+        if cust:
+            _copy_if_empty(cust, s)
+            if not cust.active and s.active:
+                cust.active = True
+        else:
+            cust = Customer(
+                tenant_id=s.tenant_id,
+                pib=s.pib[:32],
+                pdv_number=s.pdv_number,
+                name=s.name[:255],
+                street=s.street,
+                city=s.city,
+                country=s.country or "Crna Gora",
+                email=s.email,
+                phone=s.phone,
+                contact=s.contact,
+                notes=s.notes,
+                active=s.active,
+            )
+            db.add(cust)
+            db.flush()
+        (
+            db.query(IncomingInvoice)
+            .filter(
+                IncomingInvoice.tenant_id == s.tenant_id,
+                IncomingInvoice.supplier_id == s.id,
+                IncomingInvoice.customer_id.is_(None),
+            )
+            .update({"customer_id": cust.id}, synchronize_session="fetch")
+        )
+
+    orphans = (
+        db.query(IncomingInvoice)
+        .filter(
+            IncomingInvoice.customer_id.is_(None),
+            IncomingInvoice.supplier_pib.isnot(None),
+            IncomingInvoice.supplier_pib != "",
+        )
+        .all()
+    )
+    for inv in orphans:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == inv.tenant_id, Customer.pib == inv.supplier_pib)
+            .first()
+        )
+        if cust:
+            inv.customer_id = cust.id
+
+    orphans = (
+        db.query(IncomingInvoice)
+        .filter(
+            IncomingInvoice.customer_id.is_(None),
+            IncomingInvoice.supplier_pib.isnot(None),
+            IncomingInvoice.supplier_pib != "",
+        )
+        .all()
+    )
+    for inv in orphans:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == inv.tenant_id, Customer.pib == inv.supplier_pib)
+            .first()
+        )
+        if cust:
+            inv.customer_id = cust.id
 
 
 def _recalc_totals(lines: list[dict[str, Any]]) -> tuple[Decimal, Decimal, Decimal]:
@@ -118,6 +232,7 @@ def create_incoming_invoice(
     issue_date: date | None = None,
     supplier_pib: str | None = None,
     supplier_name: str | None = None,
+    customer_id: int | None = None,
     supplier_id: int | None = None,
     status: str = IncomingInvoiceStatus.recorded.value,
     source: str = IncomingInvoiceSource.manual.value,
@@ -132,15 +247,16 @@ def create_incoming_invoice(
     total_gross: Decimal | None = None,
 ) -> IncomingInvoice:
     lines = list(lines or [])
-    supplier: Supplier | None = None
-    if supplier_id:
-        supplier = (
-            db.query(Supplier)
-            .filter(Supplier.tenant_id == tenant.id, Supplier.id == supplier_id)
+    party: Customer | None = None
+    cid = customer_id or supplier_id
+    if cid:
+        party = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == tenant.id, Customer.id == cid)
             .first()
         )
     elif supplier_pib:
-        supplier = get_or_create_supplier(
+        party = get_or_create_customer(
             db, tenant, pib=supplier_pib, name=supplier_name or supplier_pib
         )
 
@@ -168,11 +284,12 @@ def create_incoming_invoice(
 
     inv = IncomingInvoice(
         tenant_id=tenant.id,
-        supplier_id=supplier.id if supplier else None,
+        supplier_id=None,
+        customer_id=party.id if party else None,
         number=(number or "")[:64],
         issue_date=issue_date,
-        supplier_pib=(supplier.pib if supplier else supplier_pib or None),
-        supplier_name=(supplier.name if supplier else supplier_name or None),
+        supplier_pib=(party.pib if party else supplier_pib or None),
+        supplier_name=(party.name if party else supplier_name or None),
         status=status,
         source=source,
         currency=(currency or "EUR")[:8],
@@ -226,6 +343,7 @@ def update_incoming_invoice(
     issue_date: date | None = None,
     supplier_pib: str | None = None,
     supplier_name: str | None = None,
+    customer_id: int | None = None,
     supplier_id: int | None = None,
     status: str = IncomingInvoiceStatus.recorded.value,
     notes: str | None = None,
@@ -237,15 +355,16 @@ def update_incoming_invoice(
     if inv.tenant_id != tenant.id:
         raise ValueError("Ulazna faktura nije pronađena.")
 
-    supplier: Supplier | None = None
-    if supplier_id:
-        supplier = (
-            db.query(Supplier)
-            .filter(Supplier.tenant_id == tenant.id, Supplier.id == supplier_id)
+    party: Customer | None = None
+    cid = customer_id or supplier_id
+    if cid:
+        party = (
+            db.query(Customer)
+            .filter(Customer.tenant_id == tenant.id, Customer.id == cid)
             .first()
         )
     elif supplier_pib:
-        supplier = get_or_create_supplier(
+        party = get_or_create_customer(
             db, tenant, pib=supplier_pib, name=supplier_name or supplier_pib
         )
 
@@ -257,11 +376,11 @@ def update_incoming_invoice(
         vat = d(total_vat)
         gross = d(total_gross)
 
-    inv.supplier_id = supplier.id if supplier else None
+    inv.customer_id = party.id if party else None
     inv.number = (number or "")[:64]
     inv.issue_date = issue_date
-    inv.supplier_pib = supplier.pib if supplier else supplier_pib or None
-    inv.supplier_name = supplier.name if supplier else supplier_name or None
+    inv.supplier_pib = party.pib if party else supplier_pib or None
+    inv.supplier_name = party.name if party else supplier_name or None
     inv.status = status
     inv.notes = notes
     inv.total_net = net

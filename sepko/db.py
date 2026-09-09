@@ -206,6 +206,10 @@ def init_db() -> None:
             for name, coltype in lic_inv_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "license_invoices", name, coltype)
+        if "incoming_invoices" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("incoming_invoices")}
+            if "customer_id" not in existing:
+                add_column_if_missing(conn, "incoming_invoices", "customer_id", "INTEGER")
         if "bank_transactions" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("bank_transactions")}
             if "incoming_invoice_id" not in existing:
@@ -231,6 +235,9 @@ def init_db() -> None:
 
         ensure_superadmin(db)
         ensure_client_tenants(db)
+        from sepko.ulazne import merge_suppliers_into_customers
+
+        merge_suppliers_into_customers(db)
         db.commit()
     except Exception:
         db.rollback()

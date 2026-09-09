@@ -23,16 +23,26 @@
            onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
            title="{{ t('btn.print', 'Štampa') }}" aria-label="{{ t('btn.print', 'Štampa') }}">
           <i data-lucide="printer" aria-hidden="true"></i>
+          <span class="inv-actions-name">{{ t('btn.print', 'Štampa') }}</span>
         </a>
         <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/pdf" target="sepko-print" rel="noopener"
            onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
            title="A4 PDF" aria-label="A4 PDF">
           <i data-lucide="file-text" aria-hidden="true"></i>
+          <span class="inv-actions-name">PDF</span>
         </a>
       </div>
       {% if not readonly %}
-        <a class="btn secondary inv-actions-icon" href="/racuni/{{ invoice.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+        <form method="post" action="/racuni/{{ invoice.id }}/fiskalizuj" class="inv-actions-delete">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn inv-action-loud">
+            <i data-lucide="badge-check" aria-hidden="true"></i>
+            <span class="inv-actions-name">{{ t('btn.fiscalize', 'Fiskalizuj') }}</span>
+          </button>
+        </form>
+        <a class="btn inv-action-loud" href="/racuni/{{ invoice.id }}/izmijeni">
           <i data-lucide="pencil" aria-hidden="true"></i>
+          <span class="inv-actions-name">{{ t('btn.edit', 'Izmijeni') }}</span>
         </a>
         <form method="post" action="/racuni/{{ invoice.id }}/obrisi" class="inv-actions-delete"
               data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
@@ -40,8 +50,9 @@
               data-confirm-tone="danger"
               data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="btn secondary inv-actions-icon" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+          <button type="submit" class="btn danger inv-action-loud">
             <i data-lucide="trash-2" aria-hidden="true"></i>
+            <span class="inv-actions-name">{{ t('btn.delete', 'Obriši') }}</span>
           </button>
         </form>
       {% endif %}

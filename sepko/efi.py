@@ -221,6 +221,7 @@ class TenantCompany:
     pdv_number: str = ""
     bank_account: str = ""
     website: str = ""
+    logo_filename: str = ""
 
 
 def load_tenant_company(tenant: Tenant) -> TenantCompany:

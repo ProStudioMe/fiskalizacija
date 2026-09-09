@@ -1,22 +1,20 @@
-"""Web UI — ulazne fakture i dobavljači."""
+"""Web UI — ulazne fakture."""
 from __future__ import annotations
 
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from sepko.db import get_db
-from sepko.models import IncomingInvoice, IncomingInvoiceStatus, Supplier
+from sepko.models import Customer, IncomingInvoice, IncomingInvoiceStatus
 from sepko.ulazne import (
     add_line_name,
     create_from_qr,
     create_incoming_invoice,
     d,
     expense_from_incoming,
-    get_or_create_supplier,
     line_names_payload,
     list_line_names,
     parse_date,
@@ -45,31 +43,15 @@ def _get_incoming(db: Session, tenant, invoice_id: int) -> IncomingInvoice | Non
     )
 
 
-def _party_lookup_payload(row) -> dict:
-    return {
-        "id": row.id,
-        "pib": row.pib or "",
-        "pdv_number": row.pdv_number or "",
-        "name": row.name or "",
-        "street": row.street or "",
-        "city": row.city or "",
-        "country": row.country or "Crna Gora",
-        "email": row.email or "",
-        "phone": row.phone or "",
-        "contact": row.contact or "",
-        "notes": row.notes or "",
-    }
-
-
-def _form_suppliers_and_names(db: Session, tenant):
-    suppliers = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.active.is_(True))
-        .order_by(Supplier.name)
+def _form_customers_and_names(db: Session, tenant):
+    customers = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
+        .order_by(Customer.name)
         .all()
     )
     line_names = list_line_names(db, tenant)
-    return suppliers, line_names
+    return customers, line_names
 
 
 def _parse_form_line(
@@ -148,7 +130,7 @@ def ulazne_new_form(request: Request, db: Session = Depends(get_db)):
         return redirect("/login")
     from datetime import date as date_cls
 
-    suppliers, line_names = _form_suppliers_and_names(db, tenant)
+    customers, line_names = _form_customers_and_names(db, tenant)
     db.commit()
     return render(
         request,
@@ -156,7 +138,7 @@ def ulazne_new_form(request: Request, db: Session = Depends(get_db)):
         {
             "user": user,
             "tenant": tenant,
-            "suppliers": suppliers,
+            "customers": customers,
             "invoice": None,
             "prefill": {},
             "today_dmy": date_cls.today().strftime("%d.%m.%Y"),
@@ -268,6 +250,7 @@ def ulazne_create(
     csrf_token: str = Form(""),
     number: str = Form(""),
     issue_date: str = Form(""),
+    customer_id: str = Form(""),
     supplier_id: str = Form(""),
     supplier_pib: str = Form(""),
     supplier_name: str = Form(""),
@@ -290,7 +273,8 @@ def ulazne_create(
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/ulazne/nova")
     try:
-        sid = int(supplier_id) if supplier_id.strip().isdigit() else None
+        sid = (customer_id or supplier_id).strip()
+        cid = int(sid) if sid.isdigit() else None
         lines = _parse_form_line(
             line_name=line_name,
             line_qty=line_qty,
@@ -302,7 +286,7 @@ def ulazne_create(
             tenant,
             number=number.strip(),
             issue_date=parse_date(issue_date),
-            supplier_id=sid,
+            customer_id=cid,
             supplier_pib=supplier_pib.strip() or None,
             supplier_name=supplier_name.strip() or None,
             status=status.strip() or IncomingInvoiceStatus.recorded.value,
@@ -354,13 +338,13 @@ def ulazne_edit_form(request: Request, invoice_id: int, db: Session = Depends(ge
     if not inv:
         flash(request, "Ulazna faktura nije pronađena.", "error")
         return redirect("/ulazne")
-    suppliers, line_names = _form_suppliers_and_names(db, tenant)
+    customers, line_names = _form_customers_and_names(db, tenant)
     db.commit()
     first = inv.lines[0] if inv.lines else None
     prefill = {
         "number": inv.number or "",
         "issue_date": inv.issue_date.isoformat() if inv.issue_date else "",
-        "supplier_id": str(inv.supplier_id) if inv.supplier_id else "",
+        "customer_id": str(inv.customer_id) if inv.customer_id else "",
         "supplier_pib": inv.supplier_pib or "",
         "supplier_name": inv.supplier_name or "",
         "notes": inv.notes or "",
@@ -379,7 +363,7 @@ def ulazne_edit_form(request: Request, invoice_id: int, db: Session = Depends(ge
         {
             "user": user,
             "tenant": tenant,
-            "suppliers": suppliers,
+            "customers": customers,
             "invoice": inv,
             "prefill": prefill,
             "today_dmy": date_cls.today().strftime("%d.%m.%Y"),
@@ -395,6 +379,7 @@ def ulazne_edit_submit(
     csrf_token: str = Form(""),
     number: str = Form(""),
     issue_date: str = Form(""),
+    customer_id: str = Form(""),
     supplier_id: str = Form(""),
     supplier_pib: str = Form(""),
     supplier_name: str = Form(""),
@@ -422,7 +407,8 @@ def ulazne_edit_submit(
         flash(request, "Ulazna faktura nije pronađena.", "error")
         return redirect("/ulazne")
     try:
-        sid = int(supplier_id) if supplier_id.strip().isdigit() else None
+        sid = (customer_id or supplier_id).strip()
+        cid = int(sid) if sid.isdigit() else None
         lines = _parse_form_line(
             line_name=line_name,
             line_qty=line_qty,
@@ -435,7 +421,7 @@ def ulazne_edit_submit(
             inv,
             number=number.strip(),
             issue_date=parse_date(issue_date),
-            supplier_id=sid,
+            customer_id=cid,
             supplier_pib=supplier_pib.strip() or None,
             supplier_name=supplier_name.strip() or None,
             status=status.strip() or IncomingInvoiceStatus.recorded.value,
@@ -519,213 +505,21 @@ def ulazne_to_expense(
 
 
 @router.get("/dobavljaci/lookup.json")
-def suppliers_lookup(
-    request: Request,
-    q: str = Query(""),
-    db: Session = Depends(get_db),
-):
-    """Pretraga dobavljača za uvoz podataka na formu komitenta."""
-    try:
-        _user, tenant = _auth(request, db)
-    except AuthRequired:
-        return JSONResponse({"items": []}, status_code=401)
-    term = (q or "").strip()[:64]
-    if len(term) < 1:
-        return JSONResponse({"items": []})
-    like = f"%{term}%"
-    rows = (
-        db.query(Supplier)
-        .filter(
-            Supplier.tenant_id == tenant.id,
-            Supplier.active.is_(True),
-            or_(
-                Supplier.pib.ilike(like),
-                Supplier.name.ilike(like),
-                Supplier.city.ilike(like),
-                Supplier.pdv_number.ilike(like),
-            ),
-        )
-        .order_by(Supplier.name)
-        .limit(15)
-        .all()
-    )
-    return JSONResponse({"items": [_party_lookup_payload(r) for r in rows]})
+def suppliers_lookup_gone(q: str = Query("")):
+    qs = f"?q={q}" if q else ""
+    return redirect("/kupci/lookup.json" + qs)
 
 
-@router.get("/dobavljaci", response_class=HTMLResponse)
-def suppliers_list(
-    request: Request,
-    edit: int | None = Query(None),
-    q: str | None = Query(None),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-
-    query = db.query(Supplier).filter(Supplier.tenant_id == tenant.id)
-    term = (q or "").strip()
-    if term:
-        like = f"%{term}%"
-        query = query.filter(
-            or_(
-                Supplier.name.ilike(like),
-                Supplier.pib.ilike(like),
-                Supplier.city.ilike(like),
-                Supplier.email.ilike(like),
-                Supplier.pdv_number.ilike(like),
-            )
-        )
-    rows = query.order_by(Supplier.active.desc(), Supplier.name).all()
-    editing = next((s for s in rows if s.id == edit), None) if edit else None
-    if edit and editing is None:
-        editing = (
-            db.query(Supplier)
-            .filter(Supplier.tenant_id == tenant.id, Supplier.id == edit)
-            .first()
-        )
-    return render(
-        request,
-        "dobavljaci.html",
-        {
-            "user": user,
-            "tenant": tenant,
-            "suppliers": rows,
-            "editing": editing,
-            "q": term,
-        },
-    )
+@router.api_route("/dobavljaci", methods=["GET", "POST"])
+def suppliers_gone():
+    return redirect("/kupci")
 
 
-@router.post("/dobavljaci")
-def suppliers_create(
-    request: Request,
-    csrf_token: str = Form(""),
-    pib: str = Form(...),
-    name: str = Form(...),
-    pdv_number: str = Form(""),
-    street: str = Form(""),
-    city: str = Form(""),
-    country: str = Form("Crna Gora"),
-    email: str = Form(""),
-    phone: str = Form(""),
-    contact: str = Form(""),
-    notes: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/dobavljaci")
-    pib_c = pib.strip()[:32]
-    if not pib_c:
-        flash(request, "PIB je obavezan.", "error")
-        return redirect("/dobavljaci")
-    exists = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.pib == pib_c)
-        .first()
-    )
-    if exists:
-        flash(request, "Dobavljač sa tim PIB-om već postoji.", "error")
-        return redirect(f"/dobavljaci?edit={exists.id}")
-    try:
-        s = Supplier(
-            tenant_id=tenant.id,
-            pib=pib_c,
-            pdv_number=(pdv_number.strip() or None)[:64] if pdv_number.strip() else None,
-            name=name.strip()[:255],
-            street=(street.strip() or None)[:255] if street.strip() else None,
-            city=(city.strip() or None)[:128] if city.strip() else None,
-            country=(country.strip() or "Crna Gora")[:64],
-            email=(email.strip() or None)[:255] if email.strip() else None,
-            phone=(phone.strip() or None)[:64] if phone.strip() else None,
-            contact=(contact.strip() or None)[:255] if contact.strip() else None,
-            notes=(notes.strip() or None),
-            active=True,
-        )
-        db.add(s)
-        db.commit()
-        flash(request, "Dobavljač sačuvan.")
-    except Exception as exc:
-        db.rollback()
-        flash(request, str(exc), "error")
-    return redirect("/dobavljaci")
+@router.api_route("/dobavljaci/{supplier_id}/obrisi", methods=["GET", "POST"])
+def suppliers_delete_gone(supplier_id: int):
+    return redirect("/kupci")
 
 
-@router.post("/dobavljaci/{supplier_id}")
-def suppliers_update(
-    request: Request,
-    supplier_id: int,
-    csrf_token: str = Form(""),
-    name: str = Form(...),
-    pdv_number: str = Form(""),
-    street: str = Form(""),
-    city: str = Form(""),
-    country: str = Form("Crna Gora"),
-    email: str = Form(""),
-    phone: str = Form(""),
-    contact: str = Form(""),
-    notes: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/dobavljaci")
-    s = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.id == supplier_id)
-        .first()
-    )
-    if not s:
-        flash(request, "Dobavljač nije pronađen.", "error")
-        return redirect("/dobavljaci")
-    s.name = name.strip()[:255]
-    s.pdv_number = (pdv_number.strip() or None)[:64] if pdv_number.strip() else None
-    s.street = (street.strip() or None)[:255] if street.strip() else None
-    s.city = (city.strip() or None)[:128] if city.strip() else None
-    s.country = (country.strip() or "Crna Gora")[:64]
-    s.email = (email.strip() or None)[:255] if email.strip() else None
-    s.phone = (phone.strip() or None)[:64] if phone.strip() else None
-    s.contact = (contact.strip() or None)[:255] if contact.strip() else None
-    s.notes = notes.strip() or None
-    s.active = True
-    db.commit()
-    flash(request, "Dobavljač sačuvan.")
-    return redirect("/dobavljaci")
-
-
-@router.post("/dobavljaci/{supplier_id}/obrisi")
-def suppliers_delete(
-    request: Request,
-    supplier_id: int,
-    csrf_token: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/dobavljaci")
-    s = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.id == supplier_id)
-        .first()
-    )
-    if not s:
-        flash(request, "Dobavljač nije pronađen.", "error")
-        return redirect("/dobavljaci")
-    s.active = False
-    db.commit()
-    flash(request, "Dobavljač deaktiviran.")
-    return redirect("/dobavljaci")
+@router.api_route("/dobavljaci/{supplier_id}", methods=["GET", "POST"])
+def suppliers_item_gone(supplier_id: int):
+    return redirect("/kupci")

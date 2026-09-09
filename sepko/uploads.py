@@ -35,6 +35,12 @@ def customer_logo_dir(tenant_id: int) -> Path:
     return path
 
 
+def company_logo_dir(tenant_id: int) -> Path:
+    path = uploads_root() / f"t{tenant_id}" / "company"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def article_thumb_dir(tenant_id: int) -> Path:
     path = uploads_root() / f"t{tenant_id}" / "articles"
     path.mkdir(parents=True, exist_ok=True)
@@ -101,6 +107,77 @@ def resolve_customer_logo(tenant_id: int, filename: str | None) -> Path | None:
     if path.is_file():
         return path
     return None
+
+
+_IMAGE_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
+def image_data_uri(path: Path | None) -> str | None:
+    """Ugradi sliku u HTML računa (print/PDF bez dodatnog requesta)."""
+    if path is None or not path.is_file():
+        return None
+    mime = _IMAGE_MIME.get(path.suffix.lower())
+    if not mime:
+        return None
+    import base64
+
+    raw = path.read_bytes()
+    if not raw or len(raw) > MAX_BYTES:
+        return None
+    return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+async def save_company_logo(
+    tenant_id: int,
+    upload: UploadFile | None,
+    previous: str | None = None,
+) -> str | None:
+    if upload is None or not upload.filename:
+        return previous
+    ext = _safe_ext(upload.filename)
+    if not ext or ext == ".svg":
+        raise ValueError("Dozvoljeni formati loga: PNG, JPG, WEBP, GIF.")
+    data = await upload.read()
+    if not data:
+        return previous
+    if len(data) > MAX_BYTES:
+        raise ValueError("Logo je prevelik (max 2 MB).")
+    dest_dir = company_logo_dir(tenant_id)
+    fname = f"logo-{uuid.uuid4().hex[:10]}{ext}"
+    dest = dest_dir / fname
+    dest.write_bytes(data)
+    if previous:
+        old = dest_dir / Path(previous).name
+        if old.is_file() and old.resolve().parent == dest_dir.resolve():
+            try:
+                old.unlink()
+            except OSError:
+                pass
+    return fname
+
+
+def delete_company_logo(tenant_id: int, filename: str | None) -> None:
+    if not filename:
+        return
+    path = company_logo_dir(tenant_id) / Path(filename).name
+    if path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def resolve_company_logo(tenant_id: int, filename: str | None) -> Path | None:
+    if not filename:
+        return None
+    path = company_logo_dir(tenant_id) / Path(filename).name
+    return path if path.is_file() else None
 
 
 def is_demo_thumb(filename: str | None) -> bool:
