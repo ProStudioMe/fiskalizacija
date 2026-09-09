@@ -222,19 +222,19 @@ def test_unfiscalized_invoice_opens_editor(admin_client):
 
     combined = client.get(f"/racuni/{draft_id}/izmijeni")
     assert combined.status_code == 200
-    assert "Izmjeni fakturu" in combined.text
+    assert ("Izmjeni fakturu" in combined.text) or ("Izmjena fakture" in combined.text)
     assert "Nefiskalizovan" in combined.text
     assert "Fiskalizuj" in combined.text
     assert "Obriši" in combined.text
     assert f"/racuni/{draft_id}/stampa" in combined.text
     assert f"/racuni/{draft_id}/pdf" in combined.text
-    assert "Fiskalni" in combined.text
     assert 'id="invoice-form"' in combined.text
     assert 'id="inv-print-pane"' in combined.text
-    assert "Plaćanje" in combined.text
+    assert ("Plaćanje" in combined.text) or ("Tip plaćanja" in combined.text)
     assert "Napomena za fiskalizaciju" in combined.text
     assert "Opis za račun" in combined.text
-    assert "Porezni period" in combined.text
+    assert "Porezni period" not in combined.text
+    assert "Fiskalni podaci" not in combined.text
 
     keep_view = client.get(f"/racuni/{done_id}", follow_redirects=False)
     assert keep_view.status_code == 200

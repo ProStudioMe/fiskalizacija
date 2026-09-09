@@ -985,6 +985,7 @@ def customers_page(
     q: str | None = Query(None),
     per_page: int | None = Query(None),
     page: int = Query(1, ge=1),
+    return_to: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1007,6 +1008,7 @@ def customers_page(
     ordered = query.order_by(Customer.active.desc(), Customer.name)
     customers, total, page, pages = _paginate(ordered, page, size)
     editing = _get_customer(db, tenant, edit) if edit else None
+    back = _safe_return_to(return_to)
     resp = render(
         request,
         "customers.html",
@@ -1021,6 +1023,7 @@ def customers_page(
             "page": page,
             "pages": pages,
             "total": total,
+            "return_to": back or "",
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
@@ -1116,6 +1119,7 @@ async def customers_update(
     notes: str = Form(""),
     discount_pct: str = Form("0"),
     remove_logo: str = Form(""),
+    return_to: str = Form(""),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -1123,13 +1127,19 @@ async def customers_update(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/kupci"
+    edit_url = f"/kupci?edit={customer_id}"
+    if return_to:
+        rt = _safe_return_to(return_to)
+        if rt:
+            edit_url = f"/kupci?edit={customer_id}&return_to={quote(rt)}"
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/kupci")
+        return redirect(back if back != "/kupci" else "/kupci")
     customer = _get_customer(db, tenant, customer_id)
     if not customer:
         flash(request, "Kupac nije pronađen.", "error")
-        return redirect("/kupci")
+        return redirect(back)
     customer.name = name.strip()
     customer.pdv_number = pdv_number.strip() or None
     customer.street = street.strip() or None
@@ -1156,11 +1166,11 @@ async def customers_update(
             )
         except ValueError as exc:
             flash(request, str(exc), "error")
-            return redirect(f"/kupci?edit={customer_id}")
+            return redirect(edit_url)
 
     db.commit()
     flash(request, f"Komitent {customer.pib} izmijenjen.")
-    return redirect("/kupci")
+    return redirect(back)
 
 
 @router.get("/kupci/{customer_id}/logo")
@@ -2221,27 +2231,9 @@ def _build_fiscalize_request_from_form(
     customer_id = (customer_id or "").strip()
     form_pib = (buyer_pib or "").strip() or None
     form_name = (buyer_name or "").strip() or None
-    form_email = (buyer_email or "").strip()
     if customer_id:
         customer = _get_customer(db, tenant, int(customer_id))
         if customer:
-            if form_name and form_name != customer.name:
-                customer.name = form_name[:255]
-            new_email = form_email[:255] or None
-            if new_email != (customer.email or None):
-                customer.email = new_email
-            if form_pib and form_pib != customer.pib:
-                clash = (
-                    db.query(Customer)
-                    .filter(
-                        Customer.tenant_id == tenant.id,
-                        Customer.pib == form_pib,
-                        Customer.id != customer.id,
-                    )
-                    .first()
-                )
-                if not clash:
-                    customer.pib = form_pib[:32]
             buyer = BuyerIn(
                 pib=customer.pib,
                 name=customer.name,

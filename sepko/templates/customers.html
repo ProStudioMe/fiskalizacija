@@ -2,7 +2,10 @@
 {% block title %}{{ t('page.komitenti', 'Komitenti') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.komitenti', 'Komitenti') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn" href="/kupci">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
+  {% if return_to %}
+  <a class="btn secondary" href="{{ return_to }}">Nazad na fakturu</a>
+  {% endif %}
+  <a class="btn" href="/kupci{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">{% if editing %}Lista{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
 {% endblock %}
 {% block content %}
 <p class="muted" style="margin-top:0">Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.</p>
@@ -13,6 +16,7 @@
     <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
     <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
       <wa-input label="PIB / JMBG broj" value="{{ editing.pib }}" disabled></wa-input>
       <wa-input name="pdv_number" label="PDV broj" value="{{ editing.pdv_number or '' }}"></wa-input>
       <wa-input name="name" label="Naziv komitenta" value="{{ editing.name }}" required></wa-input>
@@ -41,7 +45,7 @@
       <wa-textarea name="notes" label="Napomena" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
       <div class="wa-form-actions">
         <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
-        <a class="btn secondary" href="/kupci">{{ t('btn.cancel', 'Poništi') }}</a>
+        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
     {% else %}
