@@ -2807,8 +2807,8 @@ html[data-theme="dark"] .btn-icon.danger:hover {
 }
 .inv-meta-top-row {
   display: grid;
-  grid-template-columns: auto minmax(9.5rem, 1fr) minmax(9.5rem, 1.15fr) auto;
-  gap: 0.55rem 0.85rem;
+  grid-template-columns: auto minmax(8.5rem, 0.9fr) minmax(8.5rem, 1fr) minmax(8rem, 1.1fr) minmax(8rem, 1.1fr);
+  gap: 0.45rem 0.65rem;
   align-items: end;
 }
 .inv-meta-card--top .inv-meta-num {
@@ -2824,29 +2824,22 @@ html[data-theme="dark"] .btn-icon.danger:hover {
   margin: 0;
   min-width: 0;
 }
-.inv-meta-card--top .inv-meta-quiet-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.65rem 1rem;
-  align-items: flex-end;
-  padding-bottom: 0.3rem;
-  white-space: nowrap;
-}
-.inv-meta-card--top .inv-meta-quiet-row .inv-meta-plain {
-  font-size: 0.88rem;
-  max-width: 9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.inv-meta-card--top .inv-notes-soft {
-  margin-top: 0.1rem;
+.inv-meta-top-row > .inv-note-field {
+  min-width: 0;
 }
 @media (max-width: 900px) {
   .inv-meta-top-row {
+    grid-template-columns: auto 1fr 1fr;
+  }
+  .inv-meta-top-row > .inv-note-field {
+    grid-column: span 1;
+  }
+}
+@media (max-width: 720px) {
+  .inv-meta-top-row {
     grid-template-columns: 1fr 1fr;
   }
-  .inv-meta-top-row .inv-meta-num,
-  .inv-meta-top-row .inv-meta-quiet-row {
+  .inv-meta-top-row .inv-meta-num {
     grid-column: 1 / -1;
   }
 }
@@ -2876,20 +2869,28 @@ html[data-theme="dark"] .btn-icon.danger:hover {
   padding-top: 0.55rem;
 }
 .inv-notes-stack {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem 0.75rem;
-  align-items: start;
-  margin-top: 0.65rem;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.65rem 0.85rem;
+  margin-top: 0.55rem;
 }
-.inv-notes-stack > wa-textarea,
-.inv-notes-stack > input[type="hidden"] + wa-textarea {
-  margin: 0;
+.inv-notes-stack > .inv-note-field,
+.inv-notes-stack > wa-textarea {
+  flex: 1 1 0;
   min-width: 0;
+  width: auto !important;
+  max-width: none;
+  margin: 0 !important;
 }
 @media (max-width: 720px) {
   .inv-notes-stack {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
+  }
+  .inv-notes-stack > .inv-note-field,
+  .inv-notes-stack > wa-textarea {
+    flex: 1 1 100%;
   }
 }
 .inv-notes-soft > summary {

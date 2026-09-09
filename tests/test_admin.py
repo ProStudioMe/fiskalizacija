@@ -231,7 +231,7 @@ def test_unfiscalized_invoice_opens_editor(admin_client):
     assert 'id="invoice-form"' in combined.text
     assert 'id="inv-print-pane"' in combined.text
     assert ("Plaćanje" in combined.text) or ("Tip plaćanja" in combined.text)
-    assert "Napomena za fiskalizaciju" in combined.text
+    assert "Napomena fisk." in combined.text
     assert "Opis za račun" in combined.text
     assert "Porezni period" not in combined.text
     assert "Fiskalni podaci" not in combined.text

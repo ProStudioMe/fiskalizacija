@@ -132,28 +132,13 @@
             <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>Drugo bezgotovinsko</wa-option>
             <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>Na račun</wa-option>
           </wa-select>
-          <div class="inv-meta-quiet-row">
-            <div>
-              <span class="inv-meta-label">Valuta</span>
-              <span class="inv-meta-plain">EUR</span>
-            </div>
-            <div>
-              <span class="inv-meta-label">{% if is_template %}Uredio{% else %}Izdao{% endif %}</span>
-              <span class="inv-meta-plain" title="{{ user.full_name or user.email }}">{{ user.full_name or user.email }}</span>
-            </div>
-          </div>
+          {% if not is_template %}
+          <wa-input name="fiscal_note" id="fiscal_note" size="small" class="inv-note-field" label="Napomena fisk." placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-input>
+          {% else %}
+          <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
+          {% endif %}
+          <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field" label="{% if is_template %}Napomena{% else %}Opis za račun{% endif %}" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
         </div>
-        <details class="inv-notes-soft" open>
-          <summary>Napomene</summary>
-            <div class="inv-notes-stack">
-              {% if not is_template %}
-              <wa-textarea name="fiscal_note" id="fiscal_note" label="Napomena za fiskalizaciju" rows="2" placeholder="Opciono" value="{{ (prefill.fiscal_note if prefill else '') }}"></wa-textarea>
-              {% else %}
-              <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
-              {% endif %}
-              <wa-textarea name="notes" id="inv-notes" label="{% if is_template %}Napomena na računu{% else %}Opis za račun{% endif %}" rows="2" placeholder="Opciono" value="{{ (prefill.notes if prefill else '') }}"></wa-textarea>
-            </div>
-        </details>
       </div>
 
       {% if is_edit and not is_template and (editing.status == 'failed' or editing.ikof or editing.jikr or editing.error_message) %}
