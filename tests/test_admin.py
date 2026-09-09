@@ -143,6 +143,7 @@ def test_pwa_install_prompt_skipped_for_admin(admin_client):
     assert dash.status_code == 200
     assert 'data-skip="1"' in dash.text
     assert 'id="btn-pwa-install"' not in dash.text
+    assert "__sepkoDeferredPrompt" in dash.text
 
     db = Session()
     tenant = db.query(Tenant).filter_by(slug="philia").one()

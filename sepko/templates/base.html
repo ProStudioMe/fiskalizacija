@@ -21,6 +21,15 @@
       }
     })();
   </script>
+  <script>
+    (function () {
+      window.__sepkoDeferredPrompt = null;
+      window.addEventListener("beforeinstallprompt", function (e) {
+        e.preventDefault();
+        window.__sepkoDeferredPrompt = e;
+      });
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -341,7 +350,7 @@
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=4"
+  <script src="/static/pwa-install.js?v=5"
           data-skip="{% if is_admin_portal or (user and user.role in ['admin', 'superadmin']) %}1{% else %}0{% endif %}"
           data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
           data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"

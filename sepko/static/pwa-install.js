@@ -22,8 +22,6 @@
   var skip = (script && script.getAttribute("data-skip")) === "1";
   var btn = document.getElementById("btn-pwa-install");
 
-  if (skip) return;
-
   function standalone() {
     return window.matchMedia("(display-mode: standalone)").matches ||
       window.matchMedia("(display-mode: window-controls-overlay)").matches ||
@@ -152,16 +150,11 @@
     });
   }
 
-  if (standalone()) {
-    markInstalled();
-    return;
-  }
-
-  if (!loggedIn()) return;
-
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault();
-    deferred = e;
+  function onBeforeInstall(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    deferred = e || deferred;
+    try { window.__sepkoDeferredPrompt = deferred; } catch (err) {}
+    if (skip || standalone() || !loggedIn()) return;
     mode = "install";
     if (btn) {
       btn.hidden = false;
@@ -170,7 +163,17 @@
     if (!dismissed()) {
       window.setTimeout(showInstall, 900);
     }
-  });
+  }
+
+  window.addEventListener("beforeinstallprompt", onBeforeInstall);
+  if (window.__sepkoDeferredPrompt) onBeforeInstall(window.__sepkoDeferredPrompt);
+
+  if (standalone()) {
+    markInstalled();
+    return;
+  }
+
+  if (skip || !loggedIn()) return;
 
   window.addEventListener("appinstalled", function () {
     setOpenMode();
