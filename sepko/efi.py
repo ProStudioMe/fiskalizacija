@@ -365,9 +365,9 @@ def format_display_inv_num(
     *,
     series: str = "1",
 ) -> str:
-    """Lokalni prikaz: 1-{mjesec}-{rbr} npr. 1-09-030."""
+    """Lokalni prikaz: 1-{mjesec}-{rbr}/{godina} npr. 1-09-002/2026."""
     when = when or datetime.now(timezone.utc)
-    return f"{series}-{when.month:02d}-{int(ord_num):03d}"
+    return f"{series}-{when.month:02d}-{int(ord_num):03d}/{when.year}"
 
 
 def parse_display_inv_num(
@@ -376,13 +376,27 @@ def parse_display_inv_num(
     """Parsira lokalni broj → (ord_num, year|None, month|None).
 
     Podržava:
-    - 1-09-030 (mjesečni rbr; year=None, month=9)
+    - 1-09-002/2026 (trenutna forma)
+    - 1-09-002 (bez godine)
     - 1-1-32/2026 (stara forma; month=None)
     - 32/2026
     """
     raw = (text or "").strip()
     if not raw:
         return None
+    # 1-09-002/2026 ili 1-9-2/2026
+    m = re.match(
+        rf"^{re.escape(series)}-(\d{{1,2}})-(\d{{1,7}})/(\d{{4}})$",
+        raw,
+        re.I,
+    )
+    if m:
+        month = int(m.group(1))
+        ord_num = int(m.group(2))
+        year = int(m.group(3))
+        if 1 <= month <= 12 and ord_num >= 1:
+            return ord_num, year, month
+    # 1-09-002 bez godine
     m = re.match(
         rf"^{re.escape(series)}-(\d{{1,2}})-(\d{{1,7}})$",
         raw,
@@ -408,7 +422,7 @@ def parse_display_inv_num(
 
 
 def display_inv_num(invoice: Any, series: str = "1") -> str:
-    """Lokalni prikaz: 1-{mjesec}-{rbr}. EFI InvNum ostaje u inv_num.
+    """Lokalni prikaz: 1-{mjesec}-{rbr}/{godina}. EFI InvNum ostaje u inv_num.
 
     rbr je mjesečni (local_ord_num), ne godišnji EFI inv_ord_num.
     """
@@ -419,7 +433,6 @@ def display_inv_num(invoice: Any, series: str = "1") -> str:
     if not ord_num and raw:
         parts = str(raw).split("/")
         if len(parts) >= 3 and parts[1].isdigit():
-            # samo fallback ako nema local_ord — ne koristi EFI rbr u prikazu ako postoji local
             if when is None and parts[2].isdigit() and len(parts[2]) == 4:
                 when = datetime(int(parts[2]), 1, 1, tzinfo=timezone.utc)
     if not ord_num:

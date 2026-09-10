@@ -270,9 +270,9 @@ def _build_invoice_list(
                 search_clauses.append(Invoice.local_ord_num == ord_num)
                 search_clauses.append(Invoice.inv_ord_num == ord_num)
         else:
-            # djelimičan unos tipa 1-09-30 ili 1-1-32
+            # djelimičan unos tipa 1-09-30/2026 ili 1-09-30
             m_partial = q_raw.replace(" ", "")
-            m_new = re.match(r"^1-(\d{1,2})-(\d+)$", m_partial)
+            m_new = re.match(r"^1-(\d{1,2})-(\d+)(?:/(\d{4}))?$", m_partial)
             if m_new:
                 search_clauses.append(Invoice.local_ord_num == int(m_new.group(2)))
                 search_clauses.append(

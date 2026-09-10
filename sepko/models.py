@@ -238,7 +238,7 @@ class Invoice(Base):
     partner_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     inv_num: Mapped[str | None] = mapped_column(String(64), nullable=True)
     inv_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # EFI godišnji rbr
-    local_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # lokalni mjesečni rbr (1-MM-###)
+    local_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # lokalni mjesečni rbr (1-MM-###/YYYY)
     type_of_inv: Mapped[str | None] = mapped_column(String(16), nullable=True)
     inv_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
