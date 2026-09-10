@@ -2178,6 +2178,22 @@ body.sepko-dialog-open { overflow: hidden; }
 .row-actions .btn-icon-row-accent {
   margin-left: 0.55rem;
 }
+/* Desktop: dugmad se naziru u idle; puna snaga na hover / fokus / čekirano */
+@media (hover: hover) and (pointer: fine) {
+  .invoices-table tbody tr.inv-row .row-actions > a.btn-icon-row,
+  .invoices-table tbody tr.inv-row .row-actions > form .btn-icon-row {
+    opacity: 0.38;
+    transition: opacity 0.14s ease, color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  }
+  .invoices-table tbody tr.inv-row:hover .row-actions > a.btn-icon-row,
+  .invoices-table tbody tr.inv-row:hover .row-actions > form .btn-icon-row,
+  .invoices-table tbody tr.inv-row:focus-within .row-actions > a.btn-icon-row,
+  .invoices-table tbody tr.inv-row:focus-within .row-actions > form .btn-icon-row,
+  .invoices-table tbody tr.inv-row:has(.inv-check:checked) .row-actions > a.btn-icon-row,
+  .invoices-table tbody tr.inv-row:has(.inv-check:checked) .row-actions > form .btn-icon-row {
+    opacity: 1;
+  }
+}
 .visually-hidden {
   position: absolute;
   width: 1px;
