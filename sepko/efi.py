@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from urllib.parse import urlencode
 from typing import Any
@@ -359,46 +359,75 @@ def build_inv_num(busin_unit_code: str, ord_num: int, year: int, tcr_code: str) 
     return f"{bu}/{ord_num}/{year}/{tcr}"
 
 
-def parse_display_inv_num(text: str, series: str = "1-1") -> tuple[int, int] | None:
-    """Parsira lokalni broj 1-1-{rbr}/{godina} → (ord_num, year)."""
+def format_display_inv_num(
+    ord_num: int,
+    when: datetime | None = None,
+    *,
+    series: str = "1",
+) -> str:
+    """Lokalni prikaz: 1-{mjesec}-{rbr} npr. 1-09-030."""
+    when = when or datetime.now(timezone.utc)
+    return f"{series}-{when.month:02d}-{int(ord_num):03d}"
+
+
+def parse_display_inv_num(
+    text: str, series: str = "1"
+) -> tuple[int, int | None, int | None] | None:
+    """Parsira lokalni broj → (ord_num, year|None, month|None).
+
+    Podržava:
+    - 1-09-030 (mjesečni rbr; year=None, month=9)
+    - 1-1-32/2026 (stara forma; month=None)
+    - 32/2026
+    """
     raw = (text or "").strip()
     if not raw:
         return None
-    # 1-1-32/2026 ili 1-1-32-2026
     m = re.match(
-        rf"^{re.escape(series)}-(\d+)[/.\-](\d{{4}})$",
+        rf"^{re.escape(series)}-(\d{{1,2}})-(\d{{1,7}})$",
         raw,
         re.I,
     )
     if m:
-        return int(m.group(1)), int(m.group(2))
-    # samo 32/2026
+        month = int(m.group(1))
+        ord_num = int(m.group(2))
+        if 1 <= month <= 12 and ord_num >= 1:
+            return ord_num, None, month
+    legacy_series = f"{series}-1"
+    m = re.match(
+        rf"^{re.escape(legacy_series)}-(\d+)[/.\-](\d{{4}})$",
+        raw,
+        re.I,
+    )
+    if m:
+        return int(m.group(1)), int(m.group(2)), None
     m = re.match(r"^(\d+)[/.\-](\d{4})$", raw)
     if m:
-        return int(m.group(1)), int(m.group(2))
+        return int(m.group(1)), int(m.group(2)), None
     return None
 
 
-def display_inv_num(invoice: Any, series: str = "1-1") -> str:
-    """Lokalni VG-stil prikaz: 1-1-{rbr}/{godina}. EFI InvNum ostaje u inv_num."""
-    ord_num = getattr(invoice, "inv_ord_num", None)
+def display_inv_num(invoice: Any, series: str = "1") -> str:
+    """Lokalni prikaz: 1-{mjesec}-{rbr}. EFI InvNum ostaje u inv_num.
+
+    rbr je mjesečni (local_ord_num), ne godišnji EFI inv_ord_num.
+    """
     when = getattr(invoice, "issue_datetime", None)
-    year = when.year if when is not None else None
+    local_ord = getattr(invoice, "local_ord_num", None)
+    ord_num = local_ord
     raw = getattr(invoice, "inv_num", None) or getattr(invoice, "external_id", None) or ""
     if not ord_num and raw:
         parts = str(raw).split("/")
         if len(parts) >= 3 and parts[1].isdigit():
-            ord_num = int(parts[1])
-            if year is None and parts[2].isdigit() and len(parts[2]) == 4:
-                year = int(parts[2])
-    if year is None:
-        year = datetime.now().year
+            # samo fallback ako nema local_ord — ne koristi EFI rbr u prikazu ako postoji local
+            if when is None and parts[2].isdigit() and len(parts[2]) == 4:
+                when = datetime(int(parts[2]), 1, 1, tzinfo=timezone.utc)
     if not ord_num:
         status = getattr(invoice, "status", None)
         if status in ("draft", "pending"):
             return "Nacrt"
         return "—"
-    return f"{series}-{ord_num}/{year}"
+    return format_display_inv_num(int(ord_num), when, series=series)
 
 
 def qr_base_url(mode: str) -> str:

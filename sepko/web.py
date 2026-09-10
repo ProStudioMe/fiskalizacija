@@ -244,23 +244,45 @@ def _build_invoice_list(
             Invoice.jikr.ilike(term),
             Invoice.ikof.ilike(term),
         ]
-        # Lokalni broj 1-1-32/2026 → inv_ord_num + godina
+        # Lokalni broj 1-09-030 (mjesečni) ili stari 1-1-32/2026
         parsed = parse_display_inv_num(q_raw)
         if parsed:
-            ord_num, year = parsed
-            search_clauses.append(
-                (Invoice.inv_ord_num == ord_num)
-                & (func.extract("year", Invoice.issue_datetime) == year)
-            )
-            # EFI InvNum često: .../32/2026/...
-            search_clauses.append(Invoice.inv_num.ilike(f"%/{ord_num}/{year}/%"))
-            search_clauses.append(Invoice.external_id.ilike(f"%/{ord_num}/{year}%"))
+            ord_num, year, month = parsed
+            if month:
+                search_clauses.append(
+                    (Invoice.local_ord_num == ord_num)
+                    & (func.extract("month", Invoice.issue_datetime) == month)
+                )
+                if year:
+                    search_clauses.append(
+                        (Invoice.local_ord_num == ord_num)
+                        & (func.extract("year", Invoice.issue_datetime) == year)
+                        & (func.extract("month", Invoice.issue_datetime) == month)
+                    )
+            elif year:
+                search_clauses.append(
+                    (Invoice.inv_ord_num == ord_num)
+                    & (func.extract("year", Invoice.issue_datetime) == year)
+                )
+                search_clauses.append(Invoice.inv_num.ilike(f"%/{ord_num}/{year}/%"))
+                search_clauses.append(Invoice.external_id.ilike(f"%/{ord_num}/{year}%"))
+            else:
+                search_clauses.append(Invoice.local_ord_num == ord_num)
+                search_clauses.append(Invoice.inv_ord_num == ord_num)
         else:
-            # djelimičan unos tipa 1-1-32
+            # djelimičan unos tipa 1-09-30 ili 1-1-32
             m_partial = q_raw.replace(" ", "")
-            if m_partial.startswith("1-1-") and m_partial[4:].isdigit():
+            m_new = re.match(r"^1-(\d{1,2})-(\d+)$", m_partial)
+            if m_new:
+                search_clauses.append(Invoice.local_ord_num == int(m_new.group(2)))
+                search_clauses.append(
+                    (Invoice.local_ord_num == int(m_new.group(2)))
+                    & (func.extract("month", Invoice.issue_datetime) == int(m_new.group(1)))
+                )
+            elif m_partial.startswith("1-1-") and m_partial[4:].isdigit():
                 search_clauses.append(Invoice.inv_ord_num == int(m_partial[4:]))
             elif q_raw.isdigit():
+                search_clauses.append(Invoice.local_ord_num == int(q_raw))
                 search_clauses.append(Invoice.inv_ord_num == int(q_raw))
         query = query.filter(or_(*search_clauses))
     if status_val and status_val != "all":
@@ -2306,6 +2328,21 @@ def _invoice_editor_context(
         .order_by(Customer.name)
         .all()
     )
+    from sepko.services import backfill_local_ord_nums, preview_local_display_num
+
+    needs_backfill = (
+        db.query(Invoice.id)
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.local_ord_num.is_(None),
+            Invoice.inv_ord_num.isnot(None),
+            Invoice.is_template.is_(False),
+        )
+        .limit(1)
+        .first()
+    )
+    if needs_backfill:
+        backfill_local_ord_nums(db, tenant.id)
     _, next_ord = preview_inv_num(db, tenant)
     day = cash_day_summary(db, tenant)
     due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
@@ -2409,9 +2446,19 @@ def _invoice_editor_context(
         year_choices.append(int(period_year))
         year_choices.sort()
 
-    from sepko.efi import DOCUMENT_TYPE_LABELS, UI_DOCUMENT_TYPES
+    from sepko.efi import (
+        DOCUMENT_TYPE_LABELS,
+        UI_DOCUMENT_TYPES,
+        display_inv_num,
+    )
 
     tax_rates = ensure_tax_rates(db, tenant)
+
+    if invoice is not None and invoice.local_ord_num:
+        display_num = display_inv_num(invoice)
+    else:
+        when = (invoice.issue_datetime if invoice is not None else None) or now
+        display_num = preview_local_display_num(db, tenant, when)
 
     return {
         "user": user,
@@ -2427,17 +2474,9 @@ def _invoice_editor_context(
         "period_years": year_choices,
         "period_month": int(period_month),
         "period_year": int(period_year),
-        "next_inv_num": (
-            f"1-1-{next_ord}/{datetime.now(timezone.utc).year}"
-            if invoice is None
-            else display_inv_num(invoice)
-        ),
+        "next_inv_num": display_num,
         "next_ord": next_ord,
-        "next_display_num": (
-            f"1-1-{next_ord}/{datetime.now(timezone.utc).year}"
-            if invoice is None
-            else display_inv_num(invoice)
-        ),
+        "next_display_num": display_num,
         "day": day,
         "due_date_default": (
             due_default if invoice is None else (prefill or {}).get("due_date", due_default)

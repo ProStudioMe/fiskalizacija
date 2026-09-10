@@ -2831,22 +2831,27 @@ html[data-theme="dark"] .btn-icon.danger:hover {
 .inv-meta-card--top {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.75rem 1rem 0.85rem;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem 0.7rem;
 }
 .inv-meta-top-row {
   display: grid;
-  grid-template-columns: auto minmax(8.5rem, 0.9fr) minmax(8.5rem, 1fr) minmax(8rem, 1.1fr) minmax(8rem, 1.1fr);
-  gap: 0.45rem 0.65rem;
+  grid-template-columns: minmax(6.5rem, auto) minmax(8.5rem, 0.85fr) minmax(8.5rem, 1fr) minmax(8rem, 1.05fr) minmax(7.5rem, 1fr);
+  gap: 0.4rem 0.55rem;
   align-items: end;
 }
 .inv-meta-card--top .inv-meta-num {
-  padding: 0;
-  min-width: 5.5rem;
+  padding: 0 0 0.1rem;
+  min-width: 0;
+}
+.inv-meta-card--top .inv-meta-num .inv-num-stack {
+  min-height: 2rem;
+  align-items: center;
 }
 .inv-meta-card--top .inv-meta-num .inv-num-local {
-  font-size: 1.05rem;
-  line-height: 1.2;
+  font-size: 1rem;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 .inv-meta-top-row > wa-input,
 .inv-meta-top-row > wa-select {
@@ -2856,9 +2861,20 @@ html[data-theme="dark"] .btn-icon.danger:hover {
 .inv-meta-top-row > .inv-note-field {
   min-width: 0;
 }
-@media (max-width: 900px) {
+.inv-meta-notes-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
+.inv-meta-notes-row > .inv-note-field,
+.inv-meta-notes-row > wa-input {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+@media (max-width: 980px) {
   .inv-meta-top-row {
-    grid-template-columns: auto 1fr 1fr;
+    grid-template-columns: minmax(6rem, auto) 1fr 1fr;
   }
   .inv-meta-top-row > .inv-note-field {
     grid-column: span 1;

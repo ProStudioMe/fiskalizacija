@@ -133,6 +133,7 @@ def init_db() -> None:
             extras = {
                 "inv_num": "VARCHAR(64)",
                 "inv_ord_num": "INTEGER",
+                "local_ord_num": "INTEGER",
                 "type_of_inv": "VARCHAR(16)",
                 "inv_type": "VARCHAR(32)",
                 "is_template": "BOOLEAN",

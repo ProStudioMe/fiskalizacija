@@ -143,6 +143,8 @@
           {% else %}
           <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
           {% endif %}
+        </div>
+        <div class="inv-meta-notes-row">
           <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field" label="{% if is_template %}{{ t('inv.note', 'Napomena') }}{% else %}{{ t('inv.notes', 'Opis za račun') }}{% endif %}" placeholder="{{ t('inv.optional', 'Opciono') }}" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
         </div>
       </div>

@@ -8,7 +8,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from sepko.audit import write_audit
-from sepko.efi import CASH_PAY_METHODS, INV_TYPES, build_inv_num, display_inv_num, load_tenant_fiscal
+from sepko.efi import (
+    CASH_PAY_METHODS,
+    INV_TYPES,
+    build_inv_num,
+    display_inv_num,
+    format_display_inv_num,
+    load_tenant_fiscal,
+)
 from sepko.models import (
     CashDeposit,
     CustomerPayment,
@@ -51,6 +58,7 @@ def validate_totals(request: FiscalizeRequest) -> str | None:
 
 
 def next_ord_num(db: Session, tenant: Tenant, year: int) -> int:
+    """Sljedeći EFI InvOrdNum unutar godine (mora biti jedinstven u InvNum)."""
     start = datetime(year, 1, 1, tzinfo=timezone.utc)
     end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     current = (
@@ -65,12 +73,82 @@ def next_ord_num(db: Session, tenant: Tenant, year: int) -> int:
     return int(current or 0) + 1
 
 
+def _month_bounds(year: int, month: int) -> tuple[datetime, datetime]:
+    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    return start, end
+
+
+def next_local_ord_num(db: Session, tenant: Tenant, when: datetime | None = None) -> int:
+    """Sljedeći lokalni rbr u mjesecu (za prikaz 1-MM-###). Ne ide kroz cijelu godinu."""
+    when = when or utcnow()
+    start, end = _month_bounds(when.year, when.month)
+    current = (
+        db.query(func.coalesce(func.max(Invoice.local_ord_num), 0))
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.is_template.is_(False),
+            Invoice.issue_datetime >= start,
+            Invoice.issue_datetime < end,
+            Invoice.local_ord_num.isnot(None),
+        )
+        .scalar()
+    )
+    return int(current or 0) + 1
+
+
+def backfill_local_ord_nums(db: Session, tenant_id: int | None = None) -> int:
+    """Dodijeli local_ord_num postojećim računima (po mjesecu, redoslijed po inv_ord_num/id)."""
+    q = db.query(Invoice).filter(
+        Invoice.is_template.is_(False),
+        Invoice.local_ord_num.is_(None),
+        Invoice.inv_ord_num.isnot(None),
+    )
+    if tenant_id is not None:
+        q = q.filter(Invoice.tenant_id == tenant_id)
+    rows = q.order_by(Invoice.tenant_id, Invoice.issue_datetime, Invoice.inv_ord_num, Invoice.id).all()
+    counters: dict[tuple[int, int, int], int] = {}
+    n = 0
+    for inv in rows:
+        when = inv.issue_datetime or utcnow()
+        key = (inv.tenant_id, when.year, when.month)
+        # Nastavi od postojećeg maxa u tom mjesecu
+        if key not in counters:
+            start, end = _month_bounds(when.year, when.month)
+            counters[key] = int(
+                db.query(func.coalesce(func.max(Invoice.local_ord_num), 0))
+                .filter(
+                    Invoice.tenant_id == inv.tenant_id,
+                    Invoice.issue_datetime >= start,
+                    Invoice.issue_datetime < end,
+                    Invoice.local_ord_num.isnot(None),
+                )
+                .scalar()
+                or 0
+            )
+        counters[key] += 1
+        inv.local_ord_num = counters[key]
+        n += 1
+    if n:
+        db.commit()
+    return n
+
+
 def preview_inv_num(db: Session, tenant: Tenant, when: datetime | None = None) -> tuple[str, int]:
-    """Sljedeći EFI broj računa: {PJ}/{rbr}/{godina}/{ENU}."""
+    """Sljedeći EFI broj računa: {PJ}/{rbr}/{godina}/{ENU}. Vraća i godišnji rbr."""
     when = when or utcnow()
     fiscal = load_tenant_fiscal(tenant)
     ord_num = next_ord_num(db, tenant, when.year)
     return build_inv_num(fiscal.busin_unit_code, ord_num, when.year, fiscal.tcr_code), ord_num
+
+
+def preview_local_display_num(db: Session, tenant: Tenant, when: datetime | None = None) -> str:
+    """Sljedeći lokalni prikaz 1-MM-### (mjesečni rbr)."""
+    when = when or utcnow()
+    return format_display_inv_num(next_local_ord_num(db, tenant, when), when)
 
 
 def _to_response(invoice: Invoice) -> FiscalizeResponse:
@@ -123,6 +201,11 @@ def fiscalize_invoice(
     inv_ord_num = request.inv_ord_num or (
         existing.inv_ord_num if existing and existing.inv_ord_num else next_ord_num(db, tenant, year)
     )
+    local_ord_num = (
+        existing.local_ord_num
+        if existing and existing.local_ord_num
+        else next_local_ord_num(db, tenant, request.issue_datetime)
+    )
 
     adapter = partner or get_partner_adapter()
     result = adapter.fiscalize(tenant, request, inv_ord_num=inv_ord_num)
@@ -163,6 +246,7 @@ def fiscalize_invoice(
             payload_json=request.model_dump_json(),
             inv_num=inv_num,
             inv_ord_num=result.inv_ord_num or inv_ord_num,
+            local_ord_num=local_ord_num,
             type_of_inv=request.invoice_type,
             inv_type=request.inv_type,
         )
@@ -185,6 +269,8 @@ def fiscalize_invoice(
         invoice.payment_method = request.payment_method
         invoice.inv_num = inv_num
         invoice.inv_ord_num = result.inv_ord_num or inv_ord_num
+        if not invoice.local_ord_num:
+            invoice.local_ord_num = local_ord_num
         invoice.type_of_inv = request.invoice_type
         invoice.inv_type = request.inv_type
         invoice.external_id = external_id
@@ -394,6 +480,7 @@ def update_draft_invoice(
     invoice.partner_ref = None
     invoice.inv_num = None
     invoice.inv_ord_num = None
+    invoice.local_ord_num = None
     invoice.fiscalized_at = None
 
     invoice.lines.clear()

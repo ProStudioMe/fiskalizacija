@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from sepko.efi import display_inv_num, parse_display_inv_num
+from sepko.efi import display_inv_num, format_display_inv_num, parse_display_inv_num
 from sepko.models import BankTransaction, Customer, CustomerPayment, Invoice, InvoiceStatus, Tenant
 
 CONFIDENT = 88
@@ -165,9 +165,14 @@ def _invoice_maps(db: Session, tenant: Tenant) -> tuple[dict[str, list[tuple[int
         by_full.setdefault(full, []).append((cid, broj))
         by_prefix.setdefault(full.split("/", 1)[0], []).append((cid, broj))
         # also inv_ord_num/year form
-        if inv.inv_ord_num and inv.issue_datetime:
-            alt = f"1-1-{inv.inv_ord_num}/{inv.issue_datetime.year}"
-            by_full.setdefault(normalize_invoice_ref(alt), []).append((cid, broj))
+        if inv.issue_datetime and (inv.local_ord_num or inv.inv_ord_num):
+            if inv.local_ord_num:
+                alt = format_display_inv_num(inv.local_ord_num, inv.issue_datetime)
+                by_full.setdefault(normalize_invoice_ref(alt), []).append((cid, broj))
+            if inv.inv_ord_num:
+                alt_legacy = f"1-1-{inv.inv_ord_num}/{inv.issue_datetime.year}"
+                by_full.setdefault(normalize_invoice_ref(alt_legacy), []).append((cid, broj))
+            by_prefix.setdefault("1", []).append((cid, broj))
     return by_full, by_prefix
 
 
@@ -356,19 +361,27 @@ def apply_customer_payment(
         if ref:
             parsed = parse_display_inv_num(ref)
             if parsed:
-                ord_num, year = parsed
+                ord_num, year, month = parsed
                 inv = (
                     db.query(Invoice)
                     .filter(
                         Invoice.tenant_id == tenant.id,
                         Invoice.buyer_pib == customer.pib,
-                        Invoice.inv_ord_num == ord_num,
                         Invoice.status == InvoiceStatus.fiscalized.value,
                     )
                     .all()
                 )
                 for candidate in inv:
-                    if candidate.issue_datetime and candidate.issue_datetime.year == year:
+                    if month and candidate.local_ord_num == ord_num:
+                        if candidate.issue_datetime and candidate.issue_datetime.month == month:
+                            if year is None or candidate.issue_datetime.year == year:
+                                invoice_id = candidate.id
+                                break
+                    elif year and candidate.inv_ord_num == ord_num:
+                        if candidate.issue_datetime and candidate.issue_datetime.year == year:
+                            invoice_id = candidate.id
+                            break
+                    elif candidate.local_ord_num == ord_num or candidate.inv_ord_num == ord_num:
                         invoice_id = candidate.id
                         break
 
