@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from sepko.efi import normalize_inv_type, normalize_pay_method, normalize_type_of_inv
+from sepko.efi import normalize_document_type, normalize_pay_method, normalize_type_of_inv
 
 _MAX_MONEY = Decimal("10000000")
 _CREDIT_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE"})
@@ -60,7 +60,7 @@ class FiscalizeRequest(BaseModel):
     @field_validator("inv_type")
     @classmethod
     def _inv_type(cls, v: str) -> str:
-        return normalize_inv_type(v)
+        return normalize_document_type(v)
 
     @field_validator("lines")
     @classmethod

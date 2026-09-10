@@ -3259,6 +3259,8 @@ _FORCE_SEED_KEYS = frozenset({
     "pwa.open_title",
     "pwa.open_ios",
     "ulazne.form_sub",
+    "inv.doc.CREDIT_NOTE",
+    "inv.doc.CORRECTIVE",
 })
 
 

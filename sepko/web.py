@@ -2092,6 +2092,7 @@ def _build_fiscalize_request_from_form(
     line_notes: list[str] | None = None,
     discount_pct: str = "0",
     payment_method: str = "BANKNOTE",
+    inv_type: str = "INVOICE",
     customer_id: str = "",
     buyer_pib: str = "",
     buyer_name: str = "",
@@ -2104,6 +2105,7 @@ def _build_fiscalize_request_from_form(
 ) -> tuple[FiscalizeRequest | None, str | None]:
     """Zajednički parser forme nove/izmjene fakture. Vraća (req, None) ili (None, error)."""
     from sepko.money import parse_amount, parse_discount_pct, parse_nonneg_money
+    from sepko.efi import CASH_PAY_METHODS, normalize_document_type, normalize_pay_method
 
     line_codes = line_codes or []
     line_names = line_names or []
@@ -2219,13 +2221,16 @@ def _build_fiscalize_request_from_form(
         total_vat += vat
 
     payment_method = str(payment_method or "BANKNOTE")
-    from sepko.efi import CASH_PAY_METHODS, normalize_pay_method
-
     try:
         payment_method = normalize_pay_method(payment_method)
     except ValueError:
         return None, "Nepoznat tip plaćanja."
     invoice_type = "CASH" if payment_method in CASH_PAY_METHODS else "NONCASH"
+
+    try:
+        doc_type = normalize_document_type(inv_type)
+    except ValueError:
+        return None, "Nepoznat tip dokumenta."
 
     buyer = None
     customer_id = (customer_id or "").strip()
@@ -2265,6 +2270,7 @@ def _build_fiscalize_request_from_form(
         issue_datetime=datetime.now(timezone.utc),
         invoice_type=invoice_type,
         payment_method=payment_method,
+        inv_type=doc_type,
         currency="EUR",
         buyer=buyer,
         lines=lines,
@@ -2380,6 +2386,7 @@ def _invoice_editor_context(
             "buyer_name": buyer_name,
             "manual_buyer": not customer_id and bool(buyer_pib or buyer_name),
             "payment_method": invoice.payment_method or "ORDER",
+            "inv_type": invoice.inv_type or "INVOICE",
             "due_date": parsed["due_date_iso"] or due_default,
             "fiscal_note": parsed["fiscal_note"],
             "notes": parsed["desc_note"],
@@ -2398,11 +2405,17 @@ def _invoice_editor_context(
         year_choices.append(int(period_year))
         year_choices.sort()
 
+    from sepko.efi import DOCUMENT_TYPE_LABELS, UI_DOCUMENT_TYPES
+
     return {
         "user": user,
         "tenant": tenant,
         "articles": articles,
         "customers": customers,
+        "document_types": [
+            {"code": code, "label": DOCUMENT_TYPE_LABELS[code]} for code in UI_DOCUMENT_TYPES
+        ],
+        "inv_type": (prefill or {}).get("inv_type") or "INVOICE",
         "period_months": list(enumerate(_PERIOD_MONTHS, start=1)),
         "period_years": year_choices,
         "period_month": int(period_month),
@@ -2478,7 +2491,8 @@ def invoice_new_submit(
     line_vat: list[str] = Form(default=[]),
     line_note: list[str] = Form(default=[]),
     discount_pct: str = Form("0"),
-    payment_method: str = Form("BANKNOTE"),
+    payment_method: str = Form("ORDER"),
+    inv_type: str = Form("INVOICE"),
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
@@ -2518,6 +2532,7 @@ def invoice_new_submit(
         line_notes=line_note,
         discount_pct=discount_pct,
         payment_method=payment_method,
+        inv_type=inv_type,
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
@@ -2613,7 +2628,8 @@ def invoice_edit_submit(
     line_vat: list[str] = Form(default=[]),
     line_note: list[str] = Form(default=[]),
     discount_pct: str = Form("0"),
-    payment_method: str = Form("BANKNOTE"),
+    payment_method: str = Form("ORDER"),
+    inv_type: str = Form("INVOICE"),
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
@@ -2666,6 +2682,7 @@ def invoice_edit_submit(
         line_notes=line_note,
         discount_pct=discount_pct,
         payment_method=payment_method,
+        inv_type=inv_type,
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
@@ -2787,6 +2804,8 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
         "OTHER": "Drugo bezgotovinsko",
         "ACCOUNT": "Na račun",
     }
+    from sepko.efi import document_type_label
+
     buyer_customer: Customer | None = None
     if invoice.buyer_pib:
         buyer_customer = (
@@ -2811,6 +2830,7 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
             "contract_number": contract_number,
             "period": period,
             "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
+            "doc_label": document_type_label(invoice.inv_type),
             "buyer_customer": buyer_customer,
         },
     )

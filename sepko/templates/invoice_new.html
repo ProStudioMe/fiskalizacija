@@ -2,6 +2,7 @@
 {% set is_edit = editing is defined and editing %}
 {% set is_template = as_template if as_template is defined else false %}
 {% set pay = (prefill.payment_method if prefill else 'ORDER') %}
+{% set doc = (prefill.inv_type if prefill else inv_type|default('INVOICE')) %}
 {% block title %}{% if is_template %}{% if is_edit %}{{ t('tpl.edit_title', 'Izmjena šablona') }}{% else %}{{ t('tpl.new_title', 'Novi šablon') }}{% endif %}{% elif is_edit %}{{ t('page.invoice_edit', 'Izmjeni fakturu') }}{% else %}{{ t('page.invoice_new', 'Nova faktura') }}{% endif %} — {{ brand }}{% endblock %}
 {% block page_title %}
   {% if is_edit and not is_template %}
@@ -123,11 +124,16 @@
           </div>
           {% endif %}
           <wa-input type="date" name="due_date" id="due_date" size="small" label="{% if is_template %}{{ t('tpl.default_due', 'Zadani rok') }}{% else %}{{ t('inv.due', 'Rok plaćanja') }}{% endif %}" value="{{ due_date_default }}"></wa-input>
+          <wa-select name="inv_type" id="inv_type" size="small" label="{{ t('inv.doc_type', 'Tip dokumenta') }}" value="{{ doc }}">
+            {% for dt in document_types %}
+            <wa-option value="{{ dt.code }}" {% if doc == dt.code %}selected{% endif %}>{{ t('inv.doc.' ~ dt.code, dt.label) }}</wa-option>
+            {% endfor %}
+          </wa-select>
           <wa-select name="payment_method" id="payment_method" size="small" label="{{ t('inv.payment_type', 'Tip plaćanja') }}" value="{{ pay }}">
+            <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>{{ t('pay.wire', 'Virman') }}</wa-option>
             <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>{{ t('pay.cash', 'Gotovina') }}</wa-option>
             <wa-option value="CARD" {% if pay == 'CARD' %}selected{% endif %}>{{ t('pay.card', 'Kartica (fizičko lice)') }}</wa-option>
             <wa-option value="BUSINESSCARD" {% if pay == 'BUSINESSCARD' %}selected{% endif %}>{{ t('pay.business_card', 'Poslovna kartica') }}</wa-option>
-            <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>{{ t('pay.wire', 'Virman') }}</wa-option>
             <wa-option value="ADVANCE" {% if pay == 'ADVANCE' %}selected{% endif %}>{{ t('pay.advance', 'Avans') }}</wa-option>
             <wa-option value="OTHER" {% if pay == 'OTHER' %}selected{% endif %}>{{ t('pay.other_noncash', 'Drugo bezgotovinsko') }}</wa-option>
             <wa-option value="ACCOUNT" {% if pay == 'ACCOUNT' %}selected{% endif %}>{{ t('pay.account', 'Na račun') }}</wa-option>

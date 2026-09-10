@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from sepko.audit import write_audit
-from sepko.efi import CASH_PAY_METHODS, build_inv_num, display_inv_num, load_tenant_fiscal
+from sepko.efi import CASH_PAY_METHODS, INV_TYPES, build_inv_num, display_inv_num, load_tenant_fiscal
 from sepko.models import (
     CashDeposit,
     CustomerPayment,
@@ -94,6 +94,13 @@ def fiscalize_invoice(
     request: FiscalizeRequest,
     partner: PartnerAdapter | None = None,
 ) -> FiscalizeResponse:
+    if request.inv_type not in INV_TYPES:
+        return FiscalizeResponse(
+            external_id=request.external_id or "",
+            status=InvoiceStatus.failed.value,
+            error_message="Predračun se ne fiskalizuje — sačuvaj kao nacrt ili promijeni tip u Račun.",
+        )
+
     err = validate_totals(request)
     if err:
         return FiscalizeResponse(

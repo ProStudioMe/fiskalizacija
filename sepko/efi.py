@@ -18,6 +18,30 @@ from sepko.crypto import decrypt_secret, encrypt_secret
 
 INV_TYPES = ("INVOICE", "CORRECTIVE", "SUMMARY", "PERIODICAL", "ADVANCE", "CREDIT_NOTE")
 
+# Predračun nije EFI InvType — čuva se interno, ne šalje se na fiskalizaciju.
+DOCUMENT_TYPES = INV_TYPES + ("PROFORMA",)
+
+# Redoslijed na formi (glavni tipovi + EFI zbirni/periodični).
+UI_DOCUMENT_TYPES = (
+    "INVOICE",
+    "ADVANCE",
+    "CREDIT_NOTE",  # Storno (EFI CREDIT_NOTE)
+    "CORRECTIVE",  # Ispravka (EFI CORRECTIVE) — nije storno
+    "PROFORMA",
+    "SUMMARY",
+    "PERIODICAL",
+)
+
+DOCUMENT_TYPE_LABELS = {
+    "INVOICE": "Račun",
+    "ADVANCE": "Avans",
+    "CREDIT_NOTE": "Storno",
+    "CORRECTIVE": "Ispravka",
+    "PROFORMA": "Predračun",
+    "SUMMARY": "Zbirni račun",
+    "PERIODICAL": "Periodični račun",
+}
+
 TYPE_OF_INV = ("CASH", "NONCASH")
 
 PAY_METHODS = (
@@ -133,10 +157,24 @@ def normalize_pay_method(value: str) -> str:
 
 
 def normalize_inv_type(value: str | None) -> str:
+    """EFI InvType — bez PROFORMA."""
     v = (value or "INVOICE").strip().upper()
     if v not in INV_TYPES:
         raise ValueError(f"inv_type must be one of {INV_TYPES}")
     return v
+
+
+def normalize_document_type(value: str | None) -> str:
+    """Tip dokumenta na formi / u bazi (uključuje Predračun)."""
+    v = (value or "INVOICE").strip().upper()
+    if v not in DOCUMENT_TYPES:
+        raise ValueError(f"document type must be one of {DOCUMENT_TYPES}")
+    return v
+
+
+def document_type_label(code: str | None) -> str:
+    c = (code or "INVOICE").strip().upper()
+    return DOCUMENT_TYPE_LABELS.get(c, c)
 
 
 def _settings_dict(tenant: Tenant) -> dict[str, Any]:
