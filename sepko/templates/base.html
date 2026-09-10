@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=198">
+  <link rel="stylesheet" href="/static/style.css?v=210">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=13">
   <link rel="stylesheet" href="/static/pwa.css?v=3">
@@ -98,7 +98,16 @@
         </a>
       </div>
       <div class="topbar-right">
-        <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
+        {% if is_admin_portal %}
+        <span class="topbar-chip">{{ t('nav.platform', 'Platforma') }}</span>
+        {% elif tenant %}
+        <span class="topbar-chip topbar-chip--tenant" title="{{ tenant.name }}">{{ tenant.name }}</span>
+        {% if partner_mode == 'mock' %}
+        <span class="topbar-chip topbar-chip--env" data-env="demo">{{ t('env.demo', 'Demo') }}</span>
+        {% elif tenant.mode == 'test' %}
+        <span class="topbar-chip topbar-chip--env" data-env="test">{{ t('env.test', 'Test') }}</span>
+        {% endif %}
+        {% endif %}
         <details class="topbar-account" id="topbar-account">
           <summary class="topbar-user" title="{{ _name }}" aria-label="{{ t('nav.account', 'Nalog') }}">{{ initials }}</summary>
           <div class="topbar-account-menu" role="menu">
@@ -241,7 +250,10 @@
 
       <div class="workspace">
         <div class="page-head">
-          <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}{{ t('nav.platform', 'Platforma') }}{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
+          <div class="page-head-text">
+            <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}{{ t('nav.platform', 'Platforma') }}{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
+            {% block page_sub %}{% endblock %}
+          </div>
           <div class="page-actions">{% block page_actions %}{% endblock %}</div>
         </div>
         <main class="panel-body">

@@ -45,7 +45,7 @@
             <wa-option value="{{ s.id }}" data-pib="{{ s.pib }}" data-name="{{ s.name }}" {% if prefill.customer_id == (s.id|string) %}selected{% endif %}>{{ s.name }} ({{ s.pib }})</wa-option>
             {% endfor %}
           </wa-select>
-          <a href="/kupci" class="btn secondary inc-party-add" title="{{ t('btn.add', 'Novi') }} komitent">+</a>
+          <a href="/kupci/novi?return_to={{ (('/ulazne/' ~ invoice.id ~ '/izmijeni') if is_edit else '/ulazne/nova')|urlencode }}" class="btn secondary inc-party-add" title="{{ t('customer.new', 'Novi komitent') }}">+</a>
         </div>
         <div class="inc-supplier-picked" id="supplier-picked" hidden>
           <div class="inc-supplier-picked-body">

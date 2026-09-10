@@ -2,69 +2,254 @@
 {% block title %}{{ t('page.pregled', 'Pregled') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.pregled', 'Pregled') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn" href="/racuni/novi">+ {{ t('nav.izdaj', 'Izdaj račun') }}</a>
+  {% if stats.count_total %}
+  <a class="btn secondary" href="/racuni">{{ t('dash.view_all', 'Sve fakture') }}</a>
+  {% endif %}
 {% endblock %}
 {% block content %}
-<section class="dash-primary" aria-label="{{ t('dash.quick_actions', 'Brze akcije') }}">
-  <a class="dash-primary-cta" href="/racuni/novi">
-    <span class="dash-primary-icon" aria-hidden="true">
-      <i data-lucide="plus"></i>
-    </span>
-    <span class="dash-primary-copy">
-      <strong>{{ t('page.invoice_new', 'Nova faktura') }}</strong>
-      <small>{{ t('dash.izdaj_hint', 'Bezgotovinska faktura') }}</small>
-    </span>
-  </a>
-  <a class="dash-primary-link" href="/kasa">
-    <span class="dash-primary-icon secondary" aria-hidden="true">
-      <i data-lucide="monitor"></i>
-    </span>
-    <span class="dash-primary-copy">
+{% set lbl_no_buyer = t('inv.no_buyer', 'Bez kupca') %}
+{% macro inv_label(inv) -%}
+{%- set disp = inv|display_inv_num -%}
+{%- if disp == 'Nacrt' -%}
+{{ t('status.draft', 'Nacrt') }} · {{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }}
+{%- elif disp == '—' -%}
+{%- if inv.ikof -%}
+{{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }} · {{ inv.ikof[:8] }}…
+{%- elif inv.issue_datetime -%}
+{{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }} · {{ inv.issue_datetime.strftime('%d.%m.%Y') }}
+{%- else -%}
+{{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }}
+{%- endif -%}
+{%- else -%}
+{{ disp }}
+{%- endif -%}
+{%- endmacro %}
+
+{% if not stats.count_total %}
+<section class="dash-empty" aria-label="{{ t('dash.empty_title', 'Početak') }}">
+  <div class="dash-empty-mark" aria-hidden="true">
+    <i data-lucide="receipt"></i>
+  </div>
+  <h2 class="dash-empty-title">{{ t('dash.empty_title', 'Izdajte prvu fakturu') }}</h2>
+  <p class="dash-empty-copy">{{ t('dash.empty_copy', 'Pregled će pokazati današnji promet, stanje kase i zadnje račune čim počnete s radom.') }}</p>
+  <div class="dash-empty-actions">
+    <a class="btn" href="/racuni/novi">
+      <i data-lucide="plus" aria-hidden="true"></i>
+      {{ t('page.invoice_new', 'Nova faktura') }}
+    </a>
+    <a class="btn secondary" href="/kasa">
+      <i data-lucide="monitor" aria-hidden="true"></i>
+      {{ t('page.kasa', 'Kasa') }}
+    </a>
+  </div>
+</section>
+{% else %}
+
+<section class="dash-hero" aria-label="{{ t('page.pregled', 'Pregled') }}">
+  <div class="dash-hero-copy">
+    <p class="dash-hero-kicker">{{ tenant.name }}</p>
+    <h2 class="dash-hero-title">{{ t('dash.today_heading', 'Današnji pregled') }}</h2>
+    {% if stats.count_today == 0 %}
+    <p class="dash-hero-sub">
+      {{ t('dash.no_today', 'Danas još nema prometa.') }}
+      <a class="dash-hero-inline" href="/kasa">{{ t('dash.open_pos', 'Otvori kasu') }}</a>
+      {{ t('dash.or', 'ili') }}
+      <a class="dash-hero-inline" href="/racuni/novi">{{ t('dash.issue_inline', 'izdaj fakturu') }}</a>.
+    </p>
+    {% else %}
+    <p class="dash-hero-sub">{{ t('dash.today_sub', 'Brz uvid u promet i fiskalizaciju — puna lista je na Izlaznim.') }}</p>
+    {% endif %}
+  </div>
+  <a class="dash-hero-kasa" href="/kasa">
+    <i data-lucide="monitor" aria-hidden="true"></i>
+    <span>
       <strong>{{ t('page.kasa', 'Kasa') }}</strong>
       <small>{{ t('dash.pos_hint', 'Maloprodaja i gotovina') }}</small>
     </span>
   </a>
 </section>
 
-<div class="grid grid-3" style="margin-top:1rem">
-  <div class="card">
-    <div class="stat">{{ stats.count_today }}<small>{{ t('dash.today_count', 'Računa danas') }}</small></div>
-  </div>
-  <div class="card">
-    <div class="stat">{{ stats.gross_today|money }} €<small>{{ t('dash.today_gross', 'Promet danas') }}</small></div>
-  </div>
-  <div class="card">
-    <div class="stat">{{ day.cash_in_drawer|money }} €<small>{{ t('dash.cash_drawer', 'Gotovina u kasi') }}{% if not day.has_initial %} · {{ t('dash.no_initial', 'nema INITIAL') }}{% endif %}</small></div>
-  </div>
+<div class="dash-stats" role="list">
+  <a class="dash-stat" href="/racuni?date_from={{ today_iso }}&date_to={{ today_iso }}" role="listitem">
+    <span class="dash-stat-ico" aria-hidden="true"><i data-lucide="file-text"></i></span>
+    <span class="dash-stat-body">
+      <strong class="dash-stat-val">{{ stats.count_today }}</strong>
+      <span class="dash-stat-lbl">{{ t('dash.today_count', 'Računi danas') }}</span>
+    </span>
+  </a>
+  <a class="dash-stat" href="/racuni?date_from={{ today_iso }}&date_to={{ today_iso }}&status=fiscalized" role="listitem">
+    <span class="dash-stat-ico accent" aria-hidden="true"><i data-lucide="trending-up"></i></span>
+    <span class="dash-stat-body">
+      <strong class="dash-stat-val">{{ stats.gross_today|money }} €</strong>
+      <span class="dash-stat-lbl">{{ t('dash.today_gross', 'Promet danas') }}</span>
+    </span>
+  </a>
+  <a class="dash-stat {% if not day.has_initial %}is-warn{% endif %}" href="/blagajna" role="listitem">
+    <span class="dash-stat-ico cash" aria-hidden="true"><i data-lucide="wallet"></i></span>
+    <span class="dash-stat-body">
+      <strong class="dash-stat-val">{{ day.cash_in_drawer|money }} €</strong>
+      <span class="dash-stat-lbl">
+        {% if day.has_initial %}
+          {{ t('dash.cash_drawer', 'Stanje blagajne') }}
+        {% else %}
+          {{ t('dash.cash_closed', 'Blagajna nije otvorena') }}
+        {% endif %}
+      </span>
+    </span>
+  </a>
 </div>
 
-<div class="card" style="margin-top:1rem">
-  <h2>{{ t('dash.quick_actions', 'Ostale akcije') }}</h2>
-  <div class="row" style="align-items:center">
-    <a class="btn secondary" href="/racuni">{{ t('nav.izlazne', 'Izlazne') }}</a>
-    <a class="btn secondary" href="/blagajna">{{ t('nav.blagajna', 'Blagajna') }}</a>
-    <a class="btn secondary" href="/artikli">{{ t('nav.artikli', 'Artikli') }}</a>
-  </div>
+{% if attention.pending or attention.failed %}
+<div class="dash-attention" role="status">
+  {% if attention.failed %}
+  <a class="dash-attention-chip bad" href="/racuni?status=failed">
+    <i data-lucide="alert-circle" aria-hidden="true"></i>
+    <strong>{{ attention.failed }}</strong>
+    <span>{{ t('status.failed', 'Greške') }}</span>
+  </a>
+  {% endif %}
+  {% if attention.pending %}
+  <a class="dash-attention-chip warn" href="/racuni?status=pending">
+    <i data-lucide="clock" aria-hidden="true"></i>
+    <strong>{{ attention.pending }}</strong>
+    <span>{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</span>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="dash-split">
+  <section class="dash-recent" aria-labelledby="dash-recent-title">
+    <header class="dash-recent-head">
+      <h2 id="dash-recent-title">{{ t('dash.recent', 'Zadnji računi') }}</h2>
+      <a class="dash-recent-all" href="/racuni">
+        {{ t('dash.view_all', 'Sve fakture') }}
+        <i data-lucide="arrow-right" aria-hidden="true"></i>
+      </a>
+    </header>
+
+    {% if recent %}
+    <div class="dash-recent-list">
+      {% for inv in recent %}
+      <a class="dash-recent-row"
+         href="{% if inv.status == 'fiscalized' %}/racuni/{{ inv.id }}{% else %}/racuni/{{ inv.id }}/izmijeni{% endif %}">
+        <span class="dash-recent-rail {% if inv.status == 'fiscalized' %}ok{% elif inv.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
+        <span class="dash-recent-main">
+          <span class="dash-recent-num">{{ inv_label(inv) }}</span>
+          <span class="dash-recent-client">{{ inv.buyer_name or lbl_no_buyer }}</span>
+        </span>
+        <span class="dash-recent-meta">
+          {% if inv.status == 'fiscalized' %}
+            <span class="pill-tag ok">{{ t('status.fiscalized', 'Fiskalizovan') }}</span>
+          {% elif inv.status == 'failed' %}
+            <span class="pill-tag bad">{{ t('status.failed', 'Greška') }}</span>
+          {% else %}
+            <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
+          {% endif %}
+          <span class="dash-recent-date">{{ inv.issue_datetime.strftime('%d.%m.%Y') if inv.issue_datetime else '—' }}</span>
+          <span class="dash-recent-amount">{{ inv.total_gross|money }} €</span>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dash-recent-empty">
+      <p>{{ t('dash.recent_empty', 'Još nema računa za prikaz.') }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <aside class="dash-side">
+    <section class="dash-panel dash-week-panel" aria-labelledby="dash-week-title">
+      <header class="dash-panel-head">
+        <h2 id="dash-week-title">{{ t('dash.week', 'Promet 7 dana') }}</h2>
+        <span class="dash-panel-meta" id="dash-week-meta" data-total="{{ week.total|money }} €">{{ week.total|money }} €</span>
+      </header>
+      <div class="dash-week-bars" id="dash-week-bars" role="list" aria-label="{{ t('dash.week', 'Promet 7 dana') }}: {{ week.total|money }} €">
+        {% for d in week.days %}
+        <button type="button"
+                class="dash-week-col {% if d.is_today %}is-today{% endif %} {% if not d.gross %}is-empty{% endif %}"
+                role="listitem"
+                data-tip="{{ d.label }} · {{ d.gross|money }} €{% if d.count %} · {{ d.count }}{% endif %}"
+                data-meta="{{ d.gross|money }} €"
+                aria-label="{{ d.label }}: {{ d.gross|money }} €">
+          <span class="dash-week-tip" aria-hidden="true">{{ d.gross|money }} €</span>
+          <span class="dash-week-track">
+            <span class="dash-week-bar" style="height: {{ d.pct }}%"></span>
+          </span>
+          <span class="dash-week-lbl">{{ d.short }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="dash-panel dash-queue-panel" aria-labelledby="dash-queue-title">
+      <header class="dash-panel-head">
+        <h2 id="dash-queue-title">{{ t('dash.queue', 'Za fiskalizaciju') }}</h2>
+        {% if queue %}
+        <a class="dash-recent-all" href="/racuni?status=pending">
+          {{ t('common.all', 'Sve') }}
+          <i data-lucide="arrow-right" aria-hidden="true"></i>
+        </a>
+        {% endif %}
+      </header>
+      {% if queue %}
+      <ul class="dash-queue">
+        {% for inv in queue %}
+        <li>
+          <a class="dash-queue-row" href="/racuni/{{ inv.id }}/izmijeni">
+            <span class="dash-queue-main">
+              <strong>{{ inv_label(inv) }}</strong>
+              <small>{{ inv.buyer_name or lbl_no_buyer }}</small>
+            </span>
+            <span class="dash-queue-amt">{{ inv.total_gross|money }} €</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="dash-queue-empty">
+        <i data-lucide="check-circle-2" aria-hidden="true"></i>
+        <p>{{ t('dash.queue_empty', 'Sve je fiskalizovano.') }}</p>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if not day.has_initial %}
+    <a class="dash-nudge" href="/blagajna">
+      <span class="dash-nudge-ico" aria-hidden="true"><i data-lucide="wallet"></i></span>
+      <span class="dash-nudge-copy">
+        <strong>{{ t('dash.cash_closed', 'Blagajna nije otvorena') }}</strong>
+        <small>{{ t('dash.cash_nudge', 'Unesite početno stanje da pratite gotovinu.') }}</small>
+      </span>
+      <i data-lucide="arrow-right" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+  </aside>
 </div>
 
-<div style="margin-top:1rem">
-<nav class="inv-status-tabs" aria-label="{{ t('col.status', 'Status') }}">
-  <div class="tabs" style="margin:0">
-    <a class="tab {% if status == 'all' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('common.all', 'Sve') }}</a>
-    <a class="tab {% if status == 'fiscalized' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='fiscalized') }}">
-      <span class="tab-long">{{ t('status.fiscalized', 'Fiskalizovane') }}</span>
-      <span class="tab-short">{{ t('tab.fiscal_short', 'Fisk.') }}</span>
-    </a>
-    <a class="tab {% if status == 'pending' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='pending') }}">
-      <span class="tab-long">{{ t('status.unfiscalized_plural', 'Nefiskalizovani') }}</span>
-      <span class="tab-short">{{ t('tab.drafts_short', 'Nacrti') }}</span>
-    </a>
-    <a class="tab {% if status == 'failed' %}active{% endif %}" href="{{ list_path }}?{{ qs(status='failed') }}">
-      <span class="tab-long">{{ t('status.failed', 'Greške') }}</span>
-      <span class="tab-short">{{ t('tab.errors_short', 'Greške') }}</span>
-    </a>
-  </div>
-</nav>
-{% include "_invoices_list.html" %}
-</div>
+<script>
+(function () {
+  var bars = document.getElementById('dash-week-bars');
+  var meta = document.getElementById('dash-week-meta');
+  if (!bars || !meta) return;
+  var total = meta.getAttribute('data-total') || meta.textContent;
+  function setMeta(el) {
+    meta.textContent = (el && el.getAttribute('data-meta')) || total;
+    meta.classList.toggle('is-live', !!(el && el.getAttribute('data-meta')));
+  }
+  bars.addEventListener('pointerover', function (e) {
+    var col = e.target.closest('.dash-week-col');
+    if (col) setMeta(col);
+  });
+  bars.addEventListener('pointerleave', function () { setMeta(null); });
+  bars.addEventListener('focusin', function (e) {
+    var col = e.target.closest('.dash-week-col');
+    if (col) setMeta(col);
+  });
+  bars.addEventListener('focusout', function () { setMeta(null); });
+})();
+</script>
+
+{% endif %}
 {% endblock %}

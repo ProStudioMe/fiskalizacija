@@ -1,9 +1,9 @@
 /* ProRačun PWA service worker — shell + recent lists; no offline fiscalize */
-const CACHE = "sepko-shell-v11";
+const CACHE = "sepko-shell-v13";
 const PRECACHE = [
   "/app",
   "/app/kasa",
-  "/static/style.css?v=152",
+  "/static/style.css?v=210",
   "/static/pos.js?v=7",
   "/manifest.webmanifest",
   "/manifest-kasa.webmanifest",
@@ -38,8 +38,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for HTML / API; cache-first for static
+  // Network-first for versioned static (?v=); cache-first for unversioned
   if (url.pathname.startsWith("/static/") || url.pathname === "/sw.js") {
+    if (url.search || url.pathname === "/sw.js") {
+      event.respondWith(
+        fetch(req)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+            return res;
+          })
+          .catch(() => caches.match(req))
+      );
+      return;
+    }
     event.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
         const copy = res.clone();

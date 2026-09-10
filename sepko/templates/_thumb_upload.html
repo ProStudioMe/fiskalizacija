@@ -1,9 +1,10 @@
-{# Thumbnail picker for articles. Expects: input_name, input_id, preview_src, show_remove #}
+{# Thumbnail picker for articles. Expects: input_name, input_id, preview_src, show_remove; optional upload_compact #}
 {% set input_name = input_name|default('thumb') %}
 {% set input_id = input_id|default('thumb-input') %}
 {% set show_remove = show_remove|default(false) %}
 {% set remove_name = remove_name|default('remove_thumb') %}
-<div class="file-upload" data-file-upload>
+{% set upload_compact = upload_compact|default(false) %}
+<div class="file-upload{% if upload_compact %} file-upload--compact{% endif %}" data-file-upload>
   {% if preview_src %}
   <div class="file-upload-current">
     <img class="article-thumb-preview" src="{{ preview_src }}" alt="" data-file-preview-current>
@@ -32,7 +33,9 @@
         <i data-lucide="image"></i>
       </span>
       <span class="file-upload-title">{{ t('upload.choose', 'Odaberi sliku') }}</span>
+      {% if not upload_compact %}
       <span class="file-upload-hint">{{ t('upload.hint_thumb', 'PNG, JPG, WEBP, GIF ili SVG · max 2 MB') }}</span>
+      {% endif %}
       <span class="file-upload-name muted" data-file-name>{{ t('upload.none', 'Nije odabran fajl') }}</span>
     </span>
   </label>

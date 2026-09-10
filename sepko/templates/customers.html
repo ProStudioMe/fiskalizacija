@@ -1,231 +1,102 @@
 {% extends "base.html" %}
 {% block title %}{{ t('page.komitenti', 'Komitenti') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.komitenti', 'Komitenti') }}{% endblock %}
+{% block page_sub %}
+  <p class="page-sub">{{ t('customer.intro_short', 'Kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN.') }}</p>
+{% endblock %}
 {% block page_actions %}
   {% if return_to %}
   <a class="btn secondary" href="{{ return_to }}">{{ t('customer.back_invoice', 'Nazad na fakturu') }}</a>
   {% endif %}
-  <a class="btn" href="/kupci{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">{% if editing %}{{ t('customer.list', 'Lista') }}{% else %}+ {{ t('btn.add', 'Novi') }}{% endif %}</a>
+  <a class="btn" href="/kupci/novi{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">+ {{ t('customer.new', 'Novi komitent') }}</a>
 {% endblock %}
 {% block content %}
-<p class="muted" style="margin-top:0">{{ t('customer.intro', 'Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.') }}</p>
-
-<div class="grid grid-2">
-  <div class="card">
-    {% if editing %}
-    <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-      <wa-input label="{{ t('customer.pib', 'PIB / JMBG broj') }}" value="{{ editing.pib }}" disabled></wa-input>
-      <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}" value="{{ editing.pdv_number or '' }}"></wa-input>
-      <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" value="{{ editing.name }}" required></wa-input>
-      <div class="field logo-field" style="margin-bottom:0">
-        <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
-        {% set preview_src = ('/kupci/' ~ editing.id ~ '/logo') if editing.logo_filename else None %}
-        {% set show_remove = true if editing.logo_filename else false %}
-        {% set input_id = 'logo-edit' %}
-        {% include "_logo_upload.html" %}
-      </div>
-      <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}" value="{{ editing.street or '' }}"></wa-input>
-      <div class="row">
-        <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}" value="{{ editing.city or '' }}"></wa-input>
-        {% set ctry = editing.country or 'Crna Gora' %}
-        <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="{{ ctry }}">
-          {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
-          <wa-option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</wa-option>
-          {% endfor %}
-        </wa-select>
-      </div>
-      <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}" value="{{ editing.email or '' }}"></wa-input>
-      <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" value="{{ editing.phone or '' }}" placeholder="+382 …"></wa-input>
-      <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}" value="{{ editing.tax_card_number or '' }}"></wa-input>
-      <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" value="{{ editing.contact or '' }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
-      <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="{{ (editing.discount_pct or 0)|money }}" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
-      <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
-        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
-      </div>
-    </form>
-    {% else %}
-    <h2>{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="pib" label="{{ t('customer.pib', 'PIB / JMBG broj') }}" required></wa-input>
-      <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}"></wa-input>
-      <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" required></wa-input>
-      <div class="field logo-field" style="margin-bottom:0">
-        <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
-        {% set preview_src = None %}
-        {% set show_remove = false %}
-        {% set input_id = 'logo-new' %}
-        {% include "_logo_upload.html" %}
-      </div>
-      <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}"></wa-input>
-      <div class="row">
-        <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}"></wa-input>
-        <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="Crna Gora">
-          {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
-          <wa-option value="{{ c }}" {% if c == 'Crna Gora' %}selected{% endif %}>{{ c }}</wa-option>
-          {% endfor %}
-        </wa-select>
-      </div>
-      <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}"></wa-input>
-      <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" placeholder="+382 …"></wa-input>
-      <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}"></wa-input>
-      <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
-      <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="0,00" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
-      <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2"></wa-textarea>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
-      </div>
-    </form>
-    {% endif %}
-  </div>
-
-  <div>
-    <form method="get" action="/kupci" class="filter-bar">
-      <div class="search-bar" style="margin:0;flex:1;min-width:180px">
-        <i data-lucide="search" aria-hidden="true"></i>
-        <input name="q" value="{{ q or '' }}" placeholder="{{ t('customer.search_ph', 'Pretraga naziv / PIB / mjesto…') }}">
-      </div>
+<div class="customers-page customers-page--list">
+  <form method="get" action="/kupci" class="customers-toolbar">
+    {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+    <div class="search-bar customers-search">
+      <i data-lucide="search" aria-hidden="true"></i>
+      <input name="q" value="{{ q or '' }}" placeholder="{{ t('customer.search_ph', 'Pretraga naziv / PIB / mjesto…') }}" autocomplete="off">
+    </div>
+    <div class="customers-toolbar-meta">
+      <span class="customers-count">{{ customers|length }} {{ t('common.of', 'od') }} {{ total }}{% if q %} · {{ t('customer.search_active', 'filtrirano') }}{% endif %}</span>
       {% include "_per_page.html" %}
-    </form>
-    <div class="plan-card">
-      <div class="plan-head">
-        <div>
-          <h2>{{ t('page.komitenti', 'Komitenti') }}</h2>
-          <div class="cell-secondary">{{ customers|length }} {{ t('common.of', 'od') }} {{ total }}</div>
-        </div>
-      </div>
-      <table class="soft-table">
+    </div>
+  </form>
+
+  <div class="plan-card customers-list-card">
+    <div class="plan-table-wrap">
+      <table class="soft-table customers-table">
         <thead>
           <tr>
-            <th style="width:3.5rem"></th>
-            <th>{{ t('col.client', 'Komitent') }}</th>
-            <th>{{ t('col.location', 'Lokacija') }}</th>
-            <th>{{ t('col.contact', 'Kontakt') }}</th>
-            <th class="num">{{ t('customer.col_discount', 'Popust') }}</th>
-            <th></th>
+            <th class="customers-col-name">{{ t('col.client', 'Komitent') }}</th>
+            <th class="customers-col-loc">{{ t('col.location', 'Lokacija') }}</th>
+            <th class="customers-col-contact">{{ t('col.contact', 'Kontakt') }}</th>
+            <th class="customers-col-actions"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>
           </tr>
         </thead>
         <tbody>
         {% for c in customers %}
-          <tr>
+          <tr class="customer-row">
             <td>
-              {% if c.logo_filename %}
-              <img class="komitent-logo-sm" src="/kupci/{{ c.id }}/logo" alt="">
-              {% else %}
-              <span class="komitent-logo-ph" aria-hidden="true">{{ (c.name[:1] or '?')|upper }}</span>
+              <div class="cell-primary customer-name-cell">
+                {% if c.logo_filename %}
+                <img class="komitent-logo-sm" src="/kupci/{{ c.id }}/logo" alt="">
+                {% else %}
+                <span class="komitent-logo-ph" aria-hidden="true">{{ (c.name[:1] or '?')|upper }}</span>
+                {% endif %}
+                <span class="customer-name">
+                  {{ c.name }}
+                  {% if not c.active %}<span class="pill-tag bad">off</span>{% endif %}
+                  {% if c.discount_pct and c.discount_pct > 0 %}
+                  <span class="customer-discount-pill" title="{{ t('customer.discount', 'Stalni popust (%)') }}">−{{ c.discount_pct|money }}%</span>
+                  {% endif %}
+                </span>
+              </div>
+              <div class="cell-secondary customer-meta">PIB {{ c.pib }}{% if c.pdv_number %} · PDV {{ c.pdv_number }}{% endif %}</div>
+            </td>
+            <td>
+              <div class="cell-primary customer-cell-main">{{ c.city or '—' }}</div>
+              {% if c.street or c.country %}
+              <div class="cell-secondary">{{ c.street or '' }}{% if c.country %}{% if c.street %} · {% endif %}{{ c.country }}{% endif %}</div>
               {% endif %}
             </td>
             <td>
-              <div class="cell-primary">
-                {{ c.name }}
-                {% if not c.active %}<span class="pill-tag bad">off</span>{% endif %}
-              </div>
-              <div class="cell-secondary">PIB {{ c.pib }}{% if c.pdv_number %} · PDV {{ c.pdv_number }}{% endif %}</div>
-            </td>
-            <td>
-              <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ c.city or '—' }}</div>
-              <div class="cell-secondary">{{ c.street or '' }}{% if c.country %} · {{ c.country }}{% endif %}</div>
-            </td>
-            <td>
-              <div class="cell-primary" style="font-weight:500;font-size:0.9rem">{{ c.email or '—' }}</div>
-              <div class="cell-secondary">{{ c.phone or '' }}{% if c.contact %} · {{ c.contact }}{% endif %}</div>
-            </td>
-            <td class="num">
-              {% if c.discount_pct and c.discount_pct > 0 %}
-              <strong>{{ c.discount_pct|money }}%</strong>
-              {% else %}
-              <span class="muted">—</span>
+              <div class="cell-primary customer-cell-main">{{ c.email or '—' }}</div>
+              {% if c.phone or c.contact %}
+              <div class="cell-secondary">{{ c.phone or '' }}{% if c.contact %}{% if c.phone %} · {% endif %}{{ c.contact }}{% endif %}</div>
               {% endif %}
             </td>
             <td class="cell-actions">
-              {% set edit_href = '/kupci?edit=' ~ c.id %}
+              {% set edit_href = '/kupci/' ~ c.id ~ '/izmijeni' %}
+              {% if return_to %}{% set edit_href = edit_href ~ '?return_to=' ~ (return_to|urlencode) %}{% endif %}
               {% set delete_url = ('/kupci/' ~ c.id ~ '/obrisi') if c.active else none %}
+              {% set delete_confirm = t('customer.confirm_remove', 'Ukloniti ovog komitenta iz šifrarnika?') %}
+              {% set delete_confirm_title = t('customer.remove_title', 'Uklanjanje komitenta') %}
+              {% set delete_confirm_ok = t('btn.remove', 'Ukloni') %}
               {% include "_row_actions.html" %}
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="6" class="muted">{{ t('customer.empty', 'Nema komitenata.') }}</td></tr>
+          <tr>
+            <td colspan="4" class="muted customers-empty">
+              <div class="customers-empty-title">{{ t('customer.empty', 'Nema komitenata.') }}</div>
+              <a class="btn" href="/kupci/novi{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">+ {{ t('customer.new', 'Novi komitent') }}</a>
+            </td>
+          </tr>
         {% endfor %}
         </tbody>
       </table>
-      {% if pages > 1 %}
-      <div class="pager">
-        {% if page > 1 %}<a class="btn secondary" href="/kupci?q={{ q or '' }}&page={{ page - 1 }}&per_page={{ per_page }}">←</a>{% endif %}
-        <span class="muted">{{ page }} / {{ pages }}</span>
-        {% if page < pages %}<a class="btn secondary" href="/kupci?q={{ q or '' }}&page={{ page + 1 }}&per_page={{ per_page }}">→</a>{% endif %}
-      </div>
-      {% endif %}
     </div>
+    {% set list_path = '/kupci' %}
+    {% set pager_qs = 'q=' ~ (q or '') ~ '&per_page=' ~ per_page %}
+    {% if return_to %}{% set pager_qs = pager_qs ~ '&return_to=' ~ (return_to|urlencode) %}{% endif %}
+    {% include "_pager.html" %}
   </div>
 </div>
 <script>
 (function () {
-  document.querySelectorAll('[data-file-upload]').forEach(function (root) {
-    var input = root.querySelector('[data-file-input]');
-    var zone = root.querySelector('.file-upload-zone');
-    var idle = root.querySelector('[data-file-idle]');
-    var preview = root.querySelector('[data-file-preview]');
-    var previewImg = root.querySelector('[data-file-preview-img]');
-    var nameEl = root.querySelector('[data-file-name]');
-    var noneLabel = nameEl ? nameEl.textContent : '';
-    if (!input || !zone) return;
-
-    function showFile(file) {
-      if (!file) {
-        if (preview) preview.hidden = true;
-        if (idle) idle.hidden = false;
-        if (nameEl) nameEl.textContent = noneLabel;
-        zone.classList.remove('has-file');
-        return;
-      }
-      if (nameEl) nameEl.textContent = file.name;
-      zone.classList.add('has-file');
-      if (preview && previewImg && file.type.indexOf('image/') === 0) {
-        var url = URL.createObjectURL(file);
-        previewImg.onload = function () { URL.revokeObjectURL(url); };
-        previewImg.src = url;
-        preview.hidden = false;
-        if (idle) idle.hidden = true;
-      }
-    }
-
-    input.addEventListener('change', function () {
-      showFile(input.files && input.files[0]);
-    });
-
-    ['dragenter', 'dragover'].forEach(function (ev) {
-      zone.addEventListener(ev, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        zone.classList.add('is-drag');
-      });
-    });
-    ['dragleave', 'drop'].forEach(function (ev) {
-      zone.addEventListener(ev, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        zone.classList.remove('is-drag');
-      });
-    });
-    zone.addEventListener('drop', function (e) {
-      var files = e.dataTransfer && e.dataTransfer.files;
-      if (!files || !files.length) return;
-      try {
-        var dt = new DataTransfer();
-        dt.items.add(files[0]);
-        input.files = dt.files;
-      } catch (err) {
-        /* older browsers: ignore drop assign */
-        return;
-      }
-      showFile(files[0]);
-    });
-  });
+  if (window.sepkoIcons) window.sepkoIcons();
 })();
 </script>
 {% endblock %}

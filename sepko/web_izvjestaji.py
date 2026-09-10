@@ -117,9 +117,23 @@ def _chart_bars(series: list[dict], value_key: str = "value") -> list[dict]:
 
 
 def _pct_change(curr: float, prev: float) -> float | None:
+    """Legacy % — returns None when previous is 0 (no fake ±100%)."""
     if prev == 0:
-        return None if curr == 0 else 100.0
+        return None
     return round(((curr - prev) / abs(prev)) * 100, 1)
+
+
+def _delta(curr: float, prev: float) -> dict:
+    """MoM delta for UI: pct when meaningful, else abs/'new' — never fake ±100%."""
+    abs_d = round(float(curr) - float(prev), 2)
+    if prev == 0 and curr == 0:
+        return {"pct": None, "abs": 0.0, "kind": "flat"}
+    if prev == 0:
+        return {"pct": None, "abs": abs_d, "kind": "new"}
+    pct = round((abs_d / abs(prev)) * 100, 1)
+    if abs(pct) > 999:
+        return {"pct": None, "abs": abs_d, "kind": "abs"}
+    return {"pct": pct, "abs": abs_d, "kind": "pct"}
 
 
 def _out_filters(tenant_id: int, start_dt: datetime, end_dt: datetime):
@@ -693,10 +707,10 @@ def izvjestaji_hub(
             "min_out": _dec(min_out),
             "active_days": active_days,
             "best_day": best_day,
-            "delta_out": _pct_change(out_gross, p_out_gross),
-            "delta_in": _pct_change(in_gross, p_in_gross),
-            "delta_exp": _pct_change(exp_total, p_exp_total),
-            "delta_out_cnt": _pct_change(float(out_count), float(p_out_count)),
+            "delta_out": _delta(out_gross, p_out_gross),
+            "delta_in": _delta(in_gross, p_in_gross),
+            "delta_exp": _delta(exp_total, p_exp_total),
+            "delta_out_cnt": _delta(float(out_count), float(p_out_count)),
             "p_out_gross": _dec(p_out_gross),
             "p_in_gross": _dec(p_in_gross),
             "p_exp_total": _dec(p_exp_total),
@@ -705,9 +719,13 @@ def izvjestaji_hub(
             "p_out_vat": _dec(p_out_vat),
             "p_in_vat": _dec(p_in_vat),
             "daily_chart": daily_chart,
+            "daily_active": [b for b in daily_chart if b["value"] > 0],
             "daily_in_chart": daily_in_chart,
+            "daily_in_active": [b for b in daily_in_chart if b["value"] > 0],
             "weekday_chart": weekday_chart,
+            "weekday_active": [b for b in weekday_chart if b["value"] > 0],
             "trend": trend,
+            "trend_active": [t for t in trend if t["out"] or t["inn"]],
             "pay_chart": pay_chart,
             "type_chart": type_chart,
             "status_chart": status_chart,

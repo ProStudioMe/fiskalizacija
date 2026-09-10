@@ -215,7 +215,7 @@
               <span class="muted" id="buyer-selected-meta">{% if show_selected %}{% if prefill.buyer_pib %}PIB {{ prefill.buyer_pib }}{% endif %}{% if prefill.customer_email %}{% if prefill.buyer_pib %} · {% endif %}{{ prefill.customer_email }}{% endif %}{% endif %}</span>
             </div>
             <a class="btn secondary inv-buyer-edit" id="buyer-edit-link"
-               href="{% if show_selected %}/kupci?edit={{ prefill.customer_id }}&return_to={{ buyer_return|urlencode }}{% else %}#{% endif %}"
+               href="{% if show_selected %}/kupci/{{ prefill.customer_id }}/izmijeni?return_to={{ buyer_return|urlencode }}{% else %}#{% endif %}"
                {% if not show_selected %}hidden{% endif %}>{{ t('inv.edit_customer', 'Izmijeni komitenta') }}</a>
           </div>
         </div>
@@ -328,7 +328,7 @@
 <wa-dialog id="modal-customers" label="{{ t('nav.komitenti', 'Komitenti') }}" light-dismiss with-footer style="--width: 28rem">
   <div class="modal-search">
     <wa-input type="search" id="cust-search" placeholder="{{ t('label.search', 'Pretraga') }}" with-clear size="small"></wa-input>
-    <a href="/kupci" class="btn secondary" style="padding:0.45rem 0.7rem">+</a>
+    <a href="/kupci/novi?return_to={{ buyer_return|urlencode }}" class="btn secondary" style="padding:0.45rem 0.7rem" title="{{ t('customer.new', 'Novi komitent') }}">+</a>
   </div>
   <div class="modal-list" id="cust-list"></div>
   <wa-button slot="footer" variant="neutral" appearance="outlined" id="btn-no-customer">{{ t('inv.no_customer', 'Bez kupca / ručni unos') }}</wa-button>
@@ -882,7 +882,7 @@ function showSelectedBuyer(c){
   }
   if (link) {
     link.hidden = false;
-    link.href = '/kupci?edit=' + encodeURIComponent(c.id) + '&return_to=' + encodeURIComponent(buyerReturnTo());
+    link.href = '/kupci/' + encodeURIComponent(c.id) + '/izmijeni?return_to=' + encodeURIComponent(buyerReturnTo());
   }
   if (wrap) wrap.hidden = false;
   setBuyerRowSelected(true);

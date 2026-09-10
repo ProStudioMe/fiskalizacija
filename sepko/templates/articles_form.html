@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% set is_edit = editing is defined and editing %}
+{% block title %}{% if is_edit %}{{ t('article.edit', 'Izmijeni artikal') }}{% else %}{{ t('article.new', 'Novi artikal') }}{% endif %} — {{ brand }}{% endblock %}
+{% block page_title %}
+  <span class="inv-page-title inv-page-title--with-back">
+    <a class="btn secondary inv-actions-icon inv-title-back" href="{% if return_to %}{{ return_to }}{% else %}/artikli{% endif %}" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+      <i data-lucide="arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="inv-page-title-body">
+      <span class="inv-page-heading">{% if is_edit %}{{ t('article.edit', 'Izmijeni artikal') }}{% else %}{{ t('article.new', 'Novi artikal') }}{% endif %}</span>
+      <span class="inv-page-sub">{% if is_edit %}{{ editing.code }} · {{ editing.name }}{% else %}{{ t('article.form_hint', 'Obavezna polja su označena zvjezdicom.') }}{% endif %}</span>
+    </span>
+  </span>
+{% endblock %}
+{% block page_actions %}
+  {% if return_to %}
+  <a class="btn secondary" href="{{ return_to }}">{{ t('btn.continue_invoice', 'Nastavi na fakturu') }} →</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="articles-page articles-page--form">
+  <div class="card articles-form-card articles-form-card--solo">
+    {% if is_edit %}
+    <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack articles-form" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+      <div class="articles-fieldset">
+        <wa-input label="{{ t('article.code', 'Šifra artikla') }}" value="{{ editing.code }}" disabled></wa-input>
+        <wa-input name="name" label="{{ t('article.name', 'Naziv') }}" value="{{ editing.name }}" required maxlength="255"></wa-input>
+        <div class="row">
+          <wa-input name="unit" label="{{ t('article.unit', 'Jedinica mjere') }}" value="{{ editing.unit }}"></wa-input>
+          <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}" value="{{ editing.barcode or '' }}"></wa-input>
+        </div>
+      </div>
+      <div class="articles-fieldset">
+        <div class="articles-fieldset-label">{{ t('article.prices', 'Cijene i lager') }}</div>
+        <div class="row">
+          <wa-input name="price_retail" label="{{ t('article.price_retail_short', 'MP cijena') }}" inputmode="decimal" placeholder="0,00" value="{% if editing.price_retail is not none %}{{ editing.price_retail|money(4) }}{% endif %}"></wa-input>
+          <wa-input name="price_gross" label="{{ t('article.price_vp_short', 'VP cijena (bez PDV)') }}" inputmode="decimal" placeholder="0,00" value="{{ editing.price_gross|money(4) }}" required></wa-input>
+        </div>
+        <div class="row">
+          <wa-input name="stock_qty" label="{{ t('article.stock', 'Količina na lageru') }}" inputmode="decimal" value="{% if editing.stock_qty is not none %}{{ editing.stock_qty|money(4) }}{% endif %}"></wa-input>
+          <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
+            {% for tax_rate in tax_rates %}
+            <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ t('tax.name.' ~ tax_rate.code, tax_rate.name) }}</wa-option>
+            {% endfor %}
+          </wa-select>
+        </div>
+        <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="{{ editing.category_id or '' }}">
+          <wa-option value="">—</wa-option>
+          {% for c in categories %}
+          <wa-option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</wa-option>
+          {% endfor %}
+        </wa-select>
+      </div>
+      <div class="articles-fieldset articles-fieldset--soft">
+        <wa-textarea name="description" label="{{ t('article.description', 'Opis') }}" rows="2" value="{{ editing.description or '' }}"></wa-textarea>
+        <div class="articles-media-row">
+          <div class="field logo-field" style="margin-bottom:0">
+            <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
+            {% set preview_src = thumb_url if thumb_url else none %}
+            {% set show_remove = true if editing.thumbnail_filename else false %}
+            {% set input_name = 'thumb' %}
+            {% set input_id = 'thumb-edit' %}
+            {% set remove_name = 'remove_thumb' %}
+            {% set upload_compact = true %}
+            {% include "_thumb_upload.html" %}
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>{{ t('article.color_short', 'Boja') }}</label>
+            <div class="color-row">
+              {% for col in colors %}
+              <label class="color-dot" style="background:{{ col }}" title="{{ col }}">
+                <input type="radio" name="color" value="{{ col }}" {% if (editing.color or '#c62828') == col %}checked{% endif %}>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wa-form-actions articles-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/artikli{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    <form method="post" action="/artikli/{{ editing.id }}/obrisi" class="articles-danger">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <wa-button type="submit" variant="danger" size="small">{{ t('article.deactivate', 'Obriši (deaktiviraj)') }}</wa-button>
+    </form>
+    {% else %}
+    <form method="post" action="/artikli" class="wa-form-stack articles-form" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+      <div class="articles-fieldset">
+        <div class="row">
+          <wa-input name="code" label="{{ t('article.code', 'Šifra artikla') }}" required maxlength="64"></wa-input>
+          <wa-input name="unit" label="{{ t('article.unit', 'Jedinica mjere') }}" value="kom"></wa-input>
+        </div>
+        <wa-input name="name" label="{{ t('article.name', 'Naziv') }}" required maxlength="255"></wa-input>
+        <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}"></wa-input>
+      </div>
+      <div class="articles-fieldset">
+        <div class="articles-fieldset-label">{{ t('article.prices', 'Cijene i lager') }}</div>
+        <div class="row">
+          <wa-input name="price_retail" label="{{ t('article.price_retail_short', 'MP cijena') }}" inputmode="decimal" placeholder="0,00" value="0,00"></wa-input>
+          <wa-input name="price_gross" label="{{ t('article.price_vp_short', 'VP cijena (bez PDV)') }}" inputmode="decimal" placeholder="0,00" value="1,00" required></wa-input>
+        </div>
+        <div class="row">
+          <wa-input name="stock_qty" label="{{ t('article.stock', 'Količina na lageru') }}" inputmode="decimal" placeholder="0"></wa-input>
+          <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
+            {% for tax_rate in tax_rates %}
+            <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ t('tax.name.' ~ tax_rate.code, tax_rate.name) }}</wa-option>
+            {% endfor %}
+          </wa-select>
+        </div>
+        <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="">
+          <wa-option value="" selected>—</wa-option>
+          {% for c in categories %}
+          <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
+          {% endfor %}
+        </wa-select>
+      </div>
+      <div class="articles-fieldset articles-fieldset--soft">
+        <wa-textarea name="description" label="{{ t('article.description', 'Opis') }}" rows="2"></wa-textarea>
+        <div class="articles-media-row">
+          <div class="field logo-field" style="margin-bottom:0">
+            <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
+            {% set preview_src = none %}
+            {% set show_remove = false %}
+            {% set input_name = 'thumb' %}
+            {% set input_id = 'thumb-new' %}
+            {% set upload_compact = true %}
+            {% include "_thumb_upload.html" %}
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>{{ t('article.color_short', 'Boja') }}</label>
+            <div class="color-row">
+              {% for col in colors %}
+              <label class="color-dot" style="background:{{ col }}" title="{{ col }}">
+                <input type="radio" name="color" value="{{ col }}" {% if loop.first %}checked{% endif %}>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wa-form-actions articles-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('article.add_submit', 'Dodaj artikal') }}</wa-button>
+        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/artikli{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  document.querySelectorAll('[data-file-upload]').forEach(function (root) {
+    var input = root.querySelector('[data-file-input]');
+    var zone = root.querySelector('.file-upload-zone');
+    var idle = root.querySelector('[data-file-idle]');
+    var preview = root.querySelector('[data-file-preview]');
+    var previewImg = root.querySelector('[data-file-preview-img]');
+    var nameEl = root.querySelector('[data-file-name]');
+    var noneLabel = nameEl ? nameEl.textContent : '';
+    if (!input || !zone) return;
+    function showFile(file) {
+      if (!file) {
+        if (preview) preview.hidden = true;
+        if (idle) idle.hidden = false;
+        if (nameEl) nameEl.textContent = noneLabel;
+        zone.classList.remove('has-file');
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      zone.classList.add('has-file');
+      if (preview && previewImg && file.type.indexOf('image/') === 0) {
+        var url = URL.createObjectURL(file);
+        previewImg.onload = function () { URL.revokeObjectURL(url); };
+        previewImg.src = url;
+        preview.hidden = false;
+        if (idle) idle.hidden = true;
+      }
+    }
+    input.addEventListener('change', function () {
+      showFile(input.files && input.files[0]);
+    });
+  });
+  if (window.sepkoIcons) window.sepkoIcons();
+})();
+</script>
+{% endblock %}

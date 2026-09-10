@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import quote, urlencode
 
@@ -480,27 +480,14 @@ def _build_invoice_list(
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(
-    request: Request,
-    q: str | None = Query(None),
-    status: str | None = Query(None),
-    date_from: str | None = Query(None),
-    date_to: str | None = Query(None),
-    per_page: int | None = Query(None),
-    page: int = Query(1, ge=1),
-    sort: str | None = Query("number"),
-    dir: str | None = Query("desc"),
-    client: str | None = Query(None),
-    tip: str | None = Query(None),
-    doc: str | None = Query(None),
-    db: Session = Depends(get_db),
-):
+def dashboard(request: Request, db: Session = Depends(get_db)):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
 
     today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=6)
     base_q = db.query(Invoice).filter(Invoice.tenant_id == tenant.id)
     count_total = base_q.count()
     count_today = base_q.filter(func.date(Invoice.issue_datetime) == today).count()
@@ -509,27 +496,73 @@ def dashboard(
         .filter(Invoice.tenant_id == tenant.id, func.date(Invoice.issue_datetime) == today)
         .scalar()
     )
+    pending_statuses = [InvoiceStatus.draft.value, InvoiceStatus.pending.value]
+    pending_count = base_q.filter(Invoice.status.in_(pending_statuses)).count()
+    failed_count = base_q.filter(Invoice.status == InvoiceStatus.failed.value).count()
+    recent = (
+        base_q.order_by(Invoice.issue_datetime.desc(), Invoice.id.desc())
+        .limit(8)
+        .all()
+    )
+    queue = (
+        base_q.filter(
+            Invoice.status.in_(
+                pending_statuses + [InvoiceStatus.failed.value]
+            )
+        )
+        .order_by(Invoice.issue_datetime.desc(), Invoice.id.desc())
+        .limit(5)
+        .all()
+    )
+
+    week_rows: dict[date, tuple[float, int]] = {}
+    for row in (
+        db.query(
+            func.date(Invoice.issue_datetime),
+            func.coalesce(func.sum(Invoice.total_gross), 0),
+            func.count(Invoice.id),
+        )
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.status == InvoiceStatus.fiscalized.value,
+            func.date(Invoice.issue_datetime) >= week_start,
+            func.date(Invoice.issue_datetime) <= today,
+        )
+        .group_by(func.date(Invoice.issue_datetime))
+        .all()
+    ):
+        raw_day, raw_gross, raw_count = row[0], row[1], row[2]
+        if isinstance(raw_day, datetime):
+            day_key = raw_day.date()
+        elif isinstance(raw_day, date):
+            day_key = raw_day
+        else:
+            day_key = date.fromisoformat(str(raw_day)[:10])
+        week_rows[day_key] = (float(raw_gross or 0), int(raw_count or 0))
+    week_days = []
+    week_max = max((v[0] for v in week_rows.values()), default=0) or 1
+    week_total = 0.0
+    weekday_short = ("pon", "uto", "sri", "čet", "pet", "sub", "ned")
+    for offset in range(7):
+        d = week_start + timedelta(days=offset)
+        gross, count = week_rows.get(d, (0.0, 0))
+        week_total += gross
+        week_days.append(
+            {
+                "date": d,
+                "label": d.strftime("%d.%m.%Y"),
+                "short": weekday_short[d.weekday()],
+                "gross": gross,
+                "count": count,
+                "pct": max(10, round((gross / week_max) * 100)) if gross else 0,
+                "is_today": d == today,
+            }
+        )
+
     fiscal = load_tenant_fiscal(tenant)
     day = cash_day_summary(db, tenant, today)
 
-    list_ctx, size, set_cookie = _build_invoice_list(
-        request,
-        db,
-        tenant,
-        q=q,
-        status=status,
-        date_from=date_from,
-        date_to=date_to,
-        per_page=per_page,
-        page=page,
-        sort=sort,
-        dir=dir,
-        client=client,
-        tip=tip,
-        doc=doc,
-        list_path="/",
-    )
-    resp = render(
+    return render(
         request,
         "dashboard.html",
         {
@@ -537,15 +570,21 @@ def dashboard(
             "tenant": tenant,
             "fiscal": fiscal,
             "day": day,
+            "today_iso": today.isoformat(),
+            "recent": recent,
+            "queue": queue,
+            "week": {"days": week_days, "total": week_total},
+            "attention": {
+                "pending": pending_count,
+                "failed": failed_count,
+            },
             "stats": {
                 "count_today": count_today,
                 "count_total": count_total,
                 "gross_today": float(gross_today or 0),
             },
-            **list_ctx,
         },
     )
-    return _with_per_page_cookie(resp, size, set_cookie)
 
 
 def _get_article(db: Session, tenant: Tenant, article_id: int) -> Article | None:
@@ -577,6 +616,52 @@ def articles_hub(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _articles_form_context(
+    *,
+    user,
+    tenant,
+    db: Session,
+    editing=None,
+    return_to: str = "",
+):
+    categories = (
+        db.query(Category)
+        .filter(Category.tenant_id == tenant.id, Category.active.is_(True))
+        .order_by(Category.position, Category.name)
+        .all()
+    )
+    tax_rates = ensure_tax_rates(db, tenant)
+    thumb_url = None
+    if editing and editing.thumbnail_filename:
+        from sepko.uploads import article_thumb_public_url
+
+        thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
+    return {
+        "user": user,
+        "tenant": tenant,
+        "editing": editing,
+        "categories": categories,
+        "tax_rates": tax_rates,
+        "colors": ARTICLE_COLORS,
+        "thumb_url": thumb_url,
+        "return_to": return_to or "",
+    }
+
+
+def _articles_novi_url(return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/artikli/novi?return_to={quote(back)}"
+    return "/artikli/novi"
+
+
+def _articles_edit_url(article_id: int, return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/artikli/{article_id}/izmijeni?return_to={quote(back)}"
+    return f"/artikli/{article_id}/izmijeni"
+
+
 @router.get("/artikli", response_class=HTMLResponse)
 def articles_page(
     request: Request,
@@ -591,6 +676,10 @@ def articles_page(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to)
+    # Legacy ?edit= → odvojena stranica
+    if edit:
+        return redirect(_articles_edit_url(edit, back))
     ensure_tax_rates(db, tenant)
     query = db.query(Article).filter(Article.tenant_id == tenant.id)
     if q and q.strip():
@@ -599,26 +688,7 @@ def articles_page(
     size, set_cookie = _resolve_per_page(request, per_page)
     ordered = query.order_by(Article.active.desc(), Article.name)
     articles, total, page, pages = _paginate(ordered, page, size)
-    editing = _get_article(db, tenant, edit) if edit else None
-    categories = (
-        db.query(Category)
-        .filter(Category.tenant_id == tenant.id, Category.active.is_(True))
-        .order_by(Category.position, Category.name)
-        .all()
-    )
-    tax_rates = ensure_tax_rates(db, tenant)
-    from sepko.uploads import article_thumb_public_url
-
-    thumb_url = None
-    if editing and editing.thumbnail_filename:
-        thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
-    back = _safe_return_to(return_to)
-    has_active = (
-        db.query(Article.id)
-        .filter(Article.tenant_id == tenant.id, Article.active.is_(True))
-        .first()
-        is not None
-    )
+    show_stock = any(a.stock_qty is not None for a in articles)
     resp = render(
         request,
         "articles.html",
@@ -626,11 +696,6 @@ def articles_page(
             "user": user,
             "tenant": tenant,
             "articles": articles,
-            "editing": editing,
-            "categories": categories,
-            "tax_rates": tax_rates,
-            "colors": ARTICLE_COLORS,
-            "thumb_url": thumb_url,
             "q": q or "",
             "per_page": size,
             "page_sizes": PAGE_SIZES,
@@ -638,10 +703,59 @@ def articles_page(
             "pages": pages,
             "total": total,
             "return_to": back or "",
-            "has_active_articles": has_active,
+            "show_stock": show_stock,
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.get("/artikli/novi", response_class=HTMLResponse)
+def articles_new_page(
+    request: Request,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    return render(
+        request,
+        "articles_form.html",
+        _articles_form_context(
+            user=user, tenant=tenant, db=db, return_to=back or ""
+        ),
+    )
+
+
+@router.get("/artikli/{article_id:int}/izmijeni", response_class=HTMLResponse)
+def articles_edit_page(
+    request: Request,
+    article_id: int,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    article = _get_article(db, tenant, article_id)
+    if not article:
+        flash(request, "Artikal nije pronađen.", "error")
+        return redirect("/artikli")
+    return render(
+        request,
+        "articles_form.html",
+        _articles_form_context(
+            user=user,
+            tenant=tenant,
+            db=db,
+            editing=article,
+            return_to=back or "",
+        ),
+    )
 
 
 @router.post("/artikli")
@@ -667,10 +781,11 @@ async def articles_create(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
-    back_artikli = _artikli_url(return_to)
+    back = _safe_return_to(return_to) or "/artikli"
+    novi_url = _articles_novi_url(return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect(back_artikli)
+        return redirect(novi_url)
 
     exists = (
         db.query(Article)
@@ -679,7 +794,7 @@ async def articles_create(
     )
     if exists:
         flash(request, "Artikal sa tom šifrom već postoji.", "error")
-        return redirect(back_artikli)
+        return redirect(novi_url)
 
     vat, tax_code = resolve_vat(db, tenant, tax_rate_code.strip() or None)
     cat_id = int(category_id) if category_id.strip().isdigit() else None
@@ -690,7 +805,7 @@ async def articles_create(
     stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
-        return redirect(back_artikli)
+        return redirect(novi_url)
     article = Article(
         tenant_id=tenant.id,
         category_id=cat_id,
@@ -718,7 +833,7 @@ async def articles_create(
     except ValueError as exc:
         db.rollback()
         flash(request, str(exc), "error")
-        return redirect(back_artikli)
+        return redirect(novi_url)
     write_audit(
         db,
         "article.create",
@@ -728,7 +843,7 @@ async def articles_create(
     )
     db.commit()
     flash(request, "Artikal sačuvan.")
-    return redirect(_safe_return_to(return_to) or "/artikli")
+    return redirect(back)
 
 
 @router.post("/artikli/{article_id}")
@@ -748,15 +863,18 @@ async def articles_update(
     unit: str = Form("KOM"),
     thumb: UploadFile | None = File(None),
     remove_thumb: str = Form(""),
+    return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/artikli"
+    edit_url = _articles_edit_url(article_id, return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/artikli")
+        return redirect(edit_url)
     article = _get_article(db, tenant, article_id)
     if not article:
         flash(request, "Artikal nije pronađen.", "error")
@@ -770,7 +888,7 @@ async def articles_update(
     stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
-        return redirect("/artikli")
+        return redirect(edit_url)
     old_price = article.price_gross
     article.name = name.strip()
     article.unit = unit.strip() or "KOM"
@@ -796,7 +914,7 @@ async def articles_update(
             )
     except ValueError as exc:
         flash(request, str(exc), "error")
-        return redirect(f"/artikli?edit={article_id}")
+        return redirect(edit_url)
     if old_price != price:
         write_audit(
             db,
@@ -808,7 +926,7 @@ async def articles_update(
         )
     db.commit()
     flash(request, f"Artikal {article.code} izmijenjen.")
-    return redirect("/artikli")
+    return redirect(back)
 
 
 @router.get("/artikli/{article_id:int}/thumb")
@@ -1084,6 +1202,35 @@ def customers_lookup(
     return JSONResponse({"items": [_party_lookup_payload(r) for r in rows]})
 
 
+def _customers_form_context(
+    *,
+    user,
+    tenant,
+    editing=None,
+    return_to: str = "",
+):
+    return {
+        "user": user,
+        "tenant": tenant,
+        "editing": editing,
+        "return_to": return_to or "",
+    }
+
+
+def _customers_novi_url(return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/kupci/novi?return_to={quote(back)}"
+    return "/kupci/novi"
+
+
+def _customers_edit_url(customer_id: int, return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/kupci/{customer_id}/izmijeni?return_to={quote(back)}"
+    return f"/kupci/{customer_id}/izmijeni"
+
+
 @router.get("/kupci", response_class=HTMLResponse)
 def customers_page(
     request: Request,
@@ -1098,6 +1245,10 @@ def customers_page(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to)
+    # Legacy ?edit= → odvojena stranica
+    if edit:
+        return redirect(_customers_edit_url(edit, back))
     query = db.query(Customer).filter(Customer.tenant_id == tenant.id)
     if q and q.strip():
         term = f"%{q.strip()}%"
@@ -1113,8 +1264,6 @@ def customers_page(
     size, set_cookie = _resolve_per_page(request, per_page)
     ordered = query.order_by(Customer.active.desc(), Customer.name)
     customers, total, page, pages = _paginate(ordered, page, size)
-    editing = _get_customer(db, tenant, edit) if edit else None
-    back = _safe_return_to(return_to)
     resp = render(
         request,
         "customers.html",
@@ -1122,7 +1271,6 @@ def customers_page(
             "user": user,
             "tenant": tenant,
             "customers": customers,
-            "editing": editing,
             "q": q or "",
             "per_page": size,
             "page_sizes": PAGE_SIZES,
@@ -1133,6 +1281,52 @@ def customers_page(
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.get("/kupci/novi", response_class=HTMLResponse)
+def customers_new_page(
+    request: Request,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    return render(
+        request,
+        "customers_form.html",
+        _customers_form_context(user=user, tenant=tenant, return_to=back or ""),
+    )
+
+
+@router.get("/kupci/{customer_id}/izmijeni", response_class=HTMLResponse)
+def customers_edit_page(
+    request: Request,
+    customer_id: int,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    customer = _get_customer(db, tenant, customer_id)
+    if not customer:
+        flash(request, "Kupac nije pronađen.", "error")
+        return redirect("/kupci")
+    return render(
+        request,
+        "customers_form.html",
+        _customers_form_context(
+            user=user,
+            tenant=tenant,
+            editing=customer,
+            return_to=back or "",
+        ),
+    )
 
 
 @router.post("/kupci")
@@ -1151,6 +1345,7 @@ async def customers_create(
     contact: str = Form(""),
     notes: str = Form(""),
     discount_pct: str = Form("0"),
+    return_to: str = Form(""),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -1158,9 +1353,11 @@ async def customers_create(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/kupci"
+    novi_url = _customers_novi_url(return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     pib_clean = pib.strip()
     exists = (
         db.query(Customer)
@@ -1169,7 +1366,7 @@ async def customers_create(
     )
     if exists:
         flash(request, "Kupac sa tim PIB-om već postoji.", "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     street_s = street.strip() or None
     city_s = city.strip() or None
     country_s = (country.strip() or "Crna Gora")
@@ -1202,10 +1399,10 @@ async def customers_create(
     except ValueError as exc:
         db.rollback()
         flash(request, str(exc), "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     db.commit()
     flash(request, "Komitent sačuvan.")
-    return redirect("/kupci")
+    return redirect(back)
 
 
 @router.post("/kupci/{customer_id}")
@@ -1234,11 +1431,7 @@ async def customers_update(
     except AuthRequired:
         return redirect("/login")
     back = _safe_return_to(return_to) or "/kupci"
-    edit_url = f"/kupci?edit={customer_id}"
-    if return_to:
-        rt = _safe_return_to(return_to)
-        if rt:
-            edit_url = f"/kupci?edit={customer_id}&return_to={quote(rt)}"
+    edit_url = _customers_edit_url(customer_id, return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect(back if back != "/kupci" else "/kupci")

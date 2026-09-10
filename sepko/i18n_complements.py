@@ -747,6 +747,127 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "sr": "Maloprodaja i gotovina",
         "sr-cyrl": "Малопродаја и готовина"
     },
+    "settings.basic_hint": {
+        "cnr": "Jezik, limiti, PIN i podaci firme za račune.",
+        "cnr-cyrl": "Језик, лимити, PIN и подаци фирме за рачуне.",
+        "sr": "Jezik, limiti, PIN i podaci firme za račune.",
+        "sr-cyrl": "Језик, лимити, PIN и подаци фирме за рачуне.",
+        "sq": "Gjuha, limitet, PIN dhe të dhënat e firmës për faturat.",
+        "tr": "Dil, limitler, PIN ve fatura için firma bilgileri.",
+        "ru": "Язык, лимиты, PIN и данные компании для счетов.",
+        "uk": "Мова, ліміти, PIN і дані фірми для рахунків.",
+        "en": "Language, limits, PIN and company details for invoices."
+    },
+    "settings.system_info": {
+        "cnr": "Sistem",
+        "cnr-cyrl": "Систем",
+        "sr": "Sistem",
+        "sr-cyrl": "Систем",
+        "sq": "Sistemi",
+        "tr": "Sistem",
+        "ru": "Система",
+        "uk": "Система",
+        "en": "System"
+    },
+    "settings.section_general": {
+        "cnr": "Opšte",
+        "cnr-cyrl": "Опште",
+        "sr": "Opšte",
+        "sr-cyrl": "Опште",
+        "sq": "Të përgjithshme",
+        "tr": "Genel",
+        "ru": "Общие",
+        "uk": "Загальні",
+        "en": "General"
+    },
+    "settings.section_access": {
+        "cnr": "Pristup",
+        "cnr-cyrl": "Приступ",
+        "sr": "Pristup",
+        "sr-cyrl": "Приступ",
+        "sq": "Qasja",
+        "tr": "Erişim",
+        "ru": "Доступ",
+        "uk": "Доступ",
+        "en": "Access"
+    },
+    "settings.section_invoice": {
+        "cnr": "Računi",
+        "cnr-cyrl": "Рачуни",
+        "sr": "Računi",
+        "sr-cyrl": "Рачуни",
+        "sq": "Faturat",
+        "tr": "Faturalar",
+        "ru": "Счета",
+        "uk": "Рахунки",
+        "en": "Invoices"
+    },
+    "settings.print_hint": {
+        "cnr": "Štampač, širina računa i ponašanje pri štampi.",
+        "cnr-cyrl": "Штампач, ширина рачуна и понашање при штампи.",
+        "sr": "Štampač, širina računa i ponašanje pri štampi.",
+        "sr-cyrl": "Штампач, ширина рачуна и понашање при штампи.",
+        "sq": "Printeri, gjerësia e faturës dhe sjellja e printimit.",
+        "tr": "Yazıcı, fiş genişliği ve yazdırma davranışı.",
+        "ru": "Принтер, ширина чека и поведение печати.",
+        "uk": "Принтер, ширина чека і поведінка друку.",
+        "en": "Printer, receipt width and print behaviour."
+    },
+    "settings.section_printer": {
+        "cnr": "Štampač",
+        "cnr-cyrl": "Штампач",
+        "sr": "Štampač",
+        "sr-cyrl": "Штампач",
+        "sq": "Printeri",
+        "tr": "Yazıcı",
+        "ru": "Принтер",
+        "uk": "Принтер",
+        "en": "Printer"
+    },
+    "settings.section_receipt": {
+        "cnr": "Račun",
+        "cnr-cyrl": "Рачун",
+        "sr": "Račun",
+        "sr-cyrl": "Рачун",
+        "sq": "Fatura",
+        "tr": "Fiş",
+        "ru": "Чек",
+        "uk": "Чек",
+        "en": "Receipt"
+    },
+    "settings.section_hardware": {
+        "cnr": "Hardver",
+        "cnr-cyrl": "Хардвер",
+        "sr": "Hardver",
+        "sr-cyrl": "Хардвер",
+        "sq": "Hardueri",
+        "tr": "Donanım",
+        "ru": "Оборудование",
+        "uk": "Обладнання",
+        "en": "Hardware"
+    },
+    "settings.section_imap": {
+        "cnr": "Veza",
+        "cnr-cyrl": "Веза",
+        "sr": "Veza",
+        "sr-cyrl": "Веза",
+        "sq": "Lidhja",
+        "tr": "Bağlantı",
+        "ru": "Подключение",
+        "uk": "З’єднання",
+        "en": "Connection"
+    },
+    "settings.section_filters": {
+        "cnr": "Filteri",
+        "cnr-cyrl": "Филтери",
+        "sr": "Filteri",
+        "sr-cyrl": "Филтери",
+        "sq": "Filtrat",
+        "tr": "Filtreler",
+        "ru": "Фильтры",
+        "uk": "Фільтри",
+        "en": "Filters"
+    },
     "settings.auto_login": {
         "cnr": "Automatsko logovanje",
         "cnr-cyrl": "Аутоматско логовање",
@@ -1045,26 +1166,191 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "Товар"
     },
     "article.col_vp": {
-        "cnr": "VP cijena",
-        "sr": "VP cijena",
-        "cnr-cyrl": "ВП цијена",
-        "sr-cyrl": "ВП цијена",
-        "en": "Wholesale price",
-        "sq": "Çmimi me shumicë",
-        "tr": "Toptan fiyat",
-        "ru": "Оптовая цена",
-        "uk": "Оптова ціна"
+        "cnr": "VP",
+        "sr": "VP",
+        "cnr-cyrl": "ВП",
+        "sr-cyrl": "ВП",
+        "en": "WP",
+        "sq": "VP",
+        "tr": "TP",
+        "ru": "ОПТ",
+        "uk": "ОПТ"
+    },
+    "article.col_mp": {
+        "cnr": "MP",
+        "sr": "MP",
+        "cnr-cyrl": "МП",
+        "sr-cyrl": "МП",
+        "en": "RP",
+        "sq": "MP",
+        "tr": "PP",
+        "ru": "РОЗН",
+        "uk": "РОЗД"
+    },
+    "article.col_stock": {
+        "cnr": "Lager",
+        "sr": "Lager",
+        "cnr-cyrl": "Лагер",
+        "sr-cyrl": "Лагер",
+        "en": "Stock",
+        "sq": "Stoku",
+        "tr": "Stok",
+        "ru": "Склад",
+        "uk": "Склад"
+    },
+    "article.catalog": {
+        "cnr": "Šifrarnik",
+        "sr": "Šifrarnik",
+        "cnr-cyrl": "Шифарник",
+        "sr-cyrl": "Шифарник",
+        "en": "Catalog",
+        "sq": "Katalogu",
+        "tr": "Katalog",
+        "ru": "Справочник",
+        "uk": "Довідник"
+    },
+    "article.intro_short": {
+        "cnr": "Šifrarnik za fakture, kasu i lager. Cijene, PDV i količine na jednom mjestu.",
+        "sr": "Šifarnik za fakture, kasu i lager. Cene, PDV i količine na jednom mestu.",
+        "cnr-cyrl": "Шифарник за фактуре, касу и лагер. Цијене, ПДВ и количине на једном мјесту.",
+        "sr-cyrl": "Шифарник за фактуре, касу и лагер. Цене, ПДВ и количине на једном месту.",
+        "en": "Directory for invoices, POS and stock. Prices, VAT and quantities in one place.",
+        "sq": "Regjistri për fatura, arkë dhe stok. Çmimet, TVSH dhe sasitë në një vend.",
+        "tr": "Fatura, kasa ve stok için kart. Fiyat, KDV ve miktar tek yerde.",
+        "ru": "Справочник для счетов, кассы и склада. Цены, НДС и количества в одном месте.",
+        "uk": "Довідник для рахунків, каси та складу. Ціни, ПДВ і кількості в одному місці."
+    },
+    "article.col_price": {
+        "cnr": "Cijena",
+        "sr": "Cena",
+        "cnr-cyrl": "Цијена",
+        "sr-cyrl": "Цена",
+        "en": "Price",
+        "sq": "Çmimi",
+        "tr": "Fiyat",
+        "ru": "Цена",
+        "uk": "Ціна"
+    },
+    "article.new": {
+        "cnr": "Novi artikal",
+        "sr": "Novi artikal",
+        "cnr-cyrl": "Нови артикал",
+        "sr-cyrl": "Нови артикал",
+        "en": "New item",
+        "sq": "Artikull i ri",
+        "tr": "Yeni ürün",
+        "ru": "Новый товар",
+        "uk": "Новий товар"
+    },
+    "article.edit": {
+        "cnr": "Izmijeni artikal",
+        "sr": "Izmijeni artikal",
+        "cnr-cyrl": "Измијени артикал",
+        "sr-cyrl": "Измијени артикал",
+        "en": "Edit item",
+        "sq": "Ndrysho artikullin",
+        "tr": "Ürünü düzenle",
+        "ru": "Изменить товар",
+        "uk": "Змінити товар"
+    },
+    "article.form_hint": {
+        "cnr": "Obavezna polja su označena zvjezdicom.",
+        "sr": "Obavezna polja su označena zvezdicom.",
+        "cnr-cyrl": "Обавезна поља су означена звјездицом.",
+        "sr-cyrl": "Обавезна поља су означена звездицом.",
+        "en": "Required fields are marked with an asterisk.",
+        "sq": "Fushat e detyrueshme shënohen me yll.",
+        "tr": "Zorunlu alanlar yıldızla işaretlenir.",
+        "ru": "Обязательные поля отмечены звёздочкой.",
+        "uk": "Обов’язкові поля позначені зірочкою."
+    },
+    "article.prices": {
+        "cnr": "Cijene i lager",
+        "sr": "Cene i lager",
+        "cnr-cyrl": "Цијене и лагер",
+        "sr-cyrl": "Цене и лагер",
+        "en": "Prices & stock",
+        "sq": "Çmimet dhe stoku",
+        "tr": "Fiyat ve stok",
+        "ru": "Цены и склад",
+        "uk": "Ціни та склад"
+    },
+    "article.price_retail_short": {
+        "cnr": "MP cijena",
+        "sr": "MP cena",
+        "cnr-cyrl": "МП цијена",
+        "sr-cyrl": "МП цена",
+        "en": "Retail price",
+        "sq": "Çmimi me pakicë",
+        "tr": "Perakende",
+        "ru": "Розничная",
+        "uk": "Роздрібна"
+    },
+    "article.price_vp_short": {
+        "cnr": "VP cijena (bez PDV)",
+        "sr": "VP cena (bez PDV)",
+        "cnr-cyrl": "ВП цијена (без ПДВ)",
+        "sr-cyrl": "ВП цена (без ПДВ)",
+        "en": "Wholesale (excl. VAT)",
+        "sq": "VP (pa TVSH)",
+        "tr": "Toptan (KDV hariç)",
+        "ru": "Опт (без НДС)",
+        "uk": "Опт (без ПДВ)"
+    },
+    "article.add_submit": {
+        "cnr": "Dodaj artikal",
+        "sr": "Dodaj artikal",
+        "cnr-cyrl": "Додај артикал",
+        "sr-cyrl": "Додај артикал",
+        "en": "Add item",
+        "sq": "Shto artikullin",
+        "tr": "Ürün ekle",
+        "ru": "Добавить товар",
+        "uk": "Додати товар"
+    },
+    "article.search_active": {
+        "cnr": "filtrirano",
+        "sr": "filtrirano",
+        "cnr-cyrl": "филтрирано",
+        "sr-cyrl": "филтрирано",
+        "en": "filtered",
+        "sq": "filtruar",
+        "tr": "filtrelendi",
+        "ru": "отфильтровано",
+        "uk": "відфільтровано"
     },
     "article.color": {
-        "cnr": "Izaberite boju",
-        "sr": "Izaberite boju",
-        "cnr-cyrl": "Изаберите боју",
-        "sr-cyrl": "Изаберите боју",
-        "en": "Choose color",
-        "sq": "Zgjidhni ngjyrën",
-        "tr": "Renk seçin",
-        "ru": "Выберите цвет",
-        "uk": "Оберіть колір"
+        "cnr": "Boja",
+        "sr": "Boja",
+        "cnr-cyrl": "Боја",
+        "sr-cyrl": "Боја",
+        "en": "Color",
+        "sq": "Ngjyra",
+        "tr": "Renk",
+        "ru": "Цвет",
+        "uk": "Колір"
+    },
+    "article.color_short": {
+        "cnr": "Boja",
+        "sr": "Boja",
+        "cnr-cyrl": "Боја",
+        "sr-cyrl": "Боја",
+        "en": "Color",
+        "sq": "Ngjyra",
+        "tr": "Renk",
+        "ru": "Цвет",
+        "uk": "Колір"
+    },
+    "article.col_vp_short": {
+        "cnr": "VP",
+        "sr": "VP",
+        "cnr-cyrl": "ВП",
+        "sr-cyrl": "ВП",
+        "en": "WP",
+        "sq": "VP",
+        "tr": "TP",
+        "ru": "ОПТ",
+        "uk": "ОПТ"
     },
     "article.deactivate": {
         "cnr": "Obriši (deaktiviraj)",
@@ -1100,15 +1386,15 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "Немає товарів."
     },
     "article.empty_return": {
-        "cnr": "Nema artikala. Dodaj prvi u formi lijevo, pa nastavi na fakturu.",
-        "sr": "Nema artikala. Dodaj prvi u formi lijevo, pa nastavi na fakturu.",
-        "cnr-cyrl": "Нема артикала. Додај први у форми лијево, па настави на фактуру.",
-        "sr-cyrl": "Нема артикала. Додај први у форми лијево, па настави на фактуру.",
-        "en": "No items. Add the first one in the form on the left, then continue to the invoice.",
-        "sq": "Nuk ka artikuj. Shto të parin në formularin majtas, pastaj vazhdo te fatura.",
-        "tr": "Ürün yok. Soldaki formdan ilkini ekleyin, ardından faturaya devam edin.",
-        "ru": "Нет товаров. Добавьте первый в форме слева, затем перейдите к счёту.",
-        "uk": "Немає товарів. Додайте перший у формі ліворуч, потім перейдіть до рахунку."
+        "cnr": "Nema artikala. Dodaj prvi, pa nastavi na fakturu.",
+        "sr": "Nema artikala. Dodaj prvi, pa nastavi na fakturu.",
+        "cnr-cyrl": "Нема артикала. Додај први, па настави на фактуру.",
+        "sr-cyrl": "Нема артикала. Додај први, па настави на фактуру.",
+        "en": "No items. Add the first one, then continue to the invoice.",
+        "sq": "Nuk ka artikuj. Shto të parin, pastaj vazhdo te fatura.",
+        "tr": "Ürün yok. İlkini ekleyin, ardından faturaya devam edin.",
+        "ru": "Нет товаров. Добавьте первый, затем перейдите к счёту.",
+        "uk": "Немає товарів. Додайте перший, потім перейдіть до рахунку."
     },
     "article.list_hint": {
         "cnr": "Dodaj / izmijeni",
@@ -1979,6 +2265,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "ru": "Прочее",
         "uk": "Інше"
     },
+    "customer.add_submit": {
+        "cnr": "Dodaj komitenta",
+        "sr": "Dodaj komitenta",
+        "cnr-cyrl": "Додај комитента",
+        "sr-cyrl": "Додај комитента",
+        "en": "Add customer",
+        "sq": "Shto klientin",
+        "tr": "Müşteri ekle",
+        "ru": "Добавить контрагента",
+        "uk": "Додати контрагента"
+    },
     "customer.back_invoice": {
         "cnr": "Nazad na fakturu",
         "sr": "Nazad na fakturu",
@@ -2067,6 +2364,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "ru": "Автоматически применяется как скидка на счёт при выставлении фактуры.",
         "uk": "Автоматично застосовується як знижка на рахунок під час виставлення фактури."
     },
+    "customer.edit": {
+        "cnr": "Izmijeni komitenta",
+        "sr": "Izmijeni komitenta",
+        "cnr-cyrl": "Измијени комитента",
+        "sr-cyrl": "Измени комитента",
+        "en": "Edit customer",
+        "sq": "Ndrysho klientin",
+        "tr": "Müşteriyi düzenle",
+        "ru": "Изменить контрагента",
+        "uk": "Змінити контрагента"
+    },
     "customer.email": {
         "cnr": "E-mail",
         "sr": "E-mail",
@@ -2089,6 +2397,28 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "ru": "Нет контрагентов.",
         "uk": "Немає контрагентів."
     },
+    "customer.empty_add": {
+        "cnr": "Dodaj prvog",
+        "sr": "Dodaj prvog",
+        "cnr-cyrl": "Додај првог",
+        "sr-cyrl": "Додај првог",
+        "en": "Add the first one",
+        "sq": "Shto të parin",
+        "tr": "İlkini ekle",
+        "ru": "Добавить первого",
+        "uk": "Додати першого"
+    },
+    "customer.form_hint": {
+        "cnr": "Obavezna polja su označena zvjezdicom.",
+        "sr": "Obavezna polja su označena zvezdicom.",
+        "cnr-cyrl": "Обавезна поља су означена звјездицом.",
+        "sr-cyrl": "Обавезна поља су означена звездицом.",
+        "en": "Required fields are marked with an asterisk.",
+        "sq": "Fushat e detyrueshme shënohen me yll.",
+        "tr": "Zorunlu alanlar yıldızla işaretlenir.",
+        "ru": "Обязательные поля отмечены звёздочкой.",
+        "uk": "Обов’язкові поля позначені зірочкою."
+    },
     "customer.intro": {
         "cnr": "Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.",
         "sr": "Šifarnik komitenata — kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN. Svaki komitent može imati svoj logo.",
@@ -2099,6 +2429,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "tr": "Müşteri kartı — satış faturalarında alıcılar ve alış faturalarında partnerler. PIB/JMBG, EFI'ye TIN olarak gider. Her müşterinin kendi logosu olabilir.",
         "ru": "Справочник контрагентов — покупатели на исходящих и партнёры на входящих счетах. PIB/JMBG передаётся в EFI как TIN. У каждого контрагента может быть свой логотип.",
         "uk": "Довідник контрагентів — покупці на вихідних і партнери на вхідних рахунках. PIB/JMBG передається в EFI як TIN. Кожен контрагент може мати свій логотип."
+    },
+    "customer.intro_short": {
+        "cnr": "Kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN.",
+        "sr": "Kupci na izlaznim i partneri na ulaznim fakturama. PIB/JMBG ide u EFI kao TIN.",
+        "cnr-cyrl": "Купци на излазним и партнери на улазним фактурама. ПИБ/ЈМБГ иде у ЕФИ као ТИН.",
+        "sr-cyrl": "Купци на излазним и партнери на улазним фактурама. ПИБ/ЈМБГ иде у ЕФИ као ТИН.",
+        "en": "Buyers on sales invoices and partners on purchase invoices. PIB/JMBG is sent to EFI as TIN.",
+        "sq": "Blerës në faturat dalëse dhe partnerë në faturat hyrëse. PIB/JMBG dërgohet në EFI si TIN.",
+        "tr": "Satış faturalarında alıcılar, alış faturalarında partnerler. PIB/JMBG EFI'ye TIN olarak gider.",
+        "ru": "Покупатели на исходящих и партнёры на входящих счетах. PIB/JMBG передаётся в EFI как TIN.",
+        "uk": "Покупці на вихідних і партнери на вхідних рахунках. PIB/JMBG передається в EFI як TIN."
     },
     "customer.list": {
         "cnr": "Lista",
@@ -2111,6 +2452,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "ru": "Список",
         "uk": "Список"
     },
+    "customer.more": {
+        "cnr": "Dodatno",
+        "sr": "Dodatno",
+        "cnr-cyrl": "Додатно",
+        "sr-cyrl": "Додатно",
+        "en": "More",
+        "sq": "Më shumë",
+        "tr": "Diğer",
+        "ru": "Дополнительно",
+        "uk": "Додатково"
+    },
     "customer.name": {
         "cnr": "Naziv komitenta",
         "sr": "Naziv komitenta",
@@ -2121,6 +2473,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "tr": "Müşteri adı",
         "ru": "Название контрагента",
         "uk": "Назва контрагента"
+    },
+    "customer.new": {
+        "cnr": "Novi komitent",
+        "sr": "Novi komitent",
+        "cnr-cyrl": "Нови комитент",
+        "sr-cyrl": "Нови комитент",
+        "en": "New customer",
+        "sq": "Klient i ri",
+        "tr": "Yeni müşteri",
+        "ru": "Новый контрагент",
+        "uk": "Новий контрагент"
     },
     "customer.notes": {
         "cnr": "Napomena",
@@ -2155,6 +2518,17 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "ru": "Номер PIB / JMBG",
         "uk": "Номер PIB / JMBG"
     },
+    "customer.search_active": {
+        "cnr": "filtrirano",
+        "sr": "filtrirano",
+        "cnr-cyrl": "филтрирано",
+        "sr-cyrl": "филтрирано",
+        "en": "filtered",
+        "sq": "filtruar",
+        "tr": "filtrelendi",
+        "ru": "отфильтровано",
+        "uk": "відфільтровано"
+    },
     "customer.search_ph": {
         "cnr": "Pretraga naziv / PIB / mjesto…",
         "sr": "Pretraga naziv / PIB / mjesto…",
@@ -2165,6 +2539,83 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "tr": "Ad / PIB / yer ara…",
         "ru": "Поиск название / PIB / город…",
         "uk": "Пошук назва / PIB / місто…"
+    },
+    "customer.confirm_remove": {
+        "cnr": "Ukloniti ovog komitenta iz šifrarnika?",
+        "sr": "Ukloniti ovog komitenta iz šifrarnika?",
+        "cnr-cyrl": "Уклонити овог комитента из шифарника?",
+        "sr-cyrl": "Уклонити овог комитента из шифарника?",
+        "en": "Remove this partner from the registry?",
+        "sq": "Të hiqet ky komitent nga regjistri?",
+        "tr": "Bu cari kayıtlardan kaldırılsın mı?",
+        "ru": "Удалить этого контрагента из справочника?",
+        "uk": "Видалити цього контрагента з довідника?"
+    },
+    "customer.remove_title": {
+        "cnr": "Uklanjanje komitenta",
+        "sr": "Uklanjanje komitenta",
+        "cnr-cyrl": "Уклањање комитента",
+        "sr-cyrl": "Уклањање комитента",
+        "en": "Remove partner",
+        "sq": "Heqja e komitentit",
+        "tr": "Cari kaldırma",
+        "ru": "Удаление контрагента",
+        "uk": "Видалення контрагента"
+    },
+    "env.demo": {
+        "cnr": "Demo",
+        "sr": "Demo",
+        "cnr-cyrl": "Демо",
+        "sr-cyrl": "Демо",
+        "en": "Demo",
+        "sq": "Demo",
+        "tr": "Demo",
+        "ru": "Демо",
+        "uk": "Демо"
+    },
+    "env.test": {
+        "cnr": "Test",
+        "sr": "Test",
+        "cnr-cyrl": "Тест",
+        "sr-cyrl": "Тест",
+        "en": "Test",
+        "sq": "Test",
+        "tr": "Test",
+        "ru": "Тест",
+        "uk": "Тест"
+    },
+    "customer.section_address": {
+        "cnr": "Adresa",
+        "sr": "Adresa",
+        "cnr-cyrl": "Адреса",
+        "sr-cyrl": "Адреса",
+        "en": "Address",
+        "sq": "Adresa",
+        "tr": "Adres",
+        "ru": "Адрес",
+        "uk": "Адреса"
+    },
+    "customer.section_contact": {
+        "cnr": "Kontakt",
+        "sr": "Kontakt",
+        "cnr-cyrl": "Контакт",
+        "sr-cyrl": "Контакт",
+        "en": "Contact",
+        "sq": "Kontakti",
+        "tr": "İletişim",
+        "ru": "Контакт",
+        "uk": "Контакт"
+    },
+    "customer.section_id": {
+        "cnr": "Identifikacija",
+        "sr": "Identifikacija",
+        "cnr-cyrl": "Идентификација",
+        "sr-cyrl": "Идентификација",
+        "en": "Identity",
+        "sq": "Identifikimi",
+        "tr": "Kimlik",
+        "ru": "Идентификация",
+        "uk": "Ідентифікація"
     },
     "customer.street": {
         "cnr": "Ulica i broj",

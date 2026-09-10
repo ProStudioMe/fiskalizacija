@@ -116,7 +116,7 @@
       <div class="inv-buyer-head">
         <div class="inv-section-title">{{ t('inv.buyer', 'Kupac') }}</div>
         {% if buyer_customer %}
-          <a class="btn secondary inv-actions-icon inv-buyer-edit" href="/kupci?edit={{ buyer_customer.id }}" title="{{ t('btn.edit_customer', 'Izmijeni kupca') }}" aria-label="{{ t('btn.edit_customer', 'Izmijeni kupca') }}">
+          <a class="btn secondary inv-actions-icon inv-buyer-edit" href="/kupci/{{ buyer_customer.id }}/izmijeni" title="{{ t('btn.edit_customer', 'Izmijeni kupca') }}" aria-label="{{ t('btn.edit_customer', 'Izmijeni kupca') }}">
             <i data-lucide="user-pen" aria-hidden="true"></i>
           </a>
         {% elif not readonly %}
