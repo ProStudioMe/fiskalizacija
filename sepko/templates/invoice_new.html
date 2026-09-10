@@ -151,7 +151,7 @@
           {% else %}
           <input type="hidden" name="fiscal_note" value="{{ (prefill.fiscal_note if prefill else '') }}">
           {% endif %}
-          <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field inv-note-field--desc" label="{% if is_template %}{{ t('inv.note', 'Napomena') }}{% else %}{{ t('inv.notes', 'Opis za račun') }}{% endif %}" placeholder="{{ t('inv.optional', 'Opciono') }}" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
+          <wa-input name="notes" id="inv-notes" size="small" class="inv-note-field inv-note-field--desc" label="{% if is_template %}{{ t('inv.note', 'Napomena') }}{% else %}{{ t('inv.notes', 'Opis') }}{% endif %}" placeholder="{{ t('inv.notes_ph', 'Tekst na štampi') }}" value="{{ (prefill.notes if prefill else '') }}"></wa-input>
         </div>
       </div>
 

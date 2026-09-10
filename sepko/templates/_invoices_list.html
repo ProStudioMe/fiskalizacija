@@ -1,4 +1,4 @@
-{% set has_filters = (status and status != 'all') or tip or client or date_from or date_to or q %}
+{% set has_filters = (status and status != 'all') or tip or doc or client or date_from or date_to or q %}
 {% set status_labels = {
   'fiscalized': t('status.fiscalized', 'Fiskalizovan'),
   'pending': t('status.unfiscalized_plural', 'Nefiskalizovani'),
@@ -31,6 +31,18 @@
     {% endif %}
   </div>
 
+  <div class="inv-filter-doc {% if doc %}has-value{% endif %}">
+    <span class="inv-filter-ico" aria-hidden="true">
+      <i data-lucide="file-text"></i>
+    </span>
+    <select name="doc" id="inv-doc" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}" title="{{ t('inv.doc_type', 'Tip dokumenta') }}">
+      <option value="">{{ t('inv.all_doc_types', 'Svi tipovi') }}</option>
+      {% for code in document_types %}
+      <option value="{{ code }}" {% if doc == code %}selected{% endif %}>{{ t('inv.doc.' ~ code, code) }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
   <div class="inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
     <span class="inv-filter-ico" aria-hidden="true">
       <i data-lucide="calendar"></i>
@@ -46,6 +58,14 @@
   </div>
 
   <div class="inv-filter-actions">
+    <a class="btn secondary inv-export-btn" href="/racuni/export.xlsx?{{ export_qs }}" title="{{ t('btn.export_excel', 'Izvoz Excel') }}">
+      <i data-lucide="sheet" aria-hidden="true"></i>
+      <span>{{ t('btn.excel', 'Excel') }}</span>
+    </a>
+    <a class="btn secondary inv-export-btn" href="/racuni/export.pdf?{{ export_qs }}" target="sepko-print" rel="noopener" title="{{ t('btn.export_pdf', 'Izvoz PDF') }}">
+      <i data-lucide="file-down" aria-hidden="true"></i>
+      <span>{{ t('btn.pdf', 'PDF') }}</span>
+    </a>
     {% include "_per_page.html" %}
   </div>
 </form>
@@ -110,6 +130,11 @@
     });
   }
 
+  var docSel = document.getElementById('inv-doc');
+  if (docSel) {
+    docSel.addEventListener('change', submitForm);
+  }
+
   ['date_from_dmy', 'date_to_dmy'].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -132,6 +157,9 @@
     {% endif %}
     {% if status and status != 'all' %}
     <a class="pill-tag" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('col.status', 'Status') }}: {{ status_labels.get(status, status) }} ×</a>
+    {% endif %}
+    {% if doc %}
+    <a class="pill-tag" href="{{ list_path }}?{{ qs(doc='') }}">{{ t('inv.doc_type', 'Tip dokumenta') }}: {{ t('inv.doc.' ~ doc, doc) }} ×</a>
     {% endif %}
     {% if tip %}
     <a class="pill-tag" href="{{ list_path }}?{{ qs(tip='') }}">{{ t('col.tip', 'Tip') }}: {{ tip }} ×</a>
@@ -214,6 +242,25 @@
         </th>
         <th>
           <div class="th-with-filter">
+            <span class="th-sort {% if doc %}active{% endif %}">{{ t('inv.doc_type', 'Tip dokumenta') }}</span>
+            <details class="th-filter {% if doc %}has-value{% endif %}">
+              <summary title="{{ t('inv.doc_type', 'Tip dokumenta') }}" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}"></summary>
+              <div class="th-filter-menu">
+                <div class="th-filter-search">
+                  <input type="search" placeholder="{{ t('label.search', 'Pretraži…') }}" data-filter-list autocomplete="off">
+                </div>
+                <div class="th-filter-options">
+                  <a href="{{ list_path }}?{{ qs(doc='') }}" class="{% if not doc %}on{% endif %}" data-filter-item>{{ t('common.all', 'Svi') }}</a>
+                  {% for code in document_types %}
+                  <a href="{{ list_path }}?{{ qs(doc=code) }}" class="{% if doc == code %}on{% endif %}" data-filter-item>{{ t('inv.doc.' ~ code, code) }}</a>
+                  {% endfor %}
+                </div>
+              </div>
+            </details>
+          </div>
+        </th>
+        <th>
+          <div class="th-with-filter">
             <a class="th-sort {% if sort == 'client' %}active{% endif %}" href="{{ list_path }}?{{ qs(sort='client', dir='asc' if sort == 'client' and dir == 'desc' else 'desc') }}">
               {{ t('col.client', 'Klijent') }} {% if sort == 'client' %}{% if dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
             </a>
@@ -249,6 +296,7 @@
                   <input type="hidden" name="dir" value="{{ dir }}">
                   <input type="hidden" name="client" value="{{ client }}">
                   <input type="hidden" name="tip" value="{{ tip }}">
+                  <input type="hidden" name="doc" value="{{ doc }}">
                   <input type="hidden" name="per_page" value="{{ per_page }}">
                   <label>{{ t('label.from', 'Od') }} <input type="text" class="inv-date-dmy" name="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" data-iso-target="date_from_th" autocomplete="off"></label>
                   <input type="hidden" name="date_from" id="date_from_th" value="{{ date_from }}">
@@ -291,6 +339,9 @@
           {% else %}
             <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
           {% endif %}
+        </td>
+        <td>
+          <div class="cell-doc">{{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }}</div>
         </td>
         <td>
           <div class="cell-client">{{ inv.buyer_name or lbl_no_buyer }}</div>

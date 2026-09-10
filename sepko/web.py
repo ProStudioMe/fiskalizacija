@@ -206,8 +206,19 @@ def logout_legacy():
     return redirect("/login")
 
 
-def _build_invoice_list(
-    request: Request,
+_INVOICE_EXPORT_LIMIT = 5000
+
+
+def _normalize_invoice_doc_filter(doc: str | None) -> str:
+    from sepko.efi import UI_DOCUMENT_TYPES
+
+    val = (doc or "").strip().upper()
+    if val in UI_DOCUMENT_TYPES:
+        return val
+    return ""
+
+
+def _invoice_list_ordered_query(
     db: Session,
     tenant: Tenant,
     *,
@@ -215,18 +226,17 @@ def _build_invoice_list(
     status: str | None,
     date_from: str | None,
     date_to: str | None,
-    per_page: int | None,
-    page: int,
     sort: str | None,
     dir: str | None,
     client: str | None,
     tip: str | None,
-    list_path: str = "/racuni",
-) -> tuple[dict, int, bool]:
-    """Shared invoice table context for Pregled and Fakture."""
+    doc: str | None,
+):
+    """Filtered + ordered Invoice query (shared by list and export)."""
     status_val = (status or "all").strip()
     client_val = (client or "").strip()
     tip_val = (tip or "").strip()
+    doc_val = _normalize_invoice_doc_filter(doc)
     sort_key = (sort or "number").strip()
     if sort_key not in _INVOICE_SORTS:
         sort_key = "number"
@@ -299,6 +309,17 @@ def _build_invoice_list(
             query = query.filter(Invoice.buyer_name.ilike(client_val))
     if tip_val:
         query = query.filter(Invoice.payment_method == tip_val)
+    if doc_val:
+        if doc_val == "INVOICE":
+            query = query.filter(
+                or_(
+                    Invoice.inv_type == "INVOICE",
+                    Invoice.inv_type.is_(None),
+                    Invoice.inv_type == "",
+                )
+            )
+        else:
+            query = query.filter(Invoice.inv_type == doc_val)
     d_from = _parse_date(date_from)
     d_to = _parse_date(date_to)
     if d_from:
@@ -306,10 +327,8 @@ def _build_invoice_list(
     if d_to:
         query = query.filter(func.date(Invoice.issue_datetime) <= d_to)
 
-    size, set_cookie = _resolve_per_page(request, per_page)
     col = _INVOICE_SORTS[sort_key]
     if sort_key == "number":
-        # Broj računa: zadnja (najveći rbr) → prva; nacrti bez broja po id
         year_col = func.extract("year", Invoice.issue_datetime)
         if sort_dir == "asc":
             ordered = query.order_by(
@@ -318,7 +337,6 @@ def _build_invoice_list(
                 Invoice.id.asc(),
             )
         else:
-            # Zadnja → prva; nacrti (bez broja) na vrhu
             ordered = query.order_by(
                 year_col.desc().nulls_first(),
                 Invoice.inv_ord_num.desc().nulls_first(),
@@ -330,6 +348,62 @@ def _build_invoice_list(
             primary,
             Invoice.id.asc() if sort_dir == "asc" else Invoice.id.desc(),
         )
+    meta = {
+        "status_val": status_val,
+        "client_val": client_val,
+        "tip_val": tip_val,
+        "doc_val": doc_val,
+        "sort_key": sort_key,
+        "sort_dir": sort_dir,
+        "q": (q or "").strip(),
+        "date_from": date_from or "",
+        "date_to": date_to or "",
+    }
+    return ordered, meta
+
+
+def _build_invoice_list(
+    request: Request,
+    db: Session,
+    tenant: Tenant,
+    *,
+    q: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    per_page: int | None,
+    page: int,
+    sort: str | None,
+    dir: str | None,
+    client: str | None,
+    tip: str | None,
+    doc: str | None = None,
+    list_path: str = "/racuni",
+) -> tuple[dict, int, bool]:
+    """Shared invoice table context for Pregled and Fakture."""
+    from sepko.efi import UI_DOCUMENT_TYPES
+
+    ordered, meta = _invoice_list_ordered_query(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+    )
+    status_val = meta["status_val"]
+    client_val = meta["client_val"]
+    tip_val = meta["tip_val"]
+    doc_val = meta["doc_val"]
+    sort_key = meta["sort_key"]
+    sort_dir = meta["sort_dir"]
+
+    size, set_cookie = _resolve_per_page(request, per_page)
     invoices, total, page, pages = _paginate(ordered, page, size)
 
     clients = [
@@ -358,15 +432,16 @@ def _build_invoice_list(
     ]
 
     filters = {
-        "q": q or "",
+        "q": meta["q"],
         "status": status_val,
-        "date_from": date_from or "",
-        "date_to": date_to or "",
+        "date_from": meta["date_from"],
+        "date_to": meta["date_to"],
         "per_page": size,
         "sort": sort_key,
         "dir": sort_dir,
         "client": client_val,
         "tip": tip_val,
+        "doc": doc_val,
     }
 
     def qs(**overrides):
@@ -388,11 +463,14 @@ def _build_invoice_list(
         "dir": sort_dir,
         "client": client_val,
         "tip": tip_val,
+        "doc": doc_val,
         "clients": clients,
         "tips": tips,
+        "document_types": list(UI_DOCUMENT_TYPES),
         "qs": qs,
         "pager_qs": _invoice_list_qs(**{**filters, "page": page}),
         "list_path": list_path,
+        "export_qs": _invoice_list_qs(**{k: v for k, v in filters.items() if k != "per_page"}),
     }
     return ctx, size, set_cookie
 
@@ -410,6 +488,7 @@ def dashboard(
     dir: str | None = Query("desc"),
     client: str | None = Query(None),
     tip: str | None = Query(None),
+    doc: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -443,6 +522,7 @@ def dashboard(
         dir=dir,
         client=client,
         tip=tip,
+        doc=doc,
         list_path="/",
     )
     resp = render(
@@ -1423,6 +1503,7 @@ def _invoice_list_qs(
     dir: str = "desc",
     client: str = "",
     tip: str = "",
+    doc: str = "",
 ) -> str:
     data = {
         "q": q,
@@ -1435,11 +1516,12 @@ def _invoice_list_qs(
         "dir": dir,
         "client": client,
         "tip": tip,
+        "doc": doc,
     }
     # Drop empty optional filters; keep status/sort/dir/per_page always.
     out: dict[str, str] = {}
     for key, val in data.items():
-        if key in ("q", "date_from", "date_to", "client", "tip") and not val:
+        if key in ("q", "date_from", "date_to", "client", "tip", "doc") and not val:
             continue
         if key == "page" and str(val) in ("1", ""):
             continue
@@ -1460,6 +1542,7 @@ def invoices_list(
     dir: str | None = Query("desc"),
     client: str | None = Query(None),
     tip: str | None = Query(None),
+    doc: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1481,6 +1564,7 @@ def invoices_list(
         dir=dir,
         client=client,
         tip=tip,
+        doc=doc,
         list_path="/racuni",
     )
     resp = render(
@@ -1489,6 +1573,211 @@ def invoices_list(
         {"user": user, "tenant": tenant, **list_ctx},
     )
     return _with_per_page_cookie(resp, size, set_cookie)
+
+
+def _invoice_export_rows(
+    db: Session,
+    tenant: Tenant,
+    *,
+    q: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    sort: str | None,
+    dir: str | None,
+    client: str | None,
+    tip: str | None,
+    doc: str | None,
+    labels: dict[str, str],
+) -> list[dict]:
+    from sepko.efi import document_type_label
+
+    ordered, _meta = _invoice_list_ordered_query(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+    )
+    invoices = ordered.limit(_INVOICE_EXPORT_LIMIT).all()
+    status_labels = {
+        "fiscalized": labels.get("status_fiscalized", "Fiskalizovan"),
+        "failed": labels.get("status_failed", "Greška"),
+        "pending": labels.get("status_pending", "Nefiskalizovan"),
+        "draft": labels.get("status_pending", "Nefiskalizovan"),
+    }
+    rows: list[dict] = []
+    for inv in invoices:
+        st = status_labels.get(inv.status or "", inv.status or "")
+        rows.append(
+            {
+                "number": display_inv_num(inv),
+                "status": st,
+                "doc": document_type_label(inv.inv_type),
+                "client": inv.buyer_name or labels.get("no_buyer", "Bez kupca"),
+                "date": inv.issue_datetime.strftime("%d.%m.%Y %H:%M") if inv.issue_datetime else "",
+                "amount": float(inv.total_gross) if inv.total_gross is not None else None,
+                "pay": inv.payment_method or "",
+            }
+        )
+    return rows
+
+
+def _invoice_export_labels(request: Request, tenant: Tenant) -> dict[str, str]:
+    from sepko.i18n import get_translations_map, t as i18n_t
+    from sepko.db import SessionLocal
+
+    lang = "cnr"
+    try:
+        lang = normalize_ui_language(load_tenant_ui(tenant).language)
+    except Exception:
+        lang = "cnr"
+    db = SessionLocal()
+    try:
+        bundle = get_translations_map(db, lang)
+    except Exception:
+        bundle = {}
+    finally:
+        db.close()
+
+    def t(key: str, default: str) -> str:
+        return i18n_t(bundle, key, default)
+
+    return {
+        "title": t("page.fakture", "Fakture"),
+        "number": t("col.number", "Broj"),
+        "status": t("col.status", "Status"),
+        "doc": t("inv.doc_type", "Tip dokumenta"),
+        "client": t("col.client", "Klijent"),
+        "date": t("col.date", "Datum"),
+        "amount": t("col.amount", "Ukupno"),
+        "pay": t("col.payment", "Plaćanje"),
+        "total": t("col.total", "Ukupno"),
+        "empty": t("empty.invoices", "Nema faktura."),
+        "print": t("btn.print_pdf", "Štampaj / PDF"),
+        "subtitle": t("inv.export_filtered", "Izvoz prema filterima"),
+        "status_fiscalized": t("status.fiscalized", "Fiskalizovan"),
+        "status_failed": t("status.failed", "Greška"),
+        "status_pending": t("status.unfiscalized", "Nefiskalizovan"),
+        "no_buyer": t("inv.no_buyer", "Bez kupca"),
+    }
+
+
+@router.get("/racuni/export.xlsx")
+def invoices_export_xlsx(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_xlsx
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    data = build_invoices_xlsx(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+    )
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="fakture_{stamp}.xlsx"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@router.get("/racuni/export.pdf", response_class=HTMLResponse)
+def invoices_export_pdf(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
+    auto: str = Query("1"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_pdf_html
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    html = build_invoices_pdf_html(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+        auto_print=auto in ("1", "true", "yes"),
+    )
+    return HTMLResponse(
+        content=html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 def _safe_return_to(raw: str | None) -> str | None:

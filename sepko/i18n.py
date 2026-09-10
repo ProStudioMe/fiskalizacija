@@ -3263,6 +3263,7 @@ _FORCE_SEED_KEYS = frozenset({
     "inv.doc.CORRECTIVE",
     "inv.doc.ADVANCE",
     "inv.doc.ERROR_CORRECTIVE",
+    "inv.notes",
 })
 
 

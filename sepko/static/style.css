@@ -1246,6 +1246,7 @@ html[data-theme="dark"] .tab.active {
 }
 .inv-filter-search,
 .inv-filter-dates,
+.inv-filter-doc,
 .inv-filter-toolbar .per-page {
   display: flex;
   align-items: center;
@@ -1270,12 +1271,49 @@ html[data-theme="dark"] .tab.active {
 }
 .inv-filter-search:focus-within,
 .inv-filter-dates:focus-within,
+.inv-filter-doc:focus-within,
 .inv-filter-search.has-value,
 .inv-filter-dates.has-value,
+.inv-filter-doc.has-value,
 .inv-filter-toolbar .per-page:focus-within {
   background: var(--surface);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.inv-filter-doc {
+  flex: 0 1 auto;
+  max-width: 14rem;
+  padding-right: 0.55rem;
+}
+.inv-filter-doc select {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  min-width: 8rem;
+  height: 100%;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink);
+  box-shadow: none !important;
+  cursor: pointer;
+  outline: none;
+}
+.inv-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: var(--inv-filter-h);
+  padding: 0 0.85rem !important;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.inv-export-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 .inv-filter-ico {
   width: 18px;
@@ -4970,6 +5008,7 @@ html[data-theme="dark"] .inv-filter-toolbar {
 }
 html[data-theme="dark"] .inv-filter-search,
 html[data-theme="dark"] .inv-filter-dates,
+html[data-theme="dark"] .inv-filter-doc,
 html[data-theme="dark"] .inv-filter-toolbar .per-page {
   background: var(--surface);
   border-color: var(--line);
@@ -4980,8 +5019,10 @@ html[data-theme="dark"] .active-filters-bar {
 }
 html[data-theme="dark"] .inv-filter-search:focus-within,
 html[data-theme="dark"] .inv-filter-dates:focus-within,
+html[data-theme="dark"] .inv-filter-doc:focus-within,
 html[data-theme="dark"] .inv-filter-search.has-value,
-html[data-theme="dark"] .inv-filter-dates.has-value {
+html[data-theme="dark"] .inv-filter-dates.has-value,
+html[data-theme="dark"] .inv-filter-doc.has-value {
   background: var(--surface);
 }
 html[data-theme="dark"] .plan-card.has-selection .plan-head {
@@ -5019,6 +5060,7 @@ html[data-theme="dark"] .icon-x:hover {
 }
 html[data-theme="dark"] .inv-filter-toolbar .inv-filter-search input,
 html[data-theme="dark"] .inv-filter-toolbar .inv-filter-dates input,
+html[data-theme="dark"] .inv-filter-toolbar .inv-filter-doc select,
 html[data-theme="dark"] .inv-filter-toolbar .inv-filter-body input,
 html[data-theme="dark"] .inv-filter-toolbar .inv-filter-body select {
   background: transparent;
