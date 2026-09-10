@@ -2960,19 +2960,20 @@ def _invoice_editor_context(
         when = (invoice.issue_datetime if invoice is not None else None) or now
         display_num = preview_local_display_num(db, tenant, when)
 
+    ref_filters = [
+        Invoice.tenant_id == tenant.id,
+        Invoice.status == InvoiceStatus.fiscalized.value,
+        Invoice.ikof.isnot(None),
+        Invoice.is_template.is_(False),
+    ]
+    if invoice is not None:
+        ref_filters.append(Invoice.id != invoice.id)
     ref_q = (
         db.query(Invoice)
-        .filter(
-            Invoice.tenant_id == tenant.id,
-            Invoice.status == InvoiceStatus.fiscalized.value,
-            Invoice.ikof.isnot(None),
-            Invoice.is_template.is_(False),
-        )
+        .filter(*ref_filters)
         .order_by(Invoice.issue_datetime.desc())
         .limit(200)
     )
-    if invoice is not None:
-        ref_q = ref_q.filter(Invoice.id != invoice.id)
     ref_invoices = [
         {
             "id": inv.id,
