@@ -1590,8 +1590,6 @@ def _invoice_export_rows(
     doc: str | None,
     labels: dict[str, str],
 ) -> list[dict]:
-    from sepko.efi import document_type_label
-
     ordered, _meta = _invoice_list_ordered_query(
         db,
         tenant,
@@ -1612,24 +1610,31 @@ def _invoice_export_rows(
         "pending": labels.get("status_pending", "Nefiskalizovan"),
         "draft": labels.get("status_pending", "Nefiskalizovan"),
     }
+    pay_labels = labels.get("pay_labels") or {}
+    doc_labels = labels.get("doc_labels") or {}
     rows: list[dict] = []
     for inv in invoices:
         st = status_labels.get(inv.status or "", inv.status or "")
+        pay_code = (inv.payment_method or "").strip().upper()
+        doc_code = (inv.inv_type or "INVOICE").strip().upper() or "INVOICE"
         rows.append(
             {
                 "number": display_inv_num(inv),
                 "status": st,
-                "doc": document_type_label(inv.inv_type),
+                "doc": doc_labels.get(doc_code) or doc_code,
                 "client": inv.buyer_name or labels.get("no_buyer", "Bez kupca"),
                 "date": inv.issue_datetime.strftime("%d.%m.%Y %H:%M") if inv.issue_datetime else "",
+                "net": float(inv.total_net) if inv.total_net is not None else None,
+                "vat": float(inv.total_vat) if inv.total_vat is not None else None,
                 "amount": float(inv.total_gross) if inv.total_gross is not None else None,
-                "pay": inv.payment_method or "",
+                "pay": pay_labels.get(pay_code) or pay_code or "",
             }
         )
     return rows
 
 
-def _invoice_export_labels(request: Request, tenant: Tenant) -> dict[str, str]:
+def _invoice_export_labels(request: Request, tenant: Tenant) -> dict:
+    from sepko.efi import UI_DOCUMENT_TYPES
     from sepko.i18n import get_translations_map, t as i18n_t
     from sepko.db import SessionLocal
 
@@ -1649,6 +1654,32 @@ def _invoice_export_labels(request: Request, tenant: Tenant) -> dict[str, str]:
     def t(key: str, default: str) -> str:
         return i18n_t(bundle, key, default)
 
+    pay_labels = {
+        "BANKNOTE": t("pay.cash", "Gotovina"),
+        "CARD": t("pay.card_short", "Kartica"),
+        "BUSINESSCARD": t("pay.business_card", "Poslovna kartica"),
+        "ORDER": t("pay.wire", "Virman"),
+        "ADVANCE": t("pay.advance", "Avans"),
+        "OTHER": t("pay.other_noncash", "Drugo bezgotovinsko"),
+        "ACCOUNT": t("pay.account", "Na račun"),
+        "SVOUCHER": t("pay.voucher", "Vaučer"),
+        "COMPANY": t("pay.company", "Kompanija"),
+        "OTHER-CASH": t("pay.other_cash", "Ostalo"),
+    }
+    doc_defaults = {
+        "INVOICE": "Račun",
+        "ADVANCE": "Avansni račun",
+        "CREDIT_NOTE": "Knjižno odobrenje",
+        "CORRECTIVE": "Korektivni račun",
+        "ERROR_CORRECTIVE": "Ispravka greške",
+        "PROFORMA": "Predračun",
+        "SUMMARY": "Zbirni račun",
+        "PERIODICAL": "Periodični račun",
+    }
+    doc_labels = {
+        code: t(f"inv.doc.{code}", doc_defaults.get(code, code)) for code in UI_DOCUMENT_TYPES
+    }
+
     return {
         "title": t("page.fakture", "Fakture"),
         "number": t("col.number", "Broj"),
@@ -1656,16 +1687,21 @@ def _invoice_export_labels(request: Request, tenant: Tenant) -> dict[str, str]:
         "doc": t("inv.doc_type", "Tip dokumenta"),
         "client": t("col.client", "Klijent"),
         "date": t("col.date", "Datum"),
+        "net": t("col.net_excl", "Bez PDV"),
+        "vat": t("col.vat", "PDV"),
         "amount": t("col.amount", "Ukupno"),
         "pay": t("col.payment", "Plaćanje"),
         "total": t("col.total", "Ukupno"),
         "empty": t("empty.invoices", "Nema faktura."),
-        "print": t("btn.print_pdf", "Štampaj / PDF"),
+        "print": t("btn.print", "Štampaj"),
+        "close": t("btn.close", "Zatvori"),
         "subtitle": t("inv.export_filtered", "Izvoz prema filterima"),
         "status_fiscalized": t("status.fiscalized", "Fiskalizovan"),
         "status_failed": t("status.failed", "Greška"),
         "status_pending": t("status.unfiscalized", "Nefiskalizovan"),
         "no_buyer": t("inv.no_buyer", "Bez kupca"),
+        "pay_labels": pay_labels,
+        "doc_labels": doc_labels,
     }
 
 
@@ -1725,7 +1761,7 @@ def invoices_export_xlsx(
     )
 
 
-@router.get("/racuni/export.pdf", response_class=HTMLResponse)
+@router.get("/racuni/export.pdf")
 def invoices_export_pdf(
     request: Request,
     q: str | None = Query(None),
@@ -1737,7 +1773,65 @@ def invoices_export_pdf(
     client: str | None = Query(None),
     tip: str | None = Query(None),
     doc: str | None = Query(None),
-    auto: str = Query("1"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_pdf
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    data = build_invoices_pdf(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+    )
+    if data is None:
+        flash(request, "PDF nije moguće generisati (nedostaje font ili fpdf2).", "error")
+        return redirect(f"/racuni?{_invoice_list_qs(q=q or '', status=status or 'all', date_from=date_from or '', date_to=date_to or '', sort=sort or 'number', dir=dir or 'desc', client=client or '', tip=tip or '', doc=doc or '')}")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="fakture_{stamp}.pdf"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@router.get("/racuni/export/stampa", response_class=HTMLResponse)
+def invoices_export_print(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1768,7 +1862,7 @@ def invoices_export_pdf(
         tenant_pib=tenant.pib or "",
         headers=labels,
         brand=DISPLAY_NAME,
-        auto_print=auto in ("1", "true", "yes"),
+        auto_print=False,
     )
     return HTMLResponse(
         content=html,

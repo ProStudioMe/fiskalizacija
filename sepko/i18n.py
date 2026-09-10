@@ -3264,6 +3264,7 @@ _FORCE_SEED_KEYS = frozenset({
     "inv.doc.ADVANCE",
     "inv.doc.ERROR_CORRECTIVE",
     "inv.notes",
+    "btn.export_pdf",
 })
 
 

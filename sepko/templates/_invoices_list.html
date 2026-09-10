@@ -31,17 +31,22 @@
     {% endif %}
   </div>
 
-  <div class="inv-filter-doc {% if doc %}has-value{% endif %}">
-    <span class="inv-filter-ico" aria-hidden="true">
-      <i data-lucide="file-text"></i>
-    </span>
-    <select name="doc" id="inv-doc" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}" title="{{ t('inv.doc_type', 'Tip dokumenta') }}">
-      <option value="">{{ t('inv.all_doc_types', 'Svi tipovi') }}</option>
+  {% set doc_label = t('inv.all_doc_types', 'Svi tipovi') %}
+  {% if doc %}
+    {% set doc_label = t('inv.doc.' ~ doc, doc) %}
+  {% endif %}
+  <input type="hidden" name="doc" id="inv-doc" value="{{ doc }}">
+  <details class="inv-filter-doc {% if doc %}has-value{% endif %}" id="inv-doc-filter">
+    <summary class="inv-filter-doc-summary" title="{{ t('inv.doc_type', 'Tip dokumenta') }}">
+      <span class="inv-filter-doc-label">{{ doc_label }}</span>
+    </summary>
+    <div class="inv-filter-doc-menu" role="listbox" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}">
+      <a href="{{ list_path }}?{{ qs(doc='') }}" class="{% if not doc %}on{% endif %}" role="option" aria-selected="{{ 'true' if not doc else 'false' }}">{{ t('inv.all_doc_types', 'Svi tipovi') }}</a>
       {% for code in document_types %}
-      <option value="{{ code }}" {% if doc == code %}selected{% endif %}>{{ t('inv.doc.' ~ code, code) }}</option>
+      <a href="{{ list_path }}?{{ qs(doc=code) }}" class="{% if doc == code %}on{% endif %}" role="option" aria-selected="{{ 'true' if doc == code else 'false' }}">{{ t('inv.doc.' ~ code, code) }}</a>
       {% endfor %}
-    </select>
-  </div>
+    </div>
+  </details>
 
   <div class="inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
     <span class="inv-filter-ico" aria-hidden="true">
@@ -62,9 +67,15 @@
       <i data-lucide="sheet" aria-hidden="true"></i>
       <span>{{ t('btn.excel', 'Excel') }}</span>
     </a>
-    <a class="btn secondary inv-export-btn" href="/racuni/export.pdf?{{ export_qs }}" target="sepko-print" rel="noopener" title="{{ t('btn.export_pdf', 'Izvoz PDF') }}">
+    <a class="btn secondary inv-export-btn" href="/racuni/export.pdf?{{ export_qs }}" title="{{ t('btn.export_pdf', 'Sačuvaj PDF') }}">
       <i data-lucide="file-down" aria-hidden="true"></i>
       <span>{{ t('btn.pdf', 'PDF') }}</span>
+    </a>
+    <a class="btn secondary inv-export-btn" href="/racuni/export/stampa?{{ export_qs }}"
+       title="{{ t('btn.print', 'Štampaj') }}"
+       onclick="window.open(this.href,'sepko-print','noopener,width=1100,height=900,scrollbars=yes,resizable=yes');return false;">
+      <i data-lucide="printer" aria-hidden="true"></i>
+      <span>{{ t('btn.print', 'Štampaj') }}</span>
     </a>
     {% include "_per_page.html" %}
   </div>
@@ -130,9 +141,14 @@
     });
   }
 
-  var docSel = document.getElementById('inv-doc');
+  var docSel = document.getElementById('inv-doc-filter');
   if (docSel) {
-    docSel.addEventListener('change', submitForm);
+    document.addEventListener('click', function (e) {
+      if (!docSel.contains(e.target)) docSel.open = false;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') docSel.open = false;
+    });
   }
 
   ['date_from_dmy', 'date_to_dmy'].forEach(function (id) {
