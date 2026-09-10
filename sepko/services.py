@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from sepko.audit import write_audit
 from sepko.efi import (
     CASH_PAY_METHODS,
+    CREDIT_INV_TYPES,
     INV_TYPES,
     build_inv_num,
     display_inv_num,
@@ -163,6 +164,11 @@ def _to_response(invoice: Invoice) -> FiscalizeResponse:
         inv_ord_num=invoice.inv_ord_num,
         fiscalized_at=invoice.fiscalized_at,
         error_message=invoice.error_message,
+        offline=bool(
+            invoice.ikof
+            and not invoice.jikr
+            and invoice.status == InvoiceStatus.pending.value
+        ),
     )
 
 
@@ -186,6 +192,12 @@ def fiscalize_invoice(
             status=InvoiceStatus.failed.value,
             error_message=err,
         )
+    if request.inv_type in CREDIT_INV_TYPES and not (request.iic_ref or "").strip():
+        return FiscalizeResponse(
+            external_id=request.external_id or "",
+            status=InvoiceStatus.failed.value,
+            error_message="Za knjižno odobrenje / korektivni račun obavezan je IKOF originala (iic_ref).",
+        )
 
     existing = None
     if request.external_id:
@@ -207,8 +219,21 @@ def fiscalize_invoice(
         else next_local_ord_num(db, tenant, request.issue_datetime)
     )
 
+    reuse_iic = existing.ikof if existing and existing.ikof and not existing.jikr else None
+    reuse_sig = (
+        existing.iic_signature
+        if existing and existing.ikof and not existing.jikr
+        else None
+    )
+
     adapter = partner or get_partner_adapter()
-    result = adapter.fiscalize(tenant, request, inv_ord_num=inv_ord_num)
+    result = adapter.fiscalize(
+        tenant,
+        request,
+        inv_ord_num=inv_ord_num,
+        reuse_iic=reuse_iic,
+        reuse_iic_signature=reuse_sig,
+    )
     inv_num = result.inv_num or build_inv_num(
         load_tenant_fiscal(tenant).busin_unit_code,
         inv_ord_num,
@@ -249,6 +274,8 @@ def fiscalize_invoice(
             local_ord_num=local_ord_num,
             type_of_inv=request.invoice_type,
             inv_type=request.inv_type,
+            ref_ikof=(request.iic_ref or None),
+            ref_invoice_id=request.ref_invoice_id,
         )
         for line in request.lines:
             invoice.lines.append(
@@ -259,6 +286,8 @@ def fiscalize_invoice(
                     unit_price_net=line.unit_price_net,
                     vat_rate=line.vat_rate,
                     total_gross=line.total_gross,
+                    tax_rate_code=line.tax_rate_code,
+                    unit=line.unit or "KOM",
                 )
             )
         db.add(invoice)
@@ -274,6 +303,12 @@ def fiscalize_invoice(
         invoice.type_of_inv = request.invoice_type
         invoice.inv_type = request.inv_type
         invoice.external_id = external_id
+        invoice.ref_ikof = request.iic_ref or invoice.ref_ikof
+        if request.ref_invoice_id:
+            invoice.ref_invoice_id = request.ref_invoice_id
+        invoice.total_net = request.totals.net
+        invoice.total_vat = request.totals.vat
+        invoice.total_gross = request.totals.gross
 
     if result.ok:
         invoice.status = InvoiceStatus.fiscalized.value
@@ -281,8 +316,21 @@ def fiscalize_invoice(
         invoice.jikr = result.jikr
         invoice.qr_url = result.qr_url
         invoice.partner_ref = result.partner_ref
+        invoice.iic_signature = result.iic_signature or invoice.iic_signature
         invoice.fiscalized_at = utcnow()
         invoice.error_message = None
+    elif result.offline and result.ikof:
+        # Zakon: račun se može izdati bez JIKR; isti IKOF se šalje ponovo u 48h
+        invoice.status = InvoiceStatus.pending.value
+        invoice.ikof = result.ikof
+        invoice.iic_signature = result.iic_signature
+        invoice.qr_url = result.qr_url
+        invoice.partner_ref = result.partner_ref
+        invoice.jikr = None
+        invoice.fiscalized_at = None
+        invoice.error_message = result.error_message or (
+            "Offline: CIS nedostupan — JIKR u roku od 48h (isti IKOF)."
+        )
     else:
         invoice.status = InvoiceStatus.failed.value
         invoice.error_message = result.error_message
@@ -291,7 +339,11 @@ def fiscalize_invoice(
     db.refresh(invoice)
     write_audit(
         db,
-        "invoice.fiscalize" if result.ok else "invoice.fiscalize_failed",
+        (
+            "invoice.fiscalize"
+            if result.ok
+            else ("invoice.fiscalize_offline" if result.offline else "invoice.fiscalize_failed")
+        ),
         tenant_id=tenant.id,
         entity_type="invoice",
         entity_id=invoice.id,
@@ -343,8 +395,12 @@ def save_draft_invoice(
                 unit_price_net=line.unit_price_net,
                 vat_rate=line.vat_rate,
                 total_gross=line.total_gross,
+                tax_rate_code=line.tax_rate_code,
+                unit=line.unit or "KOM",
             )
         )
+    invoice.ref_ikof = request.iic_ref
+    invoice.ref_invoice_id = request.ref_invoice_id
     db.add(invoice)
     db.commit()
     db.refresh(invoice)
@@ -370,6 +426,9 @@ EDITABLE_INVOICE_STATUSES = frozenset(
 
 
 def invoice_is_editable(invoice: Invoice) -> bool:
+    # Offline račun sa IKOF bez JIKR — ne mijenjaj (isti IKOF u 48h)
+    if invoice.ikof and not invoice.jikr:
+        return False
     return invoice.status in EDITABLE_INVOICE_STATUSES
 
 
@@ -377,6 +436,8 @@ def delete_draft_invoice(db: Session, tenant: Tenant, invoice: Invoice) -> None:
     """Trajno obriši nacrt / nefiskalizovanu fakturu. Fiskalizovane se ne smiju brisati."""
     if invoice.tenant_id != tenant.id:
         raise ValueError("Faktura ne pripada tenant-u.")
+    if invoice.ikof:
+        raise ValueError("Račun sa IKOF se ne smije brisati (fiskalizovan ili offline 48h).")
     if not invoice_is_editable(invoice):
         raise ValueError("Fiskalizovani račun se ne može obrisati.")
 
@@ -471,6 +532,8 @@ def update_draft_invoice(
     invoice.type_of_inv = request.invoice_type
     invoice.inv_type = request.inv_type
     invoice.error_message = None
+    invoice.ref_ikof = request.iic_ref
+    invoice.ref_invoice_id = request.ref_invoice_id
     if is_template is not None:
         invoice.is_template = bool(is_template)
     # Nacrt nema fiskalne brojeve / identifikatore
@@ -478,6 +541,7 @@ def update_draft_invoice(
     invoice.jikr = None
     invoice.qr_url = None
     invoice.partner_ref = None
+    invoice.iic_signature = None
     invoice.inv_num = None
     invoice.inv_ord_num = None
     invoice.local_ord_num = None
@@ -493,6 +557,8 @@ def update_draft_invoice(
                 unit_price_net=line.unit_price_net,
                 vat_rate=line.vat_rate,
                 total_gross=line.total_gross,
+                tax_rate_code=line.tax_rate_code,
+                unit=line.unit or "KOM",
             )
         )
     db.commit()
@@ -511,15 +577,22 @@ def update_draft_invoice(
 
 def invoice_to_fiscalize_request(invoice: Invoice) -> FiscalizeRequest:
     """Rekonstituiši FiscalizeRequest iz sačuvanog nacrta."""
+    keep_dt = bool(invoice.ikof and not invoice.jikr)
     if invoice.payload_json:
         try:
             req = FiscalizeRequest.model_validate_json(invoice.payload_json)
-            return req.model_copy(
-                update={
-                    "external_id": invoice.external_id,
-                    "issue_datetime": utcnow(),
-                }
-            )
+            updates: dict = {
+                "external_id": invoice.external_id,
+                "iic_ref": invoice.ref_ikof or req.iic_ref,
+                "ref_invoice_id": invoice.ref_invoice_id or req.ref_invoice_id,
+            }
+            if not keep_dt:
+                updates["issue_datetime"] = utcnow()
+            else:
+                updates["issue_datetime"] = invoice.issue_datetime
+                if invoice.inv_ord_num:
+                    updates["inv_ord_num"] = invoice.inv_ord_num
+            return req.model_copy(update=updates)
         except Exception:
             pass
     buyer = None
@@ -537,6 +610,8 @@ def invoice_to_fiscalize_request(invoice: Invoice) -> FiscalizeRequest:
             unit_price_net=ln.unit_price_net,
             vat_rate=ln.vat_rate,
             total_gross=ln.total_gross,
+            tax_rate_code=ln.tax_rate_code,
+            unit=ln.unit or "KOM",
         )
         for ln in invoice.lines
     ]
@@ -544,10 +619,11 @@ def invoice_to_fiscalize_request(invoice: Invoice) -> FiscalizeRequest:
         raise ValueError("Faktura nema stavki")
     return FiscalizeRequest(
         external_id=invoice.external_id,
-        issue_datetime=utcnow(),
+        issue_datetime=invoice.issue_datetime if keep_dt else utcnow(),
         invoice_type=invoice.type_of_inv or invoice.invoice_type or "NONCASH",
         payment_method=invoice.payment_method or "ORDER",
         inv_type=invoice.inv_type or "INVOICE",
+        inv_ord_num=invoice.inv_ord_num if keep_dt else None,
         currency=invoice.currency or "EUR",
         buyer=buyer,
         lines=lines,
@@ -557,6 +633,8 @@ def invoice_to_fiscalize_request(invoice: Invoice) -> FiscalizeRequest:
             gross=invoice.total_gross,
         ),
         notes=invoice.notes,
+        iic_ref=invoice.ref_ikof,
+        ref_invoice_id=invoice.ref_invoice_id,
     )
 
 
@@ -570,6 +648,51 @@ def fiscalize_saved_invoice(
         return _to_response(invoice)
     req = invoice_to_fiscalize_request(invoice)
     return fiscalize_invoice(db, tenant, req, partner=partner)
+
+
+def retry_offline_invoices(
+    db: Session,
+    *,
+    tenant_id: int | None = None,
+    within_hours: int = 48,
+) -> dict[str, int | list[str]]:
+    """Ponovi RegisterInvoice za offline račune (IKOF bez JIKR) unutar 48h."""
+    cutoff = utcnow() - timedelta(hours=within_hours)
+    q = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.lines))
+        .filter(
+            Invoice.status == InvoiceStatus.pending.value,
+            Invoice.ikof.isnot(None),
+            Invoice.jikr.is_(None),
+            Invoice.is_template.is_(False),
+            Invoice.issue_datetime >= cutoff,
+        )
+    )
+    if tenant_id is not None:
+        q = q.filter(Invoice.tenant_id == tenant_id)
+    rows = q.order_by(Invoice.id).limit(200).all()
+    ok = failed = skipped = 0
+    errors: list[str] = []
+    for inv in rows:
+        tenant = db.get(Tenant, inv.tenant_id)
+        if not tenant:
+            skipped += 1
+            continue
+        try:
+            result = fiscalize_saved_invoice(db, tenant, inv)
+            if result.status == InvoiceStatus.fiscalized.value:
+                ok += 1
+            elif result.offline:
+                skipped += 1
+            else:
+                failed += 1
+                if result.error_message:
+                    errors.append(f"#{inv.id}: {result.error_message}")
+        except Exception as exc:
+            failed += 1
+            errors.append(f"#{inv.id}: {exc}")
+    return {"ok": ok, "failed": failed, "skipped": skipped, "errors": errors[:20]}
 
 
 def fiscalize_invoices(
@@ -667,6 +790,8 @@ def copy_invoices(db: Session, tenant: Tenant, invoice_ids: list[int]) -> list[I
                     unit_price_net=line.unit_price_net,
                     vat_rate=line.vat_rate,
                     total_gross=line.total_gross,
+                    tax_rate_code=line.tax_rate_code,
+                    unit=line.unit or "KOM",
                 )
             )
         db.add(copy)

@@ -137,10 +137,22 @@ def init_db() -> None:
                 "type_of_inv": "VARCHAR(16)",
                 "inv_type": "VARCHAR(32)",
                 "is_template": "BOOLEAN",
+                "iic_signature": "TEXT",
+                "ref_ikof": "VARCHAR(128)",
+                "ref_invoice_id": "INTEGER",
             }
             for name, coltype in extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "invoices", name, coltype)
+        if "invoice_lines" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("invoice_lines")}
+            line_extras = {
+                "tax_rate_code": "VARCHAR(32)",
+                "unit": "VARCHAR(16)",
+            }
+            for name, coltype in line_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "invoice_lines", name, coltype)
         if "customers" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("customers")}
             cust_extras = {

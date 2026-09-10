@@ -236,6 +236,10 @@ class Invoice(Base):
     jikr: Mapped[str | None] = mapped_column(String(128), nullable=True)
     qr_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     partner_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    iic_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Referenca na originalni fiskalizovani račun (kreditni / korektivni)
+    ref_ikof: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    ref_invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
     inv_num: Mapped[str | None] = mapped_column(String(64), nullable=True)
     inv_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # EFI godišnji rbr
     local_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # lokalni mjesečni rbr (1-MM-###/YYYY)
@@ -265,6 +269,8 @@ class InvoiceLine(Base):
     unit_price_net: Mapped[Decimal] = mapped_column(Numeric(14, 4))
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(6, 2))
     total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    tax_rate_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    unit: Mapped[str] = mapped_column(String(16), default="KOM")
 
     invoice: Mapped[Invoice] = relationship(back_populates="lines")
 

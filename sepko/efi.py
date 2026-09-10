@@ -109,6 +109,9 @@ PAY_METHOD_ALIASES = {
 QR_BASE_TEST = "https://efitest.tax.gov.me/ic/#/verify"
 QR_BASE_PROD = "https://mapr.tax.gov.me/ic/#/verify"
 
+# Tipovi sa referencom na original (IICRef) — negativni iznosi dozvoljeni.
+CREDIT_INV_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE", "ERROR_CORRECTIVE"})
+
 # Token / potpis: PKCS#12 fajl, ili token Telekoma / Pošte Crne Gore
 FISCAL_TOKEN_PROVIDERS = ("", "pkcs12", "telekom", "posta")
 FISCAL_TOKEN_LABELS = {
@@ -447,6 +450,59 @@ def qr_base_url(mode: str) -> str:
     return QR_BASE_PROD if mode == "prod" else QR_BASE_TEST
 
 
+def exempt_from_vat_code(tax_rate_code: str | None) -> str | None:
+    """Map Sepko tax_rate_code (EX26…) → EFI ExemptFromVAT (VAT_CL_26).
+
+    PDV0 (nulta stopa čl.25) nije oslobođenje — šalje se samo vr=0 bez ex.
+    """
+    code = (tax_rate_code or "").strip().upper()
+    if code.startswith("EX") and code[2:].isdigit():
+        return f"VAT_CL_{int(code[2:])}"
+    return None
+
+
+def build_same_taxes(lines: list[Any]) -> list[dict[str, Any]]:
+    """EFI SameTaxes — agregacija po stopi / oslobođenju."""
+    buckets: dict[tuple[str, str], dict[str, Any]] = {}
+    for line in lines:
+        vr = f"{Decimal(str(line.vat_rate)):.2f}"
+        ex = exempt_from_vat_code(getattr(line, "tax_rate_code", None)) or ""
+        key = (vr, ex)
+        net = (Decimal(str(line.unit_price_net)) * Decimal(str(line.quantity))).quantize(
+            Decimal("0.01")
+        )
+        gross = Decimal(str(line.total_gross)).quantize(Decimal("0.01"))
+        vat = (gross - net).quantize(Decimal("0.01"))
+        if key not in buckets:
+            buckets[key] = {
+                "vatRate": vr,
+                "numOfItems": 0,
+                "priceBeforeVAT": Decimal("0.00"),
+                "vatAmt": Decimal("0.00"),
+                "priceAfterVAT": Decimal("0.00"),
+            }
+            if ex:
+                buckets[key]["exemptFromVAT"] = ex
+        b = buckets[key]
+        b["numOfItems"] += 1
+        b["priceBeforeVAT"] += net
+        b["vatAmt"] += vat
+        b["priceAfterVAT"] += gross
+    out: list[dict[str, Any]] = []
+    for b in buckets.values():
+        row = {
+            "vatRate": b["vatRate"],
+            "numOfItems": b["numOfItems"],
+            "priceBeforeVAT": f"{b['priceBeforeVAT']:.2f}",
+            "vatAmt": f"{b['vatAmt']:.2f}",
+            "priceAfterVAT": f"{b['priceAfterVAT']:.2f}",
+        }
+        if b.get("exemptFromVAT"):
+            row["exemptFromVAT"] = b["exemptFromVAT"]
+        out.append(row)
+    return out
+
+
 def build_qr_url(
     *,
     mode: str,
@@ -494,19 +550,23 @@ def to_navira_payload(
             "name": request.buyer.name,
             "address": request.buyer.address,
         }
-    items = [
-        {
+    items: list[dict[str, Any]] = []
+    for line in request.lines:
+        item: dict[str, Any] = {
             "n": line.name,
             "c": line.code,
-            "u": "KOM",
+            "u": (getattr(line, "unit", None) or "KOM"),
             "q": str(line.quantity),
             "upb": str(line.unit_price_net),
             "vr": str(line.vat_rate),
             "pa": str(line.total_gross),
         }
-        for line in request.lines
-    ]
-    return {
+        ex = exempt_from_vat_code(getattr(line, "tax_rate_code", None))
+        if ex:
+            item["ex"] = ex
+            item["exemptFromVAT"] = ex
+        items.append(item)
+    payload: dict[str, Any] = {
         "tin": tenant.pib,
         "businUnitCode": fiscal.busin_unit_code,
         "tcrCode": fiscal.tcr_code,
@@ -524,6 +584,7 @@ def to_navira_payload(
         "payMethods": [{"type": request.payment_method, "amt": str(request.totals.gross)}],
         "buyer": buyer,
         "items": items,
+        "sameTaxes": build_same_taxes(list(request.lines)),
         "totPriceWoVAT": str(request.totals.net),
         "totVATAmt": str(request.totals.vat),
         "totPrice": str(request.totals.gross),
@@ -532,3 +593,7 @@ def to_navira_payload(
         "iicSignature": iic_signature,
         "mode": tenant.mode,
     }
+    iic_ref = (getattr(request, "iic_ref", None) or "").strip()
+    if iic_ref:
+        payload["iicRef"] = iic_ref
+    return payload

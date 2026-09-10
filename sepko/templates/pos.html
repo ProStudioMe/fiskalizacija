@@ -58,7 +58,7 @@
       </label>
       <button type="button" class="btn secondary pos-custom-btn" id="pos-custom-btn">
         <i data-lucide="plus" aria-hidden="true"></i>
-        {{ t('pos.custom', 'Slobodan iznos') }}
+        <span class="pos-custom-btn-text">{{ t('pos.custom', 'Slobodan iznos') }}</span>
       </button>
     </div>
     <div class="pos-grid" id="pos-grid"></div>
@@ -96,7 +96,7 @@
         </label>
         <label class="pos-pay-opt">
           <input type="radio" name="payment_method" value="CARD">
-          <span>{{ t('pay.card', 'Kartica') }}</span>
+          <span>{{ t('pay.card_short', 'Kartica') }}</span>
         </label>
         <label class="pos-pay-opt">
           <input type="radio" name="payment_method" value="OTHER-CASH">

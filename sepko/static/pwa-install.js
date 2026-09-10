@@ -64,14 +64,21 @@
     return /iphone|ipad|ipod/i.test(navigator.userAgent || "");
   }
 
+  function setBtnLabel(label) {
+    if (!btn) return;
+    var span = btn.querySelector("span");
+    if (span) span.textContent = label;
+    else btn.textContent = label;
+    btn.setAttribute("aria-label", label);
+  }
+
   function setOpenMode() {
     mode = "open";
     markInstalled();
     deferred = null;
     if (!btn) return;
     btn.hidden = false;
-    btn.textContent = openLabel;
-    btn.setAttribute("aria-label", openLabel);
+    setBtnLabel(openLabel);
   }
 
   function openApp() {
@@ -163,7 +170,7 @@
     mode = "install";
     if (btn) {
       btn.hidden = false;
-      btn.textContent = okLabel;
+      setBtnLabel(okLabel);
     }
     if (!dismissed()) {
       window.setTimeout(showInstall, 900);

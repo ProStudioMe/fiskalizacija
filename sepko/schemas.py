@@ -5,10 +5,15 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from sepko.efi import normalize_document_type, normalize_pay_method, normalize_type_of_inv
+from sepko.efi import (
+    CREDIT_INV_TYPES,
+    normalize_document_type,
+    normalize_pay_method,
+    normalize_type_of_inv,
+)
 
 _MAX_MONEY = Decimal("10000000")
-_CREDIT_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE", "ERROR_CORRECTIVE"})
+_CREDIT_TYPES = CREDIT_INV_TYPES
 
 
 class BuyerIn(BaseModel):
@@ -24,6 +29,8 @@ class InvoiceLineIn(BaseModel):
     unit_price_net: Decimal = Field(max_digits=14, decimal_places=4)
     vat_rate: Decimal = Field(ge=0, le=100)
     total_gross: Decimal = Field(max_digits=14, decimal_places=4)
+    tax_rate_code: str | None = Field(default=None, max_length=32)
+    unit: str = Field(default="KOM", max_length=16)
 
 
 class TotalsIn(BaseModel):
@@ -46,6 +53,9 @@ class FiscalizeRequest(BaseModel):
     lines: list[InvoiceLineIn] = Field(min_length=1, max_length=500)
     totals: TotalsIn
     notes: str | None = Field(default=None, max_length=4000)
+    # IKOF originalnog računa (obavezno za CREDIT_NOTE / CORRECTIVE / ERROR_CORRECTIVE)
+    iic_ref: str | None = Field(default=None, max_length=128)
+    ref_invoice_id: int | None = Field(default=None, ge=1)
 
     @field_validator("invoice_type")
     @classmethod
@@ -61,6 +71,14 @@ class FiscalizeRequest(BaseModel):
     @classmethod
     def _inv_type(cls, v: str) -> str:
         return normalize_document_type(v)
+
+    @field_validator("iic_ref")
+    @classmethod
+    def _iic_ref(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().upper()
+        return s or None
 
     @field_validator("lines")
     @classmethod
@@ -84,6 +102,11 @@ class FiscalizeRequest(BaseModel):
                 raise ValueError("amount exceeds maximum")
             if amt < 0 and not allow_neg:
                 raise ValueError("negative amounts only allowed for CREDIT_NOTE/CORRECTIVE")
+        if allow_neg:
+            if self.totals.gross == 0:
+                raise ValueError("credit/corrective totals.gross must not be 0")
+            if not self.iic_ref:
+                raise ValueError("iic_ref (IKOF originala) required for CREDIT_NOTE/CORRECTIVE")
         return self
 
 
@@ -98,6 +121,7 @@ class FiscalizeResponse(BaseModel):
     inv_ord_num: int | None = None
     fiscalized_at: datetime | None = None
     error_message: str | None = None
+    offline: bool = False
 
 
 class CashDepositRequest(BaseModel):

@@ -40,6 +40,9 @@ class PartnerResult:
     inv_ord_num: int | None = None
     error_message: str | None = None
     navira_payload: dict | None = None
+    iic_signature: str | None = None
+    # CIS nedostupan nakon lokalnog IKOF — zakon: štampa bez JIKR, ponovi u 48h istim IKOF
+    offline: bool = False
 
 
 @dataclass
@@ -50,6 +53,14 @@ class DepositPartnerResult:
     navira_payload: dict | None = None
 
 
+def _totals_gross_allowed(request: FiscalizeRequest) -> bool:
+    from sepko.efi import CREDIT_INV_TYPES
+
+    if request.inv_type in CREDIT_INV_TYPES:
+        return request.totals.gross != 0
+    return request.totals.gross > 0
+
+
 class PartnerAdapter:
     def fiscalize(
         self,
@@ -57,6 +68,8 @@ class PartnerAdapter:
         request: FiscalizeRequest,
         *,
         inv_ord_num: int,
+        reuse_iic: str | None = None,
+        reuse_iic_signature: str | None = None,
     ) -> PartnerResult:
         raise NotImplementedError
 
@@ -176,32 +189,36 @@ class MockPartnerAdapter(PartnerAdapter):
         request: FiscalizeRequest,
         *,
         inv_ord_num: int,
+        reuse_iic: str | None = None,
+        reuse_iic_signature: str | None = None,
     ) -> PartnerResult:
-        if request.totals.gross <= 0:
-            return PartnerResult(ok=False, error_message="totals.gross must be > 0")
+        if not _totals_gross_allowed(request):
+            return PartnerResult(ok=False, error_message="totals.gross must be non-zero")
 
         fiscal, inv_num = _fiscal_context(tenant, request, inv_ord_num)
         ext = request.external_id or inv_num
-        iic_sig: str | None = None
-        try:
-            material = load_tenant_pkcs12(tenant.slug)
-        except SigningError:
-            material = None
-        if material:
-            plain = build_iic_plain(
-                tin=tenant.pib,
-                issue_datetime=request.issue_datetime,
-                inv_num=inv_num,
-                busin_unit_code=fiscal.busin_unit_code,
-                tcr_code=fiscal.tcr_code,
-                soft_code=fiscal.soft_code,
-                tot_price=request.totals.gross,
-            )
-            ikof, iic_sig = sign_iic(material, plain)
-        else:
-            seed = f"{tenant.slug}:{ext}:{request.totals.gross}:{inv_num}"
-            digest = hashlib.sha256(seed.encode()).hexdigest()
-            ikof = digest[:32].upper()
+        iic_sig: str | None = reuse_iic_signature
+        ikof: str | None = (reuse_iic or "").strip().upper() or None
+        if not ikof:
+            try:
+                material = load_tenant_pkcs12(tenant.slug)
+            except SigningError:
+                material = None
+            if material:
+                plain = build_iic_plain(
+                    tin=tenant.pib,
+                    issue_datetime=request.issue_datetime,
+                    inv_num=inv_num,
+                    busin_unit_code=fiscal.busin_unit_code,
+                    tcr_code=fiscal.tcr_code,
+                    soft_code=fiscal.soft_code,
+                    tot_price=request.totals.gross,
+                )
+                ikof, iic_sig = sign_iic(material, plain)
+            else:
+                seed = f"{tenant.slug}:{ext}:{request.totals.gross}:{inv_num}"
+                digest = hashlib.sha256(seed.encode()).hexdigest()
+                ikof = digest[:32].upper()
         jikr = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tenant.slug}:{ext}:{inv_num}"))
         qr_url = build_qr_url(
             mode=tenant.mode,
@@ -232,6 +249,7 @@ class MockPartnerAdapter(PartnerAdapter):
             inv_num=inv_num,
             inv_ord_num=inv_ord_num,
             navira_payload=payload,
+            iic_signature=iic_sig,
         )
 
     def register_cash_deposit(
@@ -264,28 +282,31 @@ class HttpPartnerAdapter(PartnerAdapter):
         request: FiscalizeRequest,
         *,
         inv_ord_num: int,
+        reuse_iic: str | None = None,
+        reuse_iic_signature: str | None = None,
     ) -> PartnerResult:
-        if request.totals.gross <= 0:
-            return PartnerResult(ok=False, error_message="totals.gross must be > 0")
+        if not _totals_gross_allowed(request):
+            return PartnerResult(ok=False, error_message="totals.gross must be non-zero")
 
         fiscal, inv_num = _fiscal_context(tenant, request, inv_ord_num)
-        iic_sig: str | None = None
-        iic: str | None = None
-        try:
-            material = load_tenant_pkcs12(tenant.slug)
-        except SigningError:
-            material = None
-        if material:
-            plain = build_iic_plain(
-                tin=tenant.pib,
-                issue_datetime=request.issue_datetime,
-                inv_num=inv_num,
-                busin_unit_code=fiscal.busin_unit_code,
-                tcr_code=fiscal.tcr_code,
-                soft_code=fiscal.soft_code,
-                tot_price=request.totals.gross,
-            )
-            iic, iic_sig = sign_iic(material, plain)
+        iic_sig: str | None = reuse_iic_signature
+        iic: str | None = (reuse_iic or "").strip().upper() or None
+        if not iic:
+            try:
+                material = load_tenant_pkcs12(tenant.slug)
+            except SigningError:
+                material = None
+            if material:
+                plain = build_iic_plain(
+                    tin=tenant.pib,
+                    issue_datetime=request.issue_datetime,
+                    inv_num=inv_num,
+                    busin_unit_code=fiscal.busin_unit_code,
+                    tcr_code=fiscal.tcr_code,
+                    soft_code=fiscal.soft_code,
+                    tot_price=request.totals.gross,
+                )
+                iic, iic_sig = sign_iic(material, plain)
 
         payload = to_navira_payload(
             tenant,
@@ -299,6 +320,40 @@ class HttpPartnerAdapter(PartnerAdapter):
         payload["mode"] = tenant.mode
         if tenant.partner_account_id:
             payload["partnerAccountId"] = tenant.partner_account_id
+
+        def _offline(msg: str) -> PartnerResult:
+            """Lokalni IKOF postoji, CIS nedostupan — dozvoli štampu, retry 48h."""
+            if not iic:
+                return PartnerResult(
+                    ok=False,
+                    inv_num=inv_num,
+                    inv_ord_num=inv_ord_num,
+                    navira_payload=payload,
+                    error_message=msg,
+                )
+            qr_url = build_qr_url(
+                mode=tenant.mode,
+                iic=iic,
+                tin=tenant.pib,
+                issue_datetime=request.issue_datetime,
+                ord_num=inv_ord_num,
+                busin_unit_code=fiscal.busin_unit_code,
+                tcr_code=fiscal.tcr_code,
+                soft_code=fiscal.soft_code,
+                price=request.totals.gross,
+            )
+            return PartnerResult(
+                ok=False,
+                offline=True,
+                ikof=iic,
+                iic_signature=iic_sig,
+                qr_url=qr_url,
+                inv_num=inv_num,
+                inv_ord_num=inv_ord_num,
+                navira_payload=payload,
+                error_message=msg
+                or "Offline: CIS nedostupan — JIKR u roku od 48h (isti IKOF).",
+            )
 
         if not _base_url(self.settings):
             return PartnerResult(
@@ -322,10 +377,17 @@ class HttpPartnerAdapter(PartnerAdapter):
         )
         if not ok:
             log.warning("Navira fiscalize failed status=%s err=%s", status, err)
+            # Mreža / 5xx → offline ako imamo lokalni IKOF
+            if status is None or (status is not None and status >= 500):
+                return _offline(
+                    err or "Offline: CIS nedostupan — JIKR u roku od 48h (isti IKOF)."
+                )
             return PartnerResult(
                 ok=False,
                 inv_num=inv_num,
                 inv_ord_num=inv_ord_num,
+                ikof=iic,
+                iic_signature=iic_sig,
                 navira_payload=payload,
                 error_message=err or "Navira fiscalize failed",
             )
@@ -350,14 +412,7 @@ class HttpPartnerAdapter(PartnerAdapter):
                 price=request.totals.gross,
             )
         if not jikr:
-            return PartnerResult(
-                ok=False,
-                inv_num=inv_num,
-                inv_ord_num=inv_ord_num,
-                ikof=ikof,
-                navira_payload=payload,
-                error_message="Navira response missing FIC/JIKR",
-            )
+            return _offline("Offline: Navira nije vratila JIKR — ponovi u roku od 48h.")
         partner_ref = _pick(data, "partnerRef", "partner_ref", "id", "requestId") or str(
             uuid.uuid4()
         )
@@ -370,6 +425,7 @@ class HttpPartnerAdapter(PartnerAdapter):
             inv_num=_pick(data, "invNum", "inv_num") or inv_num,
             inv_ord_num=inv_ord_num,
             navira_payload=payload,
+            iic_signature=iic_sig,
         )
 
     def register_cash_deposit(

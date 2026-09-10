@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=184">
+  <link rel="stylesheet" href="/static/style.css?v=188">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=12">
   <link rel="stylesheet" href="/static/pwa.css?v=3">
@@ -98,19 +98,38 @@
         </a>
       </div>
       <div class="topbar-right">
-        <button type="button" class="theme-toggle" id="theme-toggle" title="{{ t('theme.toggle', 'Svijetla / tamna tema') }}" aria-label="{{ t('theme.aria', 'Promijeni temu') }}">
-          <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
-          <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
-        </button>
-        {% if not is_admin_portal %}
-        <button type="button" class="topbar-install" id="btn-pwa-install" hidden>{{ t('pwa.install', 'Instaliraj') }}</button>
-        {% endif %}
         <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
-        <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="topbar-logout">{{ t('nav.odjava', 'Odjava') }}</button>
-        </form>
-        <a class="topbar-user" href="{% if is_admin_portal %}/admin{% else %}/informacije{% endif %}" title="{{ _name }}">{{ initials }}</a>
+        <details class="topbar-account" id="topbar-account">
+          <summary class="topbar-user" title="{{ _name }}" aria-label="{{ t('nav.account', 'Nalog') }}">{{ initials }}</summary>
+          <div class="topbar-account-menu" role="menu">
+            <div class="topbar-account-head">
+              <strong>{{ _name }}</strong>
+              {% if user.email %}<span>{{ user.email }}</span>{% endif %}
+            </div>
+            <a class="topbar-account-item" role="menuitem" href="{% if is_admin_portal %}/admin{% else %}/informacije{% endif %}">
+              <i data-lucide="user" aria-hidden="true"></i>
+              <span>{{ t('nav.info', 'Informacije') }}</span>
+            </a>
+            <button type="button" class="topbar-account-item theme-toggle" id="theme-toggle" role="menuitem" title="{{ t('theme.toggle', 'Svijetla / tamna tema') }}" aria-label="{{ t('theme.aria', 'Promijeni temu') }}">
+              <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+              <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+              <span>{{ t('theme.toggle', 'Svijetla / tamna tema') }}</span>
+            </button>
+            {% if not is_admin_portal %}
+            <button type="button" class="topbar-account-item topbar-install" id="btn-pwa-install" role="menuitem" hidden>
+              <i data-lucide="download" aria-hidden="true"></i>
+              <span>{{ t('pwa.install', 'Instaliraj') }}</span>
+            </button>
+            {% endif %}
+            <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="topbar-account-item topbar-logout" role="menuitem">
+                <i data-lucide="log-out" aria-hidden="true"></i>
+                <span>{{ t('nav.odjava', 'Odjava') }}</span>
+              </button>
+            </form>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -290,6 +309,17 @@
     });
     syncCompanyLogos();
   })();
+  (function () {
+    var acc = document.getElementById('topbar-account');
+    if (!acc) return;
+    document.addEventListener('click', function (e) {
+      if (!acc.open) return;
+      if (!acc.contains(e.target)) acc.open = false;
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && acc.open) acc.open = false;
+    });
+  })();
   </script>
   <script src="/static/table-sort.js?v=1" defer></script>
   <script src="/static/lucide.min.js?v=0.544.0"></script>
@@ -344,7 +374,7 @@
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=6"
+  <script src="/static/pwa-install.js?v=7"
           data-skip="{% if is_admin_portal %}1{% else %}0{% endif %}"
           data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
           data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"

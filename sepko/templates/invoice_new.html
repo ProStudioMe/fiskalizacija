@@ -137,6 +137,17 @@
             <wa-option value="{{ dt.code }}" {% if doc == dt.code %}selected{% endif %}>{{ t('inv.doc.' ~ dt.code, dt.label) }}</wa-option>
             {% endfor %}
           </wa-select>
+          {% set ref_sel = ref_invoice_id or (prefill.ref_invoice_id if prefill else '') %}
+          {% set credit_types = ['CREDIT_NOTE', 'CORRECTIVE', 'ERROR_CORRECTIVE'] %}
+          <div id="ref-invoice-wrap" {% if doc not in credit_types %}hidden{% endif %}>
+            <wa-select name="ref_invoice_id" id="ref_invoice_id" size="small" label="{{ t('inv.ref_invoice', 'Originalni račun (IICRef)') }}" value="{{ ref_sel }}">
+              <wa-option value="">{{ t('inv.ref_invoice_pick', 'Odaberi fiskalizovani račun…') }}</wa-option>
+              {% for r in ref_invoices|default([]) %}
+              <wa-option value="{{ r.id }}" {% if ref_sel == (r.id|string) %}selected{% endif %}>{{ r.label }}</wa-option>
+              {% endfor %}
+            </wa-select>
+            <p class="inv-hint" style="margin:0.35rem 0 0;font-size:0.8rem;opacity:0.75">{{ t('inv.ref_invoice_hint', 'Za knjižno odobrenje / korektivni obavezno. Unesi pozitivne iznose — sistem šalje negativne sa IICRef.') }}</p>
+          </div>
           <wa-select name="payment_method" id="payment_method" size="small" label="{{ t('inv.payment_type', 'Tip plaćanja') }}" value="{{ pay }}">
             <wa-option value="ORDER" {% if pay == 'ORDER' %}selected{% endif %}>{{ t('pay.wire', 'Virman') }}</wa-option>
             <wa-option value="BANKNOTE" {% if pay == 'BANKNOTE' %}selected{% endif %}>{{ t('pay.cash', 'Gotovina') }}</wa-option>
@@ -1204,6 +1215,20 @@ document.addEventListener('keydown', e=>{
 applyPrefill();
 if (!PREFILL) recalc();
 if (window.sepkoIcons) window.sepkoIcons();
+
+(function setupRefInvoice(){
+  const CREDIT = new Set(['CREDIT_NOTE','CORRECTIVE','ERROR_CORRECTIVE']);
+  const sel = document.getElementById('inv_type');
+  const wrap = document.getElementById('ref-invoice-wrap');
+  if (!sel || !wrap) return;
+  function sync(){
+    const v = (sel.value || '').toUpperCase();
+    wrap.hidden = !CREDIT.has(v);
+  }
+  sel.addEventListener('change', sync);
+  sel.addEventListener('wa-change', sync);
+  sync();
+})();
 
 (function setupPrintPane(){
   const workspace = document.getElementById('inv-workspace');

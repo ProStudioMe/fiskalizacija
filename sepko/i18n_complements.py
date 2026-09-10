@@ -6,6 +6,50 @@ from __future__ import annotations
 
 # key -> {lang_code: value}
 COMPLEMENTS: dict[str, dict[str, str]] = {
+    "nav.account": {
+        "cnr": "Nalog",
+        "sr": "Nalog",
+        "cnr-cyrl": "Налог",
+        "sr-cyrl": "Налог",
+        "en": "Account",
+        "sq": "Llogaria",
+        "tr": "Hesap",
+        "ru": "Аккаунт",
+        "uk": "Обліковий запис"
+    },
+    "btn.filters": {
+        "cnr": "Filteri",
+        "sr": "Filteri",
+        "cnr-cyrl": "Филтери",
+        "sr-cyrl": "Филтери",
+        "en": "Filters",
+        "sq": "Filtrat",
+        "tr": "Filtreler",
+        "ru": "Фильтры",
+        "uk": "Фільтри"
+    },
+    "btn.export_selected": {
+        "cnr": "Preuzmi",
+        "sr": "Preuzmi",
+        "cnr-cyrl": "Преузми",
+        "sr-cyrl": "Преузми",
+        "en": "Download",
+        "sq": "Shkarko",
+        "tr": "İndir",
+        "ru": "Скачать",
+        "uk": "Завантажити"
+    },
+    "btn.export_selected_hint": {
+        "cnr": "Preuzmi označene kao pojedinačne fajlove (ZIP)",
+        "sr": "Preuzmi označene kao pojedinačne fajlove (ZIP)",
+        "cnr-cyrl": "Преузми означене као појединачне фајлове (ZIP)",
+        "sr-cyrl": "Преузми означене као појединачне фајлове (ZIP)",
+        "en": "Download selected as individual files (ZIP)",
+        "sq": "Shkarko të zgjedhurat si skedarë individualë (ZIP)",
+        "tr": "Seçilenleri tek tek dosya olarak indir (ZIP)",
+        "ru": "Скачать выбранные отдельными файлами (ZIP)",
+        "uk": "Завантажити вибрані окремими файлами (ZIP)"
+    },
     "nav.izlazne": {
         "sq": "Dalëse",
         "tr": "Giden",
@@ -5190,6 +5234,39 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "tr": "Hata düzeltme",
         "ru": "Исправление ошибки",
         "uk": "Виправлення помилки",
+    },
+    "inv.ref_invoice": {
+        "cnr": "Originalni račun (IICRef)",
+        "sr": "Originalni račun (IICRef)",
+        "cnr-cyrl": "Оригинални рачун (IICRef)",
+        "sr-cyrl": "Оригинални рачун (IICRef)",
+        "en": "Original invoice (IICRef)",
+        "sq": "Fatura origjinale (IICRef)",
+        "tr": "Orijinal fatura (IICRef)",
+        "ru": "Исходный счёт (IICRef)",
+        "uk": "Оригінальний рахунок (IICRef)",
+    },
+    "inv.ref_invoice_pick": {
+        "cnr": "Odaberi fiskalizovani račun…",
+        "sr": "Odaberi fiskalizovani račun…",
+        "cnr-cyrl": "Одабери фискализовани рачун…",
+        "sr-cyrl": "Одабери фискализовани рачун…",
+        "en": "Select a fiscalized invoice…",
+        "sq": "Zgjidh faturën e fiskalizuar…",
+        "tr": "Maliyeleştirilmiş fatura seç…",
+        "ru": "Выберите фискализированный счёт…",
+        "uk": "Оберіть фіскалізований рахунок…",
+    },
+    "inv.ref_invoice_hint": {
+        "cnr": "Za knjižno odobrenje / korektivni obavezno. Unesi pozitivne iznose — sistem šalje negativne sa IICRef.",
+        "sr": "Za knjižno odobrenje / korektivni obavezno. Unesi pozitivne iznose — sistem šalje negativne sa IICRef.",
+        "cnr-cyrl": "За књижно одобрење / корективни обавезно. Унеси позитивне износе — систем шаље негативне са IICRef.",
+        "sr-cyrl": "За књижно одобрење / корективни обавезно. Унеси позитивне износе — систем шаље негативне са IICRef.",
+        "en": "Required for credit/corrective. Enter positive amounts — the system sends negatives with IICRef.",
+        "sq": "E detyrueshme për kredit/korrigjim. Vendos shuma pozitive — sistemi dërgon negative me IICRef.",
+        "tr": "Alacak/düzeltme için zorunlu. Pozitif tutar girin — sistem IICRef ile negatif gönderir.",
+        "ru": "Обязательно для кредит/корректировки. Вводите положительные суммы — система отправит отрицательные с IICRef.",
+        "uk": "Обов’язково для кредит/коригування. Вводьте додатні суми — система надішле від’ємні з IICRef.",
     },
     "inv.doc.PROFORMA": {
         "cnr": "Predračun",

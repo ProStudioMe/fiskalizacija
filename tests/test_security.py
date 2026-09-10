@@ -97,6 +97,7 @@ def test_credit_note_allows_negative_amount():
         invoice_type="CASH",
         payment_method="BANKNOTE",
         inv_type="CREDIT_NOTE",
+        iic_ref="AABBCCDDEEFF00112233445566778899",
         lines=[
             InvoiceLineIn(
                 code="X",
@@ -110,6 +111,36 @@ def test_credit_note_allows_negative_amount():
         totals=TotalsIn(net=Decimal("-10"), vat=Decimal("-2.10"), gross=Decimal("-12.10")),
     )
     assert req.inv_type == "CREDIT_NOTE"
+    assert req.iic_ref == "AABBCCDDEEFF00112233445566778899"
+
+
+def test_credit_note_requires_iic_ref():
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    import pytest
+    from pydantic import ValidationError
+
+    from sepko.schemas import FiscalizeRequest, InvoiceLineIn, TotalsIn
+
+    with pytest.raises(ValidationError):
+        FiscalizeRequest(
+            issue_datetime=datetime.now(timezone.utc),
+            invoice_type="CASH",
+            payment_method="BANKNOTE",
+            inv_type="CREDIT_NOTE",
+            lines=[
+                InvoiceLineIn(
+                    code="X",
+                    name="Storno",
+                    quantity=Decimal("-1"),
+                    unit_price_net=Decimal("10"),
+                    vat_rate=Decimal("21"),
+                    total_gross=Decimal("-12.10"),
+                )
+            ],
+            totals=TotalsIn(net=Decimal("-10"), vat=Decimal("-2.10"), gross=Decimal("-12.10")),
+        )
 
 
 def test_csrf_origin_blocks_cross_site_post():
