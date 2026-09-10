@@ -36,7 +36,7 @@
       <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}" value="{{ editing.barcode or '' }}"></wa-input>
       <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
         {% for tax_rate in tax_rates %}
-        <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
+        <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ t('tax.name.' ~ tax_rate.code, tax_rate.name) }}</wa-option>
         {% endfor %}
       </wa-select>
       <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="{{ editing.category_id or '' }}">
@@ -90,7 +90,7 @@
       <wa-input name="barcode" label="{{ t('article.barcode', 'Barkod') }}"></wa-input>
       <wa-select name="tax_rate_code" label="{{ t('article.tax', 'Poreska stopa') }}" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
         {% for tax_rate in tax_rates %}
-        <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
+        <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ t('tax.name.' ~ tax_rate.code, tax_rate.name) }}</wa-option>
         {% endfor %}
       </wa-select>
       <wa-select name="category_id" label="{{ t('article.category', 'Kategorija') }}" value="">

@@ -3261,6 +3261,8 @@ _FORCE_SEED_KEYS = frozenset({
     "ulazne.form_sub",
     "inv.doc.CREDIT_NOTE",
     "inv.doc.CORRECTIVE",
+    "inv.doc.ADVANCE",
+    "inv.doc.ERROR_CORRECTIVE",
 })
 
 

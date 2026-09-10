@@ -218,12 +218,16 @@
           </div>
           <div class="inv-totals-strip-item">
             <span class="inv-totals-strip-label">{{ t('inv.vat_total', 'PDV ukupno') }}</span>
-            <span class="inv-totals-strip-value"><span id="sum-vat">0,00</span><span class="totals-cur"> €</span></span>
+            <button type="button" class="inv-totals-strip-value inv-totals-strip-disc" id="btn-tax" title="{{ t('inv.invoice_tax', 'Poreska stopa na račun') }}">
+              <span id="sum-vat">0,00</span><span class="totals-cur"> €</span>
+              <i data-lucide="list" class="inv-totals-strip-ico" aria-hidden="true"></i>
+            </button>
           </div>
           <div class="inv-totals-strip-item">
             <span class="inv-totals-strip-label">{{ t('inv.discount', 'Popust') }}</span>
             <button type="button" class="inv-totals-strip-value inv-totals-strip-disc" id="btn-discount" title="{{ t('inv.invoice_discount', 'Popust na račun') }}">
               <span id="sum-disc">0,00</span><span class="totals-cur"> €</span>
+              <i data-lucide="list" class="inv-totals-strip-ico" aria-hidden="true"></i>
             </button>
           </div>
           <div class="inv-totals-strip-item inv-totals-strip-item--pay">
@@ -318,6 +322,20 @@
   </div>
   <wa-button slot="footer" variant="brand" id="discount-ok">{{ t('btn.ok', 'U redu') }}</wa-button>
   <wa-button slot="footer" variant="neutral" appearance="outlined" data-dialog="close">{{ t('btn.cancel', 'Odustani') }}</wa-button>
+</wa-dialog>
+
+<wa-dialog id="modal-tax" label="{{ t('inv.tax_rates', 'Poreske stope') }}" light-dismiss style="--width: 28rem">
+  <p class="muted" style="margin:0 0 0.65rem">{{ t('inv.tax_rates_hint', 'Primijeni stopu na sve stavke računa.') }}</p>
+  <div class="modal-list inv-tax-list" id="tax-list">
+    {% for tr in tax_rates %}
+    <button type="button" class="modal-row tax-rate-btn" data-code="{{ tr.code }}" data-rate="{{ tr.rate }}">
+      <span class="modal-row-body">
+        <strong>{{ t('tax.name.' ~ tr.code, tr.name) }}</strong>
+        <span class="modal-row-meta">{{ tr.code }} · {{ '%.0f'|format(tr.rate) }}%</span>
+      </span>
+    </button>
+    {% endfor %}
+  </div>
 </wa-dialog>
 
 <script>
@@ -809,6 +827,17 @@ function setInvoiceDiscount(pct){
   recalc();
 }
 
+function applyInvoiceTax(code, rate){
+  var r = Math.max(0, Number(rate) || 0);
+  var c = String(code || '').trim();
+  lines.forEach(function(l){
+    l.vat = r;
+    l.tax = c;
+  });
+  renderLines();
+  recalc();
+}
+
 function buyerReturnTo(){
   const el = document.getElementById('buyer-return-to');
   return (el && el.value) || '/racuni/novi';
@@ -1115,6 +1144,17 @@ document.getElementById('btn-discount').addEventListener('click', ()=>{
   document.getElementById('discount-input').value = money(invDiscount);
   openModal('modal-discount');
 });
+document.getElementById('btn-tax')?.addEventListener('click', ()=>{
+  if (!lines.length) {
+    alert(LBL.needLine);
+    return;
+  }
+  openModal('modal-tax');
+});
+document.querySelectorAll('.tax-rate-btn').forEach(b => b.addEventListener('click', ()=>{
+  applyInvoiceTax(b.dataset.code, b.dataset.rate);
+  closeWaDialog('modal-tax');
+}));
 document.querySelectorAll('.disc-btn').forEach(b=>b.addEventListener('click',()=>{
   document.getElementById('discount-input').value = money(+b.dataset.pct);
 }));

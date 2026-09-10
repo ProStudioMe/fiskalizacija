@@ -16,17 +16,26 @@ from typing import Any
 from sepko.models import Tenant
 from sepko.crypto import decrypt_secret, encrypt_secret
 
-INV_TYPES = ("INVOICE", "CORRECTIVE", "SUMMARY", "PERIODICAL", "ADVANCE", "CREDIT_NOTE")
+INV_TYPES = (
+    "INVOICE",
+    "ADVANCE",
+    "CREDIT_NOTE",
+    "CORRECTIVE",
+    "ERROR_CORRECTIVE",
+    "SUMMARY",
+    "PERIODICAL",
+)
 
 # Predračun nije EFI InvType — čuva se interno, ne šalje se na fiskalizaciju.
 DOCUMENT_TYPES = INV_TYPES + ("PROFORMA",)
 
-# Redoslijed na formi (glavni tipovi + EFI zbirni/periodični).
+# Redoslijed na formi — nazivi prate Zakon o PDV-u CG (čl.31) + EFI InvType.
 UI_DOCUMENT_TYPES = (
     "INVOICE",
     "ADVANCE",
-    "CREDIT_NOTE",  # Storno (EFI CREDIT_NOTE)
-    "CORRECTIVE",  # Ispravka (EFI CORRECTIVE) — nije storno
+    "CREDIT_NOTE",
+    "CORRECTIVE",
+    "ERROR_CORRECTIVE",
     "PROFORMA",
     "SUMMARY",
     "PERIODICAL",
@@ -34,9 +43,10 @@ UI_DOCUMENT_TYPES = (
 
 DOCUMENT_TYPE_LABELS = {
     "INVOICE": "Račun",
-    "ADVANCE": "Avans",
-    "CREDIT_NOTE": "Storno",
-    "CORRECTIVE": "Ispravka",
+    "ADVANCE": "Avansni račun",
+    "CREDIT_NOTE": "Knjižno odobrenje",
+    "CORRECTIVE": "Korektivni račun",
+    "ERROR_CORRECTIVE": "Ispravka greške",
     "PROFORMA": "Predračun",
     "SUMMARY": "Zbirni račun",
     "PERIODICAL": "Periodični račun",

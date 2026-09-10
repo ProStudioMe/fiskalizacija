@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sepko.efi import normalize_document_type, normalize_pay_method, normalize_type_of_inv
 
 _MAX_MONEY = Decimal("10000000")
-_CREDIT_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE"})
+_CREDIT_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE", "ERROR_CORRECTIVE"})
 
 
 class BuyerIn(BaseModel):

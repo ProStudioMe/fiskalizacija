@@ -83,7 +83,7 @@
         </div>
         <div class="inv-meta-fact">
           <span class="inv-meta-fact-label">{{ t('inv.doc_type', 'Tip dokumenta') }}</span>
-          <span class="inv-meta-fact-value">{{ doc_label }}</span>
+          <span class="inv-meta-fact-value">{{ t('inv.doc.' ~ (invoice.inv_type or 'INVOICE'), doc_label) }}</span>
         </div>
         <div class="inv-meta-fact">
           <span class="inv-meta-fact-label">{{ t('inv.payment_type', 'Tip plaćanja') }}</span>

@@ -2129,6 +2129,9 @@ def _build_fiscalize_request_from_form(
 
         disc = parse_discount_pct(line_discounts[i] if i < len(line_discounts) else "0")
 
+        line_vat_raw = line_vats[i] if i < len(line_vats) and line_vats[i] else ""
+        line_vat_override = parse_amount(line_vat_raw, quantize="0.01") if str(line_vat_raw).strip() else None
+
         if article:
             unit_net = parse_nonneg_money(
                 prices[i] if i < len(prices) and prices[i] else article.price_gross,
@@ -2136,12 +2139,16 @@ def _build_fiscalize_request_from_form(
             )
             if unit_net is None:
                 unit_net = Decimal(str(article.price_gross))
-            vat_rate = article.vat_rate
+            # Forma može prepisati stopu na cijeli račun (PDV strip).
+            if line_vat_override is not None and line_vat_override >= 0:
+                vat_rate = line_vat_override
+            else:
+                vat_rate = article.vat_rate
             code = article.code
             name = article.name
             if unit_net <= 0:
                 return None, f"Artikal „{article.name}” nema cijenu. Unesi VP cijenu u šifrarniku."
-            if not (article.tax_rate_code or "").strip():
+            if line_vat_override is None and not (article.tax_rate_code or "").strip():
                 return None, f"Artikal „{article.name}” nema dodijeljenu PDV stopu."
         else:
             code = (line_codes[i] if i < len(line_codes) else "") or ""
@@ -2152,10 +2159,7 @@ def _build_fiscalize_request_from_form(
                 prices[i] if i < len(prices) and prices[i] else "0",
                 quantize=None,
             ) or Decimal("0")
-            vat_rate = parse_amount(
-                line_vats[i] if i < len(line_vats) and line_vats[i] else "",
-                quantize="0.01",
-            )
+            vat_rate = line_vat_override
             if unit_net <= 0:
                 return None, f"Stavka „{name or code}” nema cijenu."
             if vat_rate is None or vat_rate < 0:
@@ -2407,11 +2411,14 @@ def _invoice_editor_context(
 
     from sepko.efi import DOCUMENT_TYPE_LABELS, UI_DOCUMENT_TYPES
 
+    tax_rates = ensure_tax_rates(db, tenant)
+
     return {
         "user": user,
         "tenant": tenant,
         "articles": articles,
         "customers": customers,
+        "tax_rates": tax_rates,
         "document_types": [
             {"code": code, "label": DOCUMENT_TYPE_LABELS[code]} for code in UI_DOCUMENT_TYPES
         ],
