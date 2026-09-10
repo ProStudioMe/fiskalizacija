@@ -1903,15 +1903,15 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "PDV %"
     },
     "col.wholesale_short": {
-        "cnr": "VP",
-        "sr": "VP",
-        "cnr-cyrl": "ВП",
-        "sr-cyrl": "ВП",
-        "en": "WP",
-        "sq": "SHM",
-        "tr": "TP",
-        "ru": "ОП",
-        "uk": "ОП"
+        "cnr": "Prod. cijena",
+        "sr": "Prod. cijena",
+        "cnr-cyrl": "Прод. цијена",
+        "sr-cyrl": "Прод. цијена",
+        "en": "Unit price",
+        "sq": "Çmimi",
+        "tr": "Birim fiyat",
+        "ru": "Цена",
+        "uk": "Ціна"
     },
     "common.and": {
         "cnr": "i",
@@ -2222,15 +2222,15 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "Додати першу позицію"
     },
     "empty.add_first_line_hint": {
-        "cnr": "Kucaj ime ili šifru ispod, pa Enter. Česti artikli su na vrhu.",
-        "sr": "Kucaj ime ili šifru ispod, pa Enter. Česti artikli su na vrhu.",
-        "cnr-cyrl": "Куцај име или шифру испод, па Ентер. Чести артикли су на врху.",
-        "sr-cyrl": "Куцај име или шифру испод, па Ентер. Чести артикли су на врху.",
-        "en": "Type a name or code below, then Enter. Frequent articles are at the top.",
-        "sq": "Shkruaj emrin ose kodin më poshtë, pastaj Enter. Artikujt e shpeshtë janë në krye.",
-        "tr": "Aşağıya ad veya kod yazıp Enter'a basın. Sık kullanılan ürünler üsttedir.",
-        "ru": "Введите название или код ниже и нажмите Enter. Частые товары сверху.",
-        "uk": "Введіть назву або код нижче й натисніть Enter. Часті товари зверху."
+        "cnr": "Upiši ime ili šifru ispod, pa klikni Dodaj. Česti artikli su na vrhu.",
+        "sr": "Upiši ime ili šifru ispod, pa klikni Dodaj. Česti artikli su na vrhu.",
+        "cnr-cyrl": "Упиши име или шифру испод, па кликни Додај. Чести артикли су на врху.",
+        "sr-cyrl": "Упиши име или шифру испод, па кликни Додај. Чести артикли су на врху.",
+        "en": "Type a name or code below, then click Add. Frequent articles are at the top.",
+        "sq": "Shkruaj emrin ose kodin më poshtë, pastaj kliko Shto. Artikujt e shpeshtë janë në krye.",
+        "tr": "Aşağıya ad veya kod yazıp Ekle’ye tıklayın. Sık kullanılan ürünler üsttedir.",
+        "ru": "Введите название или код ниже и нажмите «Добавить». Частые товары сверху.",
+        "uk": "Введіть назву або код нижче й натисніть «Додати». Часті товари зверху."
     },
     "empty.no_card_lines": {
         "cnr": "Nema stavki na kartici.",
@@ -3454,15 +3454,48 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "Шукати контрагента… Enter обирає"
     },
     "inv.search_item": {
-        "cnr": "Traži artikal… Enter dodaje",
-        "sr": "Traži artikal… Enter dodaje",
-        "cnr-cyrl": "Тражи артикал… Ентер додаје",
-        "sr-cyrl": "Тражи артикал… Ентер додаје",
-        "en": "Search item… Enter adds",
-        "sq": "Kërko artikull… Enter shton",
-        "tr": "Ürün ara… Enter ekler",
-        "ru": "Искать товар… Enter добавляет",
-        "uk": "Шукати товар… Enter додає"
+        "cnr": "Traži artikal…",
+        "sr": "Traži artikal…",
+        "cnr-cyrl": "Тражи артикал…",
+        "sr-cyrl": "Тражи артикал…",
+        "en": "Search item…",
+        "sq": "Kërko artikull…",
+        "tr": "Ürün ara…",
+        "ru": "Искать товар…",
+        "uk": "Шукати товар…"
+    },
+    "inv.add_item": {
+        "cnr": "Dodaj",
+        "sr": "Dodaj",
+        "cnr-cyrl": "Додај",
+        "sr-cyrl": "Додај",
+        "en": "Add",
+        "sq": "Shto",
+        "tr": "Ekle",
+        "ru": "Добавить",
+        "uk": "Додати"
+    },
+    "inv.add_item_hint": {
+        "cnr": "Upiši naziv ili šifru, pa klikni Dodaj (ili Enter).",
+        "sr": "Upiši naziv ili šifru, pa klikni Dodaj (ili Enter).",
+        "cnr-cyrl": "Упиши назив или шифру, па кликни Додај (или Ентер).",
+        "sr-cyrl": "Упиши назив или шифру, па кликни Додај (или Ентер).",
+        "en": "Type a name or code, then click Add (or press Enter).",
+        "sq": "Shkruaj emrin ose kodin, pastaj kliko Shto (ose Enter).",
+        "tr": "Ad veya kod yazıp Ekle’ye tıklayın (veya Enter).",
+        "ru": "Введите название или код и нажмите «Добавить» (или Enter).",
+        "uk": "Введіть назву чи код і натисніть «Додати» (або Enter)."
+    },
+    "inv.need_pick": {
+        "cnr": "Odaberi artikal iz liste, pa klikni Dodaj.",
+        "sr": "Odaberi artikal iz liste, pa klikni Dodaj.",
+        "cnr-cyrl": "Одабери артикал из листе, па кликни Додај.",
+        "sr-cyrl": "Одабери артикал из листе, па кликни Додај.",
+        "en": "Pick an item from the list, then click Add.",
+        "sq": "Zgjidh artikullin nga lista, pastaj kliko Shto.",
+        "tr": "Listeden ürün seçip Ekle’ye tıklayın.",
+        "ru": "Выберите товар из списка и нажмите «Добавить».",
+        "uk": "Оберіть товар зі списку й натисніть «Додати»."
     },
     "inv.selected": {
         "cnr": "odabrano",
@@ -3553,26 +3586,26 @@ COMPLEMENTS: dict[str, dict[str, str]] = {
         "uk": "PDV разом"
     },
     "inv.wholesale_price": {
-        "cnr": "VP cijena",
-        "sr": "VP cijena",
-        "cnr-cyrl": "ВП цијена",
-        "sr-cyrl": "ВП цијена",
-        "en": "Wholesale price",
-        "sq": "Çmimi me shumicë",
-        "tr": "Toptan fiyat",
-        "ru": "Оптовая цена",
-        "uk": "Оптова ціна"
+        "cnr": "Prod. cijena",
+        "sr": "Prod. cijena",
+        "cnr-cyrl": "Прод. цијена",
+        "sr-cyrl": "Прод. цијена",
+        "en": "Unit price",
+        "sq": "Çmimi i shitjes",
+        "tr": "Satış fiyatı",
+        "ru": "Цена продажи",
+        "uk": "Ціна продажу"
     },
     "inv.zero_price_hint": {
-        "cnr": "Cijena je 0 — proširi red i unesi VP cijenu",
-        "sr": "Cijena je 0 — proširi red i unesi VP cijenu",
-        "cnr-cyrl": "Цијена је 0 — прошири ред и унеси ВП цијену",
-        "sr-cyrl": "Цијена је 0 — прошири ред и унеси ВП цијену",
-        "en": "Price is 0 — expand the row and enter wholesale price",
-        "sq": "Çmimi është 0 — zgjero rreshtin dhe vendos çmimin me shumicë",
-        "tr": "Fiyat 0 — satırı genişletip toptan fiyatı girin",
-        "ru": "Цена 0 — разверните строку и введите оптовую цену",
-        "uk": "Ціна 0 — розгорніть рядок і введіть оптову ціну"
+        "cnr": "Cijena je 0 — unesi prodajnu cijenu u polju Prod. cijena",
+        "sr": "Cijena je 0 — unesi prodajnu cijenu u polju Prod. cijena",
+        "cnr-cyrl": "Цијена је 0 — унеси продајну цијену у пољу Прод. цијена",
+        "sr-cyrl": "Цијена је 0 — унеси продајну цијену у пољу Прод. цијена",
+        "en": "Price is 0 — enter the unit price in the Unit price field",
+        "sq": "Çmimi është 0 — vendos çmimin e shitjes në fushën Çmimi",
+        "tr": "Fiyat 0 — Satış fiyatı alanına birim fiyatı girin",
+        "ru": "Цена 0 — введите цену в поле «Цена продажи»",
+        "uk": "Ціна 0 — введіть ціну в полі «Ціна продажу»"
     },
     "label.from": {
         "cnr": "Od",

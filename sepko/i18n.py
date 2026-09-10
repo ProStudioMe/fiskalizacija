@@ -3265,6 +3265,9 @@ _FORCE_SEED_KEYS = frozenset({
     "inv.doc.ERROR_CORRECTIVE",
     "inv.notes",
     "btn.export_pdf",
+    "col.wholesale_short",
+    "inv.wholesale_price",
+    "inv.zero_price_hint",
 })
 
 

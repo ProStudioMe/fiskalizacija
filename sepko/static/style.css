@@ -444,10 +444,11 @@ a:hover { text-decoration: underline; }
 }
 .topbar-account-item svg,
 .topbar-account-item i[data-lucide] {
-  width: 1.05rem;
-  height: 1.05rem;
-  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 1.15rem;
   color: var(--muted);
+  overflow: visible;
 }
 .topbar-account-item span {
   flex: 1 1 auto;
@@ -457,22 +458,32 @@ button.topbar-account-item.theme-toggle {
   width: 100%;
   height: auto;
   min-height: 0;
+  min-width: 0;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--ink);
   place-items: unset;
   display: flex;
+  align-items: center;
   justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.62rem 0.7rem;
+  box-shadow: none;
+  overflow: visible;
 }
 button.topbar-account-item.theme-toggle:hover {
   background: var(--soft);
   border: none;
   color: var(--ink);
+  box-shadow: none;
 }
 .topbar-account-item.theme-toggle .icon-moon,
 .topbar-account-item.theme-toggle .icon-sun {
-  flex: 0 0 auto;
+  flex: 0 0 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  overflow: visible;
 }
 .topbar-account-item.topbar-logout {
   color: #b91c1c;
@@ -892,6 +903,25 @@ html[data-theme="dark"] .btn.secondary.inv-action-loud:hover {
     max-width: 100%;
     min-width: 0;
     overflow-x: hidden;
+  }
+  /* Account meni van overflow clip-a topbara / .app */
+  .topbar {
+    overflow: visible;
+    position: relative;
+    z-index: 70;
+  }
+  .topbar-account[open] {
+    z-index: 80;
+  }
+  .topbar-account-menu {
+    position: fixed;
+    right: max(0.75rem, env(safe-area-inset-right));
+    top: calc(var(--topbar-h) - 0.15rem);
+    left: auto;
+    width: min(17.5rem, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+    z-index: 90;
+    overflow: visible;
   }
   .sidebar {
     display: flex;
@@ -2178,22 +2208,6 @@ body.sepko-dialog-open { overflow: hidden; }
 .row-actions .btn-icon-row-accent {
   margin-left: 0.55rem;
 }
-/* Desktop: dugmad se naziru u idle; puna snaga na hover / fokus / čekirano */
-@media (hover: hover) and (pointer: fine) {
-  .invoices-table tbody tr.inv-row .row-actions > a.btn-icon-row,
-  .invoices-table tbody tr.inv-row .row-actions > form .btn-icon-row {
-    opacity: 0.72;
-    transition: opacity 0.14s ease, color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
-  }
-  .invoices-table tbody tr.inv-row:hover .row-actions > a.btn-icon-row,
-  .invoices-table tbody tr.inv-row:hover .row-actions > form .btn-icon-row,
-  .invoices-table tbody tr.inv-row:focus-within .row-actions > a.btn-icon-row,
-  .invoices-table tbody tr.inv-row:focus-within .row-actions > form .btn-icon-row,
-  .invoices-table tbody tr.inv-row:has(.inv-check:checked) .row-actions > a.btn-icon-row,
-  .invoices-table tbody tr.inv-row:has(.inv-check:checked) .row-actions > form .btn-icon-row {
-    opacity: 1;
-  }
-}
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -3244,6 +3258,55 @@ html[data-theme="dark"] .btn-icon.danger:hover {
   margin: 0;
   min-width: 0;
 }
+/* Selecti na fakturi — jasno da se klikće */
+.inv-compose-form wa-select::part(combobox),
+.inv-meta-top-row wa-select::part(combobox) {
+  cursor: pointer;
+  background: var(--surface);
+  border: 1.5px solid var(--input-line, var(--line));
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.inv-compose-form wa-select::part(combobox):hover,
+.inv-meta-top-row wa-select::part(combobox):hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+}
+.inv-compose-form wa-select:focus-within::part(combobox),
+.inv-meta-top-row wa-select:focus-within::part(combobox) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.inv-compose-form wa-select::part(display-input),
+.inv-meta-top-row wa-select::part(display-input) {
+  cursor: pointer;
+  font-weight: 600;
+}
+.inv-compose-form wa-select::part(expand-icon),
+.inv-meta-top-row wa-select::part(expand-icon),
+.inv-select::part(expand-icon) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-inline-end: 0.2rem;
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--accent);
+  font-size: 1.15em;
+}
+.inv-select-chevron {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.inv-compose-form wa-select[open]::part(expand-icon),
+.inv-select[open]::part(expand-icon) {
+  transform: rotate(180deg);
+}
 .inv-meta-top-row > .inv-note-field {
   min-width: 0;
 }
@@ -3469,26 +3532,103 @@ html[data-theme="dark"] .btn-icon.danger:hover {
   display: block;
   width: 100%;
 }
+.inv-quick-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+.inv-quick-add-row > .inv-art-input,
+.inv-quick-add-row > wa-input#art-inline {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  max-width: none;
+  margin: 0;
+}
+.inv-add-article-btn {
+  flex: 0 0 auto;
+  align-self: center;
+}
+.inv-add-article-btn::part(base) {
+  min-height: 2.65rem;
+  height: 2.65rem;
+  padding-inline: 1.35rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  gap: 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.inv-add-article-btn::part(label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #fff;
+  font-weight: 700;
+}
+.inv-add-article-btn i[data-lucide],
+.inv-add-article-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 2.5;
+  color: #fff;
+}
+.inv-add-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
 .inv-quick-add--lines {
   margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem 0.7rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--soft-2, var(--soft));
 }
 .inv-quick-add--lines .inv-suggest {
   position: static;
   top: auto;
   max-height: min(220px, 32vh);
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   box-shadow: none;
+  background: var(--surface);
+  border-radius: 10px;
+}
+.inv-quick-add--lines .inv-art-input::part(base) {
+  min-height: 2.65rem;
+  background: var(--surface);
+  border-radius: 12px;
 }
 .inv-quick-add > input,
-.inv-quick-add .inv-art-input,
-.inv-quick-add .inv-cust-input,
-.inv-quick-add wa-input {
+.inv-quick-add > .inv-cust-input,
+.inv-quick-add > wa-input:not(.inv-art-input) {
   margin: 0;
   width: 100%;
 }
 .inv-quick-add > input {
   min-height: 2.75rem;
   font-size: 1rem;
+}
+@media (max-width: 640px) {
+  .inv-quick-add-row {
+    flex-wrap: wrap;
+  }
+  .inv-quick-add-row > .inv-art-input,
+  .inv-quick-add-row > wa-input#art-inline {
+    flex: 1 1 100%;
+    width: 100% !important;
+  }
+  .inv-add-article-btn {
+    flex: 1 1 100%;
+  }
+  .inv-add-article-btn::part(base) {
+    width: 100%;
+    justify-content: center;
+  }
 }
 .inv-suggest-row.is-added {
   animation: inv-suggest-flash 0.85s ease;
@@ -3728,8 +3868,16 @@ tr.inv-line {
 .inv-line-text {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
   min-width: 0;
+  padding: 0.15rem 0;
+}
+.inv-line-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 .inv-line-name {
   font-weight: 600;
@@ -3738,9 +3886,48 @@ tr.inv-line {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
+  flex: 0 1 auto;
+  max-width: 55%;
+  min-width: 4rem;
 }
 .inv-line-sub { font-size: 0.75rem; }
+.inv-line-note-inline-input {
+  flex: 1 1 7rem;
+  width: auto;
+  min-width: 6rem;
+  max-width: none;
+  margin: 0;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+.inv-line-note-inline-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+@media (max-width: 720px) {
+  .inv-line-top {
+    flex-wrap: wrap;
+  }
+  .inv-line-name {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+  .inv-line-note-inline-input {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+.inv-line-price {
+  min-width: 5.5rem;
+}
+.inv-price-input {
+  width: 3.6rem;
+}
 .inv-line-disc {
   display: inline-flex;
   align-items: center;
