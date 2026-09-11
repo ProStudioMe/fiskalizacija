@@ -62,11 +62,17 @@ def pwa_manifest(request: Request):
             ],
             "icons": [
                 {
-                    "src": f"{origin}/static/img/sepko-mark.svg?v=9",
+                    "src": f"{origin}/static/img/sepko-mark.png?v=15",
+                    "sizes": "1024x1024",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": f"{origin}/static/img/sepko-mark.svg?v=12",
                     "sizes": "any",
                     "type": "image/svg+xml",
                     "purpose": "any maskable",
-                }
+                },
             ],
         },
         media_type="application/manifest+json",

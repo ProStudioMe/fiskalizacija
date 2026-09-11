@@ -11,7 +11,8 @@ Hetzner / Virtualmin nalog **proracun**. SSH ključevi nisu u gitu (OneDrive `he
 | User | `proracun` |
 | Port | `22` (SFTP/SSH) |
 | Home | `/home/proracun` |
-| Domen | `proracun.me`, `www.proracun.me` |
+| Domen (sajt) | `proracun.me`, `www.proracun.me` → `/home/proracun/public_html` (`site/` u gitu) |
+| App | `moj.proracun.me` → `127.0.0.1:3040` |
 | App (localhost) | `127.0.0.1:3040` → kontejner `:8000` |
 
 PuTTY ključ (lokalno): `E:\onedrive\hetzner\proracun\ssh\id_rsa_private.ppk`
@@ -54,6 +55,14 @@ systemctl enable --now docker-proracun
 systemctl status docker-proracun --no-pager
 ```
 
-Provjera: `curl -sI -H 'Host: proracun.me' http://127.0.0.1:3040/`
+Na serveru u `/home/proracun/.docker_env` mora biti:
+
+```
+SEPKO_ALLOWED_HOSTS=moj.proracun.me,127.0.0.1
+```
+
+Ako Virtualmin ima poseban vhost za `moj.proracun.me`, isključi ga — ovaj `nginx-proracun.me.conf` već sluša taj `server_name`.
+
+Provjera: `curl -sI -H 'Host: moj.proracun.me' http://127.0.0.1:3040/`
 
 Poslije toga: `systemctl restart docker-proracun` (novi GHCR `latest`).

@@ -56,3 +56,26 @@ def test_pos_kasa_manifest():
     data = r.json()
     assert data["start_url"] == "/app/kasa"
     assert data["short_name"] == "Kasa"
+
+
+def test_dobavljaci_redirects_to_kupci():
+    client = TestClient(app, raise_server_exceptions=False)
+    for path in (
+        "/dobavljaci",
+        "/dobavljaci/1",
+        "/dobavljaci/1/obrisi",
+        "/dobavljaci/lookup.json",
+    ):
+        r = client.get(path, follow_redirects=False)
+        assert r.status_code == 303, path
+        loc = r.headers.get("location", "")
+        assert loc.startswith("/kupci"), (path, loc)
+        assert "?edit=" not in loc
+
+
+def test_company_logo_route_requires_auth():
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/podesavanja/logo", follow_redirects=False)
+    assert r.status_code == 303
+    loc = r.headers.get("location", "")
+    assert "/login" in loc or loc == "/"

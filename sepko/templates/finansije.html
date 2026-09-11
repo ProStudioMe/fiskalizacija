@@ -190,7 +190,7 @@
     <div class="plan-head">
       <div>
         <h2>{{ t('fin.match', 'Uparivanje bankovnih stavki') }}</h2>
-        <div class="cell-secondary">{{ t('fin.match_hint', 'needs_review → ulazna faktura ili trošak') }}</div>
+        <div class="cell-secondary">{{ t('fin.match_legend', 'Uplata → komitent (kartica) · odliv → ulazna / trošak') }}</div>
       </div>
       <span class="fin-count">{{ pending_count }}</span>
     </div>
@@ -201,40 +201,63 @@
             <th>{{ t('fin.day', 'Dan') }}</th>
             <th>{{ t('fin.description', 'Opis') }}</th>
             <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+            <th>{{ t('fin.proposal', 'Predlog') }}</th>
             <th>{{ t('col.actions', 'Akcija') }}</th>
           </tr>
         </thead>
         <tbody>
-        {% for tx in pending_tx %}
+        {% for row in pending_tx %}
+          {% set tx = row.tx %}
+          {% set prop = row.proposal %}
           <tr>
             <td class="fin-day">{{ tx.tx_date or '—' }}</td>
             <td><div class="fin-subject">{{ tx.description or '—' }}</div></td>
             <td class="num"><strong>{{ (tx.amount or 0)|money }} €</strong></td>
             <td>
+              {% if prop.customer_id %}
+              <div class="cell-primary">{{ prop.name }}</div>
+              <div class="cell-secondary">{{ prop.reason }} · {{ '%.0f'|format(prop.score) }}%</div>
+              {% else %}
+              <span class="muted">{{ prop.reason or '—' }}</span>
+              {% endif %}
+            </td>
+            <td>
               <div class="fin-match-actions">
+                {% if (tx.amount or 0) > 0 %}
+                <form method="post" action="/finansije/tx/{{ tx.id }}/match-komitent" class="fin-match-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <wa-select name="customer_id" size="small" style="max-width:160px" value="{{ prop.customer_id or '' }}">
+                    <wa-option value="">{{ t('fin.pick_customer', 'Komitent…') }}</wa-option>
+                    {% for c in customers %}
+                    <wa-option value="{{ c.id }}" {% if prop.customer_id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.pib }})</wa-option>
+                    {% endfor %}
+                  </wa-select>
+                  <wa-button type="submit" variant="brand" size="small">{{ t('fin.card', 'Kartica') }}</wa-button>
+                </form>
+                {% endif %}
                 <form method="post" action="/finansije/tx/{{ tx.id }}/match-ulazna" class="fin-match-form">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <wa-select name="incoming_id" size="small" style="max-width:140px">
-                    <wa-option value="">Ulazna…</wa-option>
+                    <wa-option value="">{{ t('fin.pick_incoming', 'Ulazna…') }}</wa-option>
                     {% for inv in incoming_options %}
                     <wa-option value="{{ inv.id }}">#{{ inv.id }} {{ inv.number or inv.supplier_name }} {{ (inv.total_gross or 0)|money }} €</wa-option>
                     {% endfor %}
                   </wa-select>
-                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">AP</wa-button>
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">{{ t('fin.ap', 'AP') }}</wa-button>
                 </form>
                 <form method="post" action="/finansije/tx/{{ tx.id }}/match-trosak" class="fin-match-form">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <wa-select name="category_id" size="small" style="max-width:120px">
-                    <wa-option value="">Kat.</wa-option>
+                    <wa-option value="">{{ t('fin.pick_category', 'Kat.') }}</wa-option>
                     {% for c in categories %}
                     <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
                     {% endfor %}
                   </wa-select>
-                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Trošak</wa-button>
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">{{ t('fin.expense', 'Trošak') }}</wa-button>
                 </form>
                 <form method="post" action="/finansije/tx/{{ tx.id }}/ignore" class="fin-match-form">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">Ignoriši</wa-button>
+                  <wa-button type="submit" variant="neutral" appearance="outlined" size="small">{{ t('fin.ignore', 'Ignoriši') }}</wa-button>
                 </form>
               </div>
             </td>

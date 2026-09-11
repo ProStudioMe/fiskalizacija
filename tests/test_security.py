@@ -54,8 +54,9 @@ def test_security_headers_middleware():
     response = client.get("/")
     assert response.status_code == 200
     assert response.headers.get("X-Content-Type-Options") == "nosniff"
-    assert response.headers.get("X-Frame-Options") == "DENY"
+    assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
     assert "Content-Security-Policy" in response.headers
+    assert "frame-ancestors 'self'" in response.headers.get("Content-Security-Policy", "")
 
 
 def test_negative_price_rejected_on_normal_invoice():
@@ -96,6 +97,7 @@ def test_credit_note_allows_negative_amount():
         invoice_type="CASH",
         payment_method="BANKNOTE",
         inv_type="CREDIT_NOTE",
+        iic_ref="AABBCCDDEEFF00112233445566778899",
         lines=[
             InvoiceLineIn(
                 code="X",
@@ -109,6 +111,36 @@ def test_credit_note_allows_negative_amount():
         totals=TotalsIn(net=Decimal("-10"), vat=Decimal("-2.10"), gross=Decimal("-12.10")),
     )
     assert req.inv_type == "CREDIT_NOTE"
+    assert req.iic_ref == "AABBCCDDEEFF00112233445566778899"
+
+
+def test_credit_note_requires_iic_ref():
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    import pytest
+    from pydantic import ValidationError
+
+    from sepko.schemas import FiscalizeRequest, InvoiceLineIn, TotalsIn
+
+    with pytest.raises(ValidationError):
+        FiscalizeRequest(
+            issue_datetime=datetime.now(timezone.utc),
+            invoice_type="CASH",
+            payment_method="BANKNOTE",
+            inv_type="CREDIT_NOTE",
+            lines=[
+                InvoiceLineIn(
+                    code="X",
+                    name="Storno",
+                    quantity=Decimal("-1"),
+                    unit_price_net=Decimal("10"),
+                    vat_rate=Decimal("21"),
+                    total_gross=Decimal("-12.10"),
+                )
+            ],
+            totals=TotalsIn(net=Decimal("-10"), vat=Decimal("-2.10"), gross=Decimal("-12.10")),
+        )
 
 
 def test_csrf_origin_blocks_cross_site_post():
@@ -132,3 +164,45 @@ def test_csrf_origin_blocks_cross_site_post():
     assert blocked.status_code == 403
     allowed = client.post("/save", headers={"origin": "https://sepko.local", "host": "sepko.local"})
     assert allowed.status_code == 200
+
+
+def test_normalize_imap_host():
+    from sepko.finansije import normalize_imap_host
+
+    assert normalize_imap_host("Mail.Example.COM") == "mail.example.com"
+    assert normalize_imap_host("https://mail.example.com") is None
+    assert normalize_imap_host("mail.example.com:993") is None
+    assert normalize_imap_host("mail.example.com/inbox") is None
+
+
+def test_imap_host_blocks_private(monkeypatch):
+    from sepko.finansije import imap_host_is_safe
+
+    def fake_getaddrinfo(host, *args, **kwargs):
+        return [(None, None, None, None, ("10.0.0.5", 0))]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    ok, msg = imap_host_is_safe("evil.internal")
+    assert not ok
+    assert "privatna" in msg.lower() or "lokalna" in msg.lower()
+
+
+def test_imap_probe_rate_limit():
+    from sepko.web_security import (
+        _imap_probe_attempts,
+        imap_probe_rate_limited,
+        record_imap_probe,
+    )
+
+    class Req:
+        def __init__(self):
+            self.client = type("C", (), {"host": "203.0.113.9"})()
+            self.headers = {}
+
+    req = Req()
+    _imap_probe_attempts.clear()
+    for _ in range(8):
+        assert not imap_probe_rate_limited(tenant_id=42, request=req)  # type: ignore[arg-type]
+        record_imap_probe(tenant_id=42, request=req)  # type: ignore[arg-type]
+    assert imap_probe_rate_limited(tenant_id=42, request=req)  # type: ignore[arg-type]
+    _imap_probe_attempts.clear()

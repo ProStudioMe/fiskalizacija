@@ -23,7 +23,7 @@ add_if_missing() {
 add_if_missing POSTGRES_PASSWORD "$(openssl rand -hex 16)"
 add_if_missing SEPKO_SECRET_KEY "$(openssl rand -hex 32)"
 add_if_missing SEPKO_SUPERADMIN_PASSWORD "$(openssl rand -hex 12)"
-add_if_missing SEPKO_ALLOWED_HOSTS "proracun.me,www.proracun.me"
+add_if_missing SEPKO_ALLOWED_HOSTS "moj.proracun.me,127.0.0.1"
 add_if_missing SEPKO_PARTNER_MODE "mock"
 add_if_missing SEPKO_CERT_DIR "/certs"
 add_if_missing SEPKO_BILLING_NAME "PROSTUDIO.ME DOO"

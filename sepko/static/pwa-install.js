@@ -19,6 +19,7 @@
     "Aplikacija je već na uređaju. Otvori je da radi bez browser trake.";
   var openIos = (script && script.getAttribute("data-open-ios")) ||
     "Otvori ProRačun sa početnog ekrana (ikona ProRačun).";
+  var skip = (script && script.getAttribute("data-skip")) === "1";
   var btn = document.getElementById("btn-pwa-install");
 
   function standalone() {
@@ -63,14 +64,21 @@
     return /iphone|ipad|ipod/i.test(navigator.userAgent || "");
   }
 
+  function setBtnLabel(label) {
+    if (!btn) return;
+    var span = btn.querySelector("span");
+    if (span) span.textContent = label;
+    else btn.textContent = label;
+    btn.setAttribute("aria-label", label);
+  }
+
   function setOpenMode() {
     mode = "open";
     markInstalled();
     deferred = null;
     if (!btn) return;
     btn.hidden = false;
-    btn.textContent = openLabel;
-    btn.setAttribute("aria-label", openLabel);
+    setBtnLabel(openLabel);
   }
 
   function openApp() {
@@ -92,8 +100,13 @@
     if (!w) window.location.assign(url);
   }
 
-  function showInstall() {
-    if (shown || !deferred || !window.sepkoDialog) return;
+  function showInstall(attempt) {
+    attempt = attempt || 0;
+    if (shown || !deferred) return;
+    if (!window.sepkoDialog) {
+      if (attempt < 25) window.setTimeout(function () { showInstall(attempt + 1); }, 80);
+      return;
+    }
     shown = true;
     if (btn) btn.hidden = false;
     window.sepkoDialog.confirm({
@@ -149,25 +162,30 @@
     });
   }
 
+  function onBeforeInstall(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    deferred = e || deferred;
+    try { window.__sepkoDeferredPrompt = deferred; } catch (err) {}
+    if (skip || standalone() || !loggedIn()) return;
+    mode = "install";
+    if (btn) {
+      btn.hidden = false;
+      setBtnLabel(okLabel);
+    }
+    if (!dismissed()) {
+      window.setTimeout(showInstall, 900);
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", onBeforeInstall);
+  if (window.__sepkoDeferredPrompt) onBeforeInstall(window.__sepkoDeferredPrompt);
+
   if (standalone()) {
     markInstalled();
     return;
   }
 
-  if (!loggedIn()) return;
-
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault();
-    deferred = e;
-    mode = "install";
-    if (btn) {
-      btn.hidden = false;
-      btn.textContent = okLabel;
-    }
-    if (!dismissed()) {
-      window.setTimeout(showInstall, 900);
-    }
-  });
+  if (skip || !loggedIn()) return;
 
   window.addEventListener("appinstalled", function () {
     setOpenMode();

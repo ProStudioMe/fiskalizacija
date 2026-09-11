@@ -14,44 +14,139 @@
       margin: 0;
       padding: 0;
     }
-    .noprint { margin: 0 0 1rem; }
+    .noprint {
+      margin: 0 0 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.55rem 0.75rem;
+      background: #f4f4f6;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
+    }
+    .noprint a, .noprint button {
+      appearance: none;
+      font: inherit;
+      color: #1a1030;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #c8c8d0;
+      border-radius: 6px;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+    .noprint a:hover, .noprint button:hover { border-color: #7c3aed; color: #5b21b6; }
+    .noprint button#btn-print {
+      background: #6d28d9;
+      border-color: #6d28d9;
+      color: #fff;
+      font-weight: 600;
+    }
+    .noprint button#btn-print:hover { background: #5b21b6; border-color: #5b21b6; color: #fff; }
+    .noprint .sep { display: none; }
     .sheet { max-width: 190mm; margin: 0 auto; }
     .top {
       display: grid;
-      grid-template-columns: 1.15fr 0.95fr auto;
-      gap: 10px;
-      align-items: start;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto;
+      gap: 14px 16px;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1.5px solid #222;
     }
     .seller-box {
-      border: 1.5px solid #222;
-      padding: 8px 10px;
-      min-height: 78px;
+      padding: 0;
+      min-height: 0;
     }
-    .seller-box .name { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
-    .meta-col { padding-top: 2px; }
-    .meta-col .doc-title { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
-    .meta-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: 4px; margin: 2px 0; }
-    .meta-row .lbl { color: #333; }
+    .seller-box.has-logo {
+      display: grid;
+      grid-template-columns: minmax(108px, 132px) minmax(0, 1fr);
+      gap: 12px 14px;
+      align-items: center;
+    }
+    .seller-logo {
+      width: 100%;
+      max-width: 132px;
+      height: auto;
+      max-height: 72px;
+      object-fit: contain;
+      object-position: left center;
+      display: block;
+    }
+    .seller-text { min-width: 0; }
+    .seller-box .name {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      margin: 0 0 3px;
+      line-height: 1.25;
+    }
+    .seller-box .seller-text > div:not(.name) {
+      color: #333;
+      font-size: 10.5px;
+      line-height: 1.4;
+    }
+    .meta-col { padding: 0; align-self: center; }
+    .meta-col .doc-title {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.04em;
+      margin: 0 0 8px;
+      line-height: 1.1;
+    }
+    .meta-row {
+      display: grid;
+      grid-template-columns: 6.75rem 1fr;
+      gap: 4px 8px;
+      margin: 3px 0;
+      font-size: 10.5px;
+    }
+    .meta-row .lbl { color: #555; }
     .qr-wrap {
       width: {{ qr_size }}px;
       height: {{ qr_size }}px;
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #fff;
+      flex-shrink: 0;
     }
     .qr-wrap img { width: 100%; height: 100%; object-fit: contain; }
-    .buyer { margin: 12px 0 6px; }
-    .buyer.has-logo { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: start; }
+    .buyer {
+      margin: 14px 0 0;
+      padding: 10px 0 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2px;
+    }
+    .buyer.has-logo {
+      grid-template-columns: auto 1fr;
+      gap: 6px 14px;
+      align-items: center;
+    }
     .buyer-logo-wrap { grid-row: 1 / span 4; }
-    .buyer-logo { width: 64px; height: 64px; object-fit: contain; border: 1px solid #ccc; padding: 2px; }
-    .buyer-line { margin: 1px 0; }
+    .buyer-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border: 1px solid #ddd;
+      padding: 3px;
+      background: #fff;
+    }
+    .buyer-line { margin: 2px 0; font-size: 11px; line-height: 1.4; }
+    .buyer-line strong { font-weight: 650; }
     .center-title {
       text-align: center;
       font-weight: 700;
       font-size: 15px;
-      margin: 10px 0 8px;
+      letter-spacing: 0.02em;
+      margin: 14px 0 10px;
+      padding: 7px 0;
+      border-top: 1px solid #ddd;
+      border-bottom: 1px solid #ddd;
     }
     table.lines {
       width: 100%;
@@ -149,6 +244,11 @@
       color: #333;
     }
     .notes { margin-top: 10px; white-space: pre-wrap; }
+    body.is-embed {
+      background: #fff;
+      padding: 8px;
+    }
+    body.is-embed .noprint { display: none !important; }
     @media print {
       .noprint { display: none !important; }
       body { padding: 0; }
@@ -156,24 +256,28 @@
     }
   </style>
 </head>
-<body>
+<body class="{% if embed %}is-embed{% endif %}">
   <div class="sheet">
     <p class="noprint">
-      <a href="/racuni/{{ invoice.id }}">← Nazad</a>
-      ·
+      <button type="button" onclick="window.close()">Zatvori</button>
       <button type="button" id="btn-print" onclick="window.print()">Štampa / PDF</button>
-      ·
       <a href="/racuni/{{ invoice.id }}/stampa?fmt=thermal">Termalni</a>
+      <a href="/racuni/{{ invoice.id }}">Otvori u app</a>
     </p>
 
     <div class="top">
-      <div class="seller-box">
+      <div class="seller-box {% if company_logo_uri %}has-logo{% endif %}">
+        {% if company_logo_uri %}
+        <img class="seller-logo" src="{{ company_logo_uri }}" alt="">
+        {% endif %}
+        <div class="seller-text">
         <div class="name">{{ tenant.name }}</div>
         {% if company.address %}<div>{{ company.address }}</div>{% endif %}
         {% if company.address2 %}<div>{{ company.address2 }}</div>{% endif %}
         <div>PIB: {{ tenant.pib }}</div>
         {% if company.pdv_number %}<div>PDV broj: {{ company.pdv_number }}</div>{% endif %}
         {% if company.bank_account %}<div>HB: {{ company.bank_account }}</div>{% endif %}
+        </div>
       </div>
       <div class="meta-col">
         <div class="doc-title">RAČUN</div>
@@ -216,7 +320,7 @@
           <th class="col-name">Naziv</th>
           <th class="col-jm">JM</th>
           <th class="col-qty">Količina</th>
-          <th class="col-vp">VP cijena</th>
+          <th class="col-vp">Prod. cijena</th>
           <th class="col-net">Vrijednost bez PDV</th>
           <th class="col-disc">Popust (%)</th>
           <th class="col-vr">Porez (%)</th>

@@ -11,6 +11,15 @@ from sqlalchemy.orm import Session
 
 from sepko.brand import MAIL_FROM_NAME
 from sepko.db import get_db
+from sepko.bank_match import apply_customer_payment, propose_customer_match
+from sepko.brand import DISPLAY_NAME, MAIL_FROM_NAME
+from sepko.kartica_export import (
+    build_kartica_xlsx,
+    filter_ledger_year,
+    ledger_years,
+    promet_summary,
+    wrap_mail_html,
+)
 from sepko.finansije import (
     MailSettings,
     build_kartica_html,
@@ -21,6 +30,8 @@ from sepko.finansije import (
     load_mail_settings,
     match_bank_tx_to_expense,
     match_bank_tx_to_incoming,
+    normalize_imap_host,
+    probe_imap,
     safe_filename,
     save_mail_settings,
     send_firm_mail,
@@ -36,7 +47,13 @@ from sepko.models import (
 )
 from sepko.ulazne import ensure_expense_categories
 from sepko.web_auth import AuthRequired
-from sepko.web_security import flash, redirect, validate_csrf
+from sepko.web_security import (
+    flash,
+    imap_probe_rate_limited,
+    record_imap_probe,
+    redirect,
+    validate_csrf,
+)
 from sepko.web_templates import render
 
 router = APIRouter(tags=["finansije"])
@@ -96,6 +113,23 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
     total_fakturisano = round(sum(float(c.get("fakturisano") or 0) for c in cards), 2)
     total_uplaceno = round(sum(float(c.get("uplaceno") or 0) for c in cards), 2)
     total_dug = round(sum(float(c.get("dug") or 0) for c in cards), 2)
+
+    customers = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
+        .order_by(Customer.name)
+        .all()
+    )
+    pending_enriched = []
+    for tx in pending_tx:
+        proposal = propose_customer_match(
+            db,
+            tenant,
+            description=tx.description or tx.raw_text or "",
+            amount=tx.amount or 0,
+        )
+        pending_enriched.append({"tx": tx, "proposal": proposal})
+
     return render(
         request,
         "finansije.html",
@@ -104,13 +138,14 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
             "tenant": tenant,
             "cards": cards,
             "statements": statements,
-            "pending_tx": pending_tx,
+            "pending_tx": pending_enriched,
+            "customers": customers,
             "incoming_options": incoming,
             "categories": categories,
             "mail_enabled": mail.enabled,
             "cards_count": len(cards),
             "statements_count": len(statements),
-            "pending_count": len(pending_tx),
+            "pending_count": len(pending_enriched),
             "total_fakturisano": total_fakturisano,
             "total_uplaceno": total_uplaceno,
             "total_dug": total_dug,
@@ -119,7 +154,12 @@ def finansije_home(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/finansije/kartica/{customer_id}", response_class=HTMLResponse)
-def kartica_view(request: Request, customer_id: int, db: Session = Depends(get_db)):
+def kartica_view(
+    request: Request,
+    customer_id: int,
+    year: str | None = None,
+    db: Session = Depends(get_db),
+):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
@@ -133,7 +173,13 @@ def kartica_view(request: Request, customer_id: int, db: Session = Depends(get_d
         flash(request, "Komitent nije pronađen.", "error")
         return redirect("/finansije")
     summary = customer_summary(db, tenant, customer)
-    ledger = customer_ledger(db, tenant, customer)
+    full_ledger = customer_ledger(db, tenant, customer)
+    years = ledger_years(full_ledger)
+    year_sel = (year or "").strip()[:4]
+    if year_sel and year_sel not in years:
+        year_sel = years[0] if years else ""
+    ledger = filter_ledger_year(full_ledger, year_sel or None)
+    promet = promet_summary(ledger)
     invoices = (
         db.query(Invoice)
         .filter(
@@ -154,6 +200,10 @@ def kartica_view(request: Request, customer_id: int, db: Session = Depends(get_d
             "customer": customer,
             "summary": summary,
             "ledger": ledger,
+            "full_ledger": full_ledger,
+            "years": years,
+            "year": year_sel,
+            "promet": promet,
             "invoices": invoices,
             "mail": load_mail_settings(tenant),
         },
@@ -161,7 +211,12 @@ def kartica_view(request: Request, customer_id: int, db: Session = Depends(get_d
 
 
 @router.get("/finansije/kartica/{customer_id}/print", response_class=HTMLResponse)
-def kartica_print(request: Request, customer_id: int, db: Session = Depends(get_db)):
+def kartica_print(
+    request: Request,
+    customer_id: int,
+    year: str | None = None,
+    db: Session = Depends(get_db),
+):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
@@ -174,15 +229,62 @@ def kartica_print(request: Request, customer_id: int, db: Session = Depends(get_
     if not customer:
         return HTMLResponse("Nije pronađeno", status_code=404)
     summary = customer_summary(db, tenant, customer)
-    ledger = customer_ledger(db, tenant, customer)
+    full_ledger = customer_ledger(db, tenant, customer)
+    year_sel = (year or "").strip()[:4] or None
+    ledger = filter_ledger_year(full_ledger, year_sel)
     html = build_kartica_html(
         naziv=customer.name,
         pib=customer.pib,
         summary=summary,
         ledger=ledger,
         auto_print=True,
+        year=year_sel,
+        brand=DISPLAY_NAME,
     )
     return HTMLResponse(html)
+
+
+@router.get("/finansije/kartica/{customer_id}/xlsx")
+def kartica_xlsx(
+    request: Request,
+    customer_id: int,
+    year: str | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    customer = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        flash(request, "Komitent nije pronađen.", "error")
+        return redirect("/finansije")
+    full_ledger = customer_ledger(db, tenant, customer)
+    year_sel = (year or "").strip()[:4] or None
+    ledger = filter_ledger_year(full_ledger, year_sel)
+    data = build_kartica_xlsx(
+        naziv=customer.name,
+        pib=customer.pib,
+        ledger=ledger,
+        year=year_sel,
+        brand=DISPLAY_NAME,
+    )
+    slug = safe_filename(customer.name)
+    ybit = f"_{year_sel}" if year_sel else ""
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="kartica_{slug}{ybit}.xlsx"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @router.post("/finansije/kartica/{customer_id}/uplata")
@@ -275,6 +377,8 @@ async def kartica_send_mail(
     to_raw = str(form.get("to_email") or customer.email or "")
     to_addrs = [x.strip() for x in to_raw.replace(";", ",").split(",") if x.strip()]
     include_kartica = str(form.get("attach_kartica") or "") in ("1", "on", "true")
+    include_xlsx = str(form.get("attach_xlsx") or "") in ("1", "on", "true")
+    year_sel = str(form.get("year") or "").strip()[:4] or None
     subject = str(form.get("subject") or f"Finansijska kartica — {customer.name}")
     body = str(
         form.get("body")
@@ -282,8 +386,13 @@ async def kartica_send_mail(
     )
 
     summary = customer_summary(db, tenant, customer)
-    ledger = customer_ledger(db, tenant, customer)
+    full_ledger = customer_ledger(db, tenant, customer)
+    ledger = filter_ledger_year(full_ledger, year_sel)
     attachments: list[tuple[str, bytes, str]] = []
+    body_html = None
+    slug = safe_filename(customer.name)
+    ybit = f"_{year_sel}" if year_sel else ""
+
     if include_kartica:
         html = build_kartica_html(
             naziv=customer.name,
@@ -291,11 +400,30 @@ async def kartica_send_mail(
             summary=summary,
             ledger=ledger,
             auto_print=False,
+            for_email=True,
+            year=year_sel,
+            brand=DISPLAY_NAME,
         )
-        slug = safe_filename(customer.name)
-        attachments.append((f"kartica_{slug}.html", html.encode("utf-8"), "text/html"))
+        body_html = wrap_mail_html(intro=body, kartica_html=html)
+        attachments.append((f"kartica_{slug}{ybit}.html", html.encode("utf-8"), "text/html"))
 
-    # PDF fakture (postojeći Sepko PDF endpoint sadržaj — generiši jednostavan HTML snapshot po fakturi)
+    if include_xlsx:
+        xlsx = build_kartica_xlsx(
+            naziv=customer.name,
+            pib=customer.pib,
+            ledger=ledger,
+            year=year_sel,
+            brand=DISPLAY_NAME,
+        )
+        attachments.append(
+            (
+                f"kartica_{slug}{ybit}.xlsx",
+                xlsx,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        )
+
+    # PDF/HTML fakture
     inv_ids = form.getlist("invoice_ids")
     for raw in inv_ids:
         if not str(raw).isdigit():
@@ -307,7 +435,6 @@ async def kartica_send_mail(
         )
         if not inv:
             continue
-        # Ako postoji lokalni PDF fajl u data/fakture — prikači
         from sepko.efi import display_inv_num
 
         name = safe_filename(display_inv_num(inv)) + ".html"
@@ -329,11 +456,12 @@ async def kartica_send_mail(
         to_addrs=to_addrs,
         subject=subject,
         body_text=body,
-        body_html=None,
-        attachments=attachments,
+        body_html=body_html,
+        attachments=attachments or None,
     )
     flash(request, result["message"], "ok" if result["ok"] else "error")
-    return redirect(f"/finansije/kartica/{customer_id}")
+    qs = f"?year={year_sel}" if year_sel else ""
+    return redirect(f"/finansije/kartica/{customer_id}{qs}")
 
 
 @router.post("/finansije/izvodi/povuci")
@@ -383,11 +511,25 @@ def settings_mail_page(request: Request, db: Session = Depends(get_db)):
     if user.role != "admin":
         flash(request, "Samo admin.", "error")
         return redirect("/")
+    from sepko.config import get_settings
+    from sepko.efi import load_tenant_fiscal, load_tenant_ui
+
     mail = load_mail_settings(tenant)
     return render(
         request,
-        "settings_mail.html",
-        {"user": user, "tenant": tenant, "mail": mail, "section": "mail"},
+        "settings.html",
+        {
+            "user": user,
+            "tenant": tenant,
+            "mail": mail,
+            "section": "mail",
+            "partner_mode": get_settings().partner_mode,
+            "api_key_prefixes": [],
+            "fiscal": load_tenant_fiscal(tenant),
+            "ui": load_tenant_ui(tenant),
+            "operators": [],
+            "editing_op": None,
+        },
     )
 
 
@@ -396,16 +538,9 @@ def settings_mail_save(
     request: Request,
     csrf_token: str = Form(""),
     imap_host: str = Form(""),
-    imap_port: str = Form("993"),
     imap_user: str = Form(""),
     imap_password: str = Form(""),
     imap_folder: str = Form("INBOX"),
-    smtp_host: str = Form(""),
-    smtp_port: str = Form("587"),
-    smtp_user: str = Form(""),
-    smtp_password: str = Form(""),
-    smtp_from: str = Form(""),
-    smtp_from_name: str = Form(MAIL_FROM_NAME),
     mail_since_date: str = Form("2026-01-01"),
     izvod_subjects: str = Form(""),
     faktura_subjects: str = Form("Faktura"),
@@ -423,27 +558,118 @@ def settings_mail_save(
         return redirect("/podesavanja/mail")
 
     current = load_mail_settings(tenant)
+    host_raw = imap_host.strip() or current.imap_host
+    host = normalize_imap_host(host_raw)
+    if host_raw and not host:
+        flash(request, "Neispravan IMAP host (samo hostname, npr. mail.firma.me).", "error")
+        return redirect("/podesavanja/mail")
+    host = host or normalize_imap_host(current.imap_host) or ""
+    user_mail = imap_user.strip()[:255]
+    password_new = imap_password.strip()
+    password = password_new or current.imap_password
+
+    host_changed = host != normalize_imap_host(current.imap_host or "")
+    user_changed = user_mail != (current.imap_user or "").strip()
+    password_changed = bool(password_new)
+    need_probe = bool(
+        host
+        and user_mail
+        and password
+        and (host_changed or user_changed or password_changed or not current.enabled)
+    )
+
+    port = int(current.imap_port or 993)
+    flash_extra = ""
+
+    if (host_changed or user_changed or password_changed) and not password:
+        flash(request, "Unesi lozinku da potvrdiš novi mail server / nalog.", "error")
+        return redirect("/podesavanja/mail")
+
+    if need_probe:
+        if imap_probe_rate_limited(tenant_id=tenant.id, request=request):
+            flash(
+                request,
+                "Previše IMAP provjera. Sačekaj ~15 minuta pa pokušaj ponovo.",
+                "error",
+            )
+            return redirect("/podesavanja/mail")
+        record_imap_probe(tenant_id=tenant.id, request=request)
+        preferred = None if host_changed else (port if port in (993, 143) else None)
+        probe = probe_imap(host, user_mail, password, preferred_port=preferred)
+        if not probe.get("ok"):
+            flash(request, str(probe.get("message") or "IMAP nije dostupan."), "error")
+            return redirect("/podesavanja/mail")
+        host = str(probe.get("host") or host)
+        port = int(probe["port"])
+        flash_extra = f" IMAP {host}:{port} OK."
+
     mail = MailSettings(
-        imap_host=imap_host.strip() or current.imap_host,
-        imap_port=int(imap_port or 993),
-        imap_user=imap_user.strip(),
-        imap_password=imap_password.strip() or current.imap_password,
+        imap_host=host,
+        imap_port=port,
+        imap_user=user_mail,
+        imap_password=password,
         imap_folder=imap_folder.strip() or "INBOX",
-        smtp_host=smtp_host.strip() or imap_host.strip() or current.smtp_host,
-        smtp_port=int(smtp_port or 587),
-        smtp_user=smtp_user.strip() or imap_user.strip(),
-        smtp_password=smtp_password.strip() or current.smtp_password,
-        smtp_from=smtp_from.strip() or imap_user.strip(),
-        smtp_from_name=smtp_from_name.strip() or MAIL_FROM_NAME,
+        imap_sent_folder=current.imap_sent_folder,
+        smtp_host=current.smtp_host,
+        smtp_port=current.smtp_port,
+        smtp_user=current.smtp_user,
+        smtp_password=current.smtp_password,
+        smtp_from=user_mail or current.smtp_from,
+        smtp_from_name=current.smtp_from_name or MAIL_FROM_NAME,
+        smtp_use_tls=current.smtp_use_tls,
         mail_since_date=(mail_since_date or "2026-01-01")[:10],
         izvod_subjects=izvod_subjects.strip() or current.izvod_subjects,
         faktura_subjects=faktura_subjects.strip() or "Faktura",
-        enabled=bool(imap_user.strip() and (imap_password.strip() or current.imap_password)),
+        enabled=bool(user_mail and password and host),
     )
     save_mail_settings(tenant, mail)
     db.commit()
-    flash(request, "Mail podešavanja sačuvana.")
+    flash(request, f"Mail podešavanja sačuvana.{flash_extra}")
     return redirect("/podesavanja/mail")
+
+
+@router.post("/finansije/tx/{tx_id}/match-komitent")
+def finansije_match_customer(
+    request: Request,
+    tx_id: int,
+    csrf_token: str = Form(""),
+    customer_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/finansije")
+    tx = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.tenant_id == tenant.id, BankTransaction.id == tx_id)
+        .first()
+    )
+    if not tx:
+        flash(request, "Stavka nije pronađena.", "error")
+        return redirect("/finansije")
+    if not customer_id.strip().isdigit():
+        flash(request, "Odaberi komitenta.", "error")
+        return redirect("/finansije")
+    customer = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.id == int(customer_id))
+        .first()
+    )
+    if not customer:
+        flash(request, "Komitent nije pronađen.", "error")
+        return redirect("/finansije")
+    try:
+        apply_customer_payment(db, tenant, tx, customer, remember=True)
+        db.commit()
+        flash(request, f"Uplata povezana sa {customer.name} — kartica ažurirana.")
+    except Exception as exc:
+        db.rollback()
+        flash(request, str(exc), "error")
+    return redirect("/finansije")
 
 
 @router.post("/finansije/tx/{tx_id}/match-ulazna")

@@ -90,13 +90,14 @@ app.include_router(izvjestaji_router)
 
 @app.get("/cron/raspored")
 async def cron_schedules(token: str = ""):
-    """Jednom dnevno: automatske fakture tenanata + profakture za istek licence."""
+    """Jednom dnevno: automatske fakture, offline JIKR retry (48h), licence."""
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
 
     from sepko.db import AsyncSessionLocal
     from sepko.license_invoice import run_due_license_proformas
     from sepko.schedules import run_due_schedules
+    from sepko.services import retry_offline_invoices
 
     settings = get_settings()
     secret = (settings.cron_secret or "").strip()
@@ -105,8 +106,11 @@ async def cron_schedules(token: str = ""):
 
     async with AsyncSessionLocal() as session:
         schedules = await session.run_sync(run_due_schedules)
+        offline = await session.run_sync(retry_offline_invoices)
         licences = await session.run_sync(run_due_license_proformas)
-        return JSONResponse({"schedules": schedules, "licences": licences})
+        return JSONResponse(
+            {"schedules": schedules, "offline": offline, "licences": licences}
+        )
 
 
 @app.get("/cron/licence")

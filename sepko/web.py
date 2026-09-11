@@ -1,12 +1,15 @@
 """Sepko web back-office (Jinja) — Faza 1."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import io
+import re
+import zipfile
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -15,11 +18,8 @@ from sepko.config import get_settings
 from sepko.db import get_db
 from sepko.efi import (
     TenantCompany,
-    TenantFiscal,
     TenantUiSettings,
     UI_LANGUAGES,
-    FISCAL_TOKEN_LABELS,
-    FISCAL_TOKEN_PROVIDERS,
     load_tenant_company,
     load_tenant_fiscal,
     load_tenant_ui,
@@ -27,10 +27,10 @@ from sepko.efi import (
     parse_display_inv_num,
     display_inv_num,
     save_tenant_company,
-    save_tenant_fiscal,
     save_tenant_ui,
 )
 from sepko.catalog import ARTICLE_COLORS, ensure_tax_rates, resolve_vat
+from sepko.finansije import safe_filename
 from sepko.models import (
     ApiKey,
     Article,
@@ -39,6 +39,7 @@ from sepko.models import (
     Customer,
     Invoice,
     InvoiceSchedule,
+    InvoiceStatus,
     TaxRate,
     Tenant,
     TenantStatus,
@@ -75,7 +76,7 @@ from sepko.web_security import (
     rotate_csrf,
     validate_csrf,
 )
-from sepko.web_templates import render
+from sepko.web_templates import render, templates
 
 router = APIRouter(tags=["web"])
 
@@ -209,8 +210,19 @@ def logout_legacy():
     return redirect("/login")
 
 
-def _build_invoice_list(
-    request: Request,
+_INVOICE_EXPORT_LIMIT = 5000
+
+
+def _normalize_invoice_doc_filter(doc: str | None) -> str:
+    from sepko.efi import UI_DOCUMENT_TYPES
+
+    val = (doc or "").strip().upper()
+    if val in UI_DOCUMENT_TYPES:
+        return val
+    return ""
+
+
+def _invoice_list_ordered_query(
     db: Session,
     tenant: Tenant,
     *,
@@ -218,18 +230,17 @@ def _build_invoice_list(
     status: str | None,
     date_from: str | None,
     date_to: str | None,
-    per_page: int | None,
-    page: int,
     sort: str | None,
     dir: str | None,
     client: str | None,
     tip: str | None,
-    list_path: str = "/racuni",
-) -> tuple[dict, int, bool]:
-    """Shared invoice table context for Pregled and Fakture."""
+    doc: str | None,
+):
+    """Filtered + ordered Invoice query (shared by list and export)."""
     status_val = (status or "all").strip()
     client_val = (client or "").strip()
     tip_val = (tip or "").strip()
+    doc_val = _normalize_invoice_doc_filter(doc)
     sort_key = (sort or "number").strip()
     if sort_key not in _INVOICE_SORTS:
         sort_key = "number"
@@ -247,23 +258,45 @@ def _build_invoice_list(
             Invoice.jikr.ilike(term),
             Invoice.ikof.ilike(term),
         ]
-        # Lokalni broj 1-1-32/2026 → inv_ord_num + godina
+        # Lokalni broj 1-09-030 (mjesečni) ili stari 1-1-32/2026
         parsed = parse_display_inv_num(q_raw)
         if parsed:
-            ord_num, year = parsed
-            search_clauses.append(
-                (Invoice.inv_ord_num == ord_num)
-                & (func.extract("year", Invoice.issue_datetime) == year)
-            )
-            # EFI InvNum često: .../32/2026/...
-            search_clauses.append(Invoice.inv_num.ilike(f"%/{ord_num}/{year}/%"))
-            search_clauses.append(Invoice.external_id.ilike(f"%/{ord_num}/{year}%"))
+            ord_num, year, month = parsed
+            if month:
+                search_clauses.append(
+                    (Invoice.local_ord_num == ord_num)
+                    & (func.extract("month", Invoice.issue_datetime) == month)
+                )
+                if year:
+                    search_clauses.append(
+                        (Invoice.local_ord_num == ord_num)
+                        & (func.extract("year", Invoice.issue_datetime) == year)
+                        & (func.extract("month", Invoice.issue_datetime) == month)
+                    )
+            elif year:
+                search_clauses.append(
+                    (Invoice.inv_ord_num == ord_num)
+                    & (func.extract("year", Invoice.issue_datetime) == year)
+                )
+                search_clauses.append(Invoice.inv_num.ilike(f"%/{ord_num}/{year}/%"))
+                search_clauses.append(Invoice.external_id.ilike(f"%/{ord_num}/{year}%"))
+            else:
+                search_clauses.append(Invoice.local_ord_num == ord_num)
+                search_clauses.append(Invoice.inv_ord_num == ord_num)
         else:
-            # djelimičan unos tipa 1-1-32
+            # djelimičan unos tipa 1-09-30/2026 ili 1-09-30
             m_partial = q_raw.replace(" ", "")
-            if m_partial.startswith("1-1-") and m_partial[4:].isdigit():
+            m_new = re.match(r"^1-(\d{1,2})-(\d+)(?:/(\d{4}))?$", m_partial)
+            if m_new:
+                search_clauses.append(Invoice.local_ord_num == int(m_new.group(2)))
+                search_clauses.append(
+                    (Invoice.local_ord_num == int(m_new.group(2)))
+                    & (func.extract("month", Invoice.issue_datetime) == int(m_new.group(1)))
+                )
+            elif m_partial.startswith("1-1-") and m_partial[4:].isdigit():
                 search_clauses.append(Invoice.inv_ord_num == int(m_partial[4:]))
             elif q_raw.isdigit():
+                search_clauses.append(Invoice.local_ord_num == int(q_raw))
                 search_clauses.append(Invoice.inv_ord_num == int(q_raw))
         query = query.filter(or_(*search_clauses))
     if status_val and status_val != "all":
@@ -280,6 +313,17 @@ def _build_invoice_list(
             query = query.filter(Invoice.buyer_name.ilike(client_val))
     if tip_val:
         query = query.filter(Invoice.payment_method == tip_val)
+    if doc_val:
+        if doc_val == "INVOICE":
+            query = query.filter(
+                or_(
+                    Invoice.inv_type == "INVOICE",
+                    Invoice.inv_type.is_(None),
+                    Invoice.inv_type == "",
+                )
+            )
+        else:
+            query = query.filter(Invoice.inv_type == doc_val)
     d_from = _parse_date(date_from)
     d_to = _parse_date(date_to)
     if d_from:
@@ -287,10 +331,8 @@ def _build_invoice_list(
     if d_to:
         query = query.filter(func.date(Invoice.issue_datetime) <= d_to)
 
-    size, set_cookie = _resolve_per_page(request, per_page)
     col = _INVOICE_SORTS[sort_key]
     if sort_key == "number":
-        # Broj računa: zadnja (najveći rbr) → prva; nacrti bez broja po id
         year_col = func.extract("year", Invoice.issue_datetime)
         if sort_dir == "asc":
             ordered = query.order_by(
@@ -299,7 +341,6 @@ def _build_invoice_list(
                 Invoice.id.asc(),
             )
         else:
-            # Zadnja → prva; nacrti (bez broja) na vrhu
             ordered = query.order_by(
                 year_col.desc().nulls_first(),
                 Invoice.inv_ord_num.desc().nulls_first(),
@@ -311,6 +352,62 @@ def _build_invoice_list(
             primary,
             Invoice.id.asc() if sort_dir == "asc" else Invoice.id.desc(),
         )
+    meta = {
+        "status_val": status_val,
+        "client_val": client_val,
+        "tip_val": tip_val,
+        "doc_val": doc_val,
+        "sort_key": sort_key,
+        "sort_dir": sort_dir,
+        "q": (q or "").strip(),
+        "date_from": date_from or "",
+        "date_to": date_to or "",
+    }
+    return ordered, meta
+
+
+def _build_invoice_list(
+    request: Request,
+    db: Session,
+    tenant: Tenant,
+    *,
+    q: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    per_page: int | None,
+    page: int,
+    sort: str | None,
+    dir: str | None,
+    client: str | None,
+    tip: str | None,
+    doc: str | None = None,
+    list_path: str = "/racuni",
+) -> tuple[dict, int, bool]:
+    """Shared invoice table context for Pregled and Fakture."""
+    from sepko.efi import UI_DOCUMENT_TYPES
+
+    ordered, meta = _invoice_list_ordered_query(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+    )
+    status_val = meta["status_val"]
+    client_val = meta["client_val"]
+    tip_val = meta["tip_val"]
+    doc_val = meta["doc_val"]
+    sort_key = meta["sort_key"]
+    sort_dir = meta["sort_dir"]
+
+    size, set_cookie = _resolve_per_page(request, per_page)
     invoices, total, page, pages = _paginate(ordered, page, size)
 
     clients = [
@@ -339,15 +436,16 @@ def _build_invoice_list(
     ]
 
     filters = {
-        "q": q or "",
+        "q": meta["q"],
         "status": status_val,
-        "date_from": date_from or "",
-        "date_to": date_to or "",
+        "date_from": meta["date_from"],
+        "date_to": meta["date_to"],
         "per_page": size,
         "sort": sort_key,
         "dir": sort_dir,
         "client": client_val,
         "tip": tip_val,
+        "doc": doc_val,
     }
 
     def qs(**overrides):
@@ -369,36 +467,27 @@ def _build_invoice_list(
         "dir": sort_dir,
         "client": client_val,
         "tip": tip_val,
+        "doc": doc_val,
         "clients": clients,
         "tips": tips,
+        "document_types": list(UI_DOCUMENT_TYPES),
         "qs": qs,
         "pager_qs": _invoice_list_qs(**{**filters, "page": page}),
         "list_path": list_path,
+        "export_qs": _invoice_list_qs(**{k: v for k, v in filters.items() if k != "per_page"}),
     }
     return ctx, size, set_cookie
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(
-    request: Request,
-    q: str | None = Query(None),
-    status: str | None = Query(None),
-    date_from: str | None = Query(None),
-    date_to: str | None = Query(None),
-    per_page: int | None = Query(None),
-    page: int = Query(1, ge=1),
-    sort: str | None = Query("number"),
-    dir: str | None = Query("desc"),
-    client: str | None = Query(None),
-    tip: str | None = Query(None),
-    db: Session = Depends(get_db),
-):
+def dashboard(request: Request, db: Session = Depends(get_db)):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
 
     today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=6)
     base_q = db.query(Invoice).filter(Invoice.tenant_id == tenant.id)
     count_total = base_q.count()
     count_today = base_q.filter(func.date(Invoice.issue_datetime) == today).count()
@@ -407,26 +496,73 @@ def dashboard(
         .filter(Invoice.tenant_id == tenant.id, func.date(Invoice.issue_datetime) == today)
         .scalar()
     )
+    pending_statuses = [InvoiceStatus.draft.value, InvoiceStatus.pending.value]
+    pending_count = base_q.filter(Invoice.status.in_(pending_statuses)).count()
+    failed_count = base_q.filter(Invoice.status == InvoiceStatus.failed.value).count()
+    recent = (
+        base_q.order_by(Invoice.issue_datetime.desc(), Invoice.id.desc())
+        .limit(8)
+        .all()
+    )
+    queue = (
+        base_q.filter(
+            Invoice.status.in_(
+                pending_statuses + [InvoiceStatus.failed.value]
+            )
+        )
+        .order_by(Invoice.issue_datetime.desc(), Invoice.id.desc())
+        .limit(5)
+        .all()
+    )
+
+    week_rows: dict[date, tuple[float, int]] = {}
+    for row in (
+        db.query(
+            func.date(Invoice.issue_datetime),
+            func.coalesce(func.sum(Invoice.total_gross), 0),
+            func.count(Invoice.id),
+        )
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.status == InvoiceStatus.fiscalized.value,
+            func.date(Invoice.issue_datetime) >= week_start,
+            func.date(Invoice.issue_datetime) <= today,
+        )
+        .group_by(func.date(Invoice.issue_datetime))
+        .all()
+    ):
+        raw_day, raw_gross, raw_count = row[0], row[1], row[2]
+        if isinstance(raw_day, datetime):
+            day_key = raw_day.date()
+        elif isinstance(raw_day, date):
+            day_key = raw_day
+        else:
+            day_key = date.fromisoformat(str(raw_day)[:10])
+        week_rows[day_key] = (float(raw_gross or 0), int(raw_count or 0))
+    week_days = []
+    week_max = max((v[0] for v in week_rows.values()), default=0) or 1
+    week_total = 0.0
+    weekday_short = ("pon", "uto", "sri", "čet", "pet", "sub", "ned")
+    for offset in range(7):
+        d = week_start + timedelta(days=offset)
+        gross, count = week_rows.get(d, (0.0, 0))
+        week_total += gross
+        week_days.append(
+            {
+                "date": d,
+                "label": d.strftime("%d.%m.%Y"),
+                "short": weekday_short[d.weekday()],
+                "gross": gross,
+                "count": count,
+                "pct": max(10, round((gross / week_max) * 100)) if gross else 0,
+                "is_today": d == today,
+            }
+        )
+
     fiscal = load_tenant_fiscal(tenant)
     day = cash_day_summary(db, tenant, today)
 
-    list_ctx, size, set_cookie = _build_invoice_list(
-        request,
-        db,
-        tenant,
-        q=q,
-        status=status,
-        date_from=date_from,
-        date_to=date_to,
-        per_page=per_page,
-        page=page,
-        sort=sort,
-        dir=dir,
-        client=client,
-        tip=tip,
-        list_path="/",
-    )
-    resp = render(
+    return render(
         request,
         "dashboard.html",
         {
@@ -434,15 +570,21 @@ def dashboard(
             "tenant": tenant,
             "fiscal": fiscal,
             "day": day,
+            "today_iso": today.isoformat(),
+            "recent": recent,
+            "queue": queue,
+            "week": {"days": week_days, "total": week_total},
+            "attention": {
+                "pending": pending_count,
+                "failed": failed_count,
+            },
             "stats": {
                 "count_today": count_today,
                 "count_total": count_total,
                 "gross_today": float(gross_today or 0),
             },
-            **list_ctx,
         },
     )
-    return _with_per_page_cookie(resp, size, set_cookie)
 
 
 def _get_article(db: Session, tenant: Tenant, article_id: int) -> Article | None:
@@ -474,6 +616,52 @@ def articles_hub(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _articles_form_context(
+    *,
+    user,
+    tenant,
+    db: Session,
+    editing=None,
+    return_to: str = "",
+):
+    categories = (
+        db.query(Category)
+        .filter(Category.tenant_id == tenant.id, Category.active.is_(True))
+        .order_by(Category.position, Category.name)
+        .all()
+    )
+    tax_rates = ensure_tax_rates(db, tenant)
+    thumb_url = None
+    if editing and editing.thumbnail_filename:
+        from sepko.uploads import article_thumb_public_url
+
+        thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
+    return {
+        "user": user,
+        "tenant": tenant,
+        "editing": editing,
+        "categories": categories,
+        "tax_rates": tax_rates,
+        "colors": ARTICLE_COLORS,
+        "thumb_url": thumb_url,
+        "return_to": return_to or "",
+    }
+
+
+def _articles_novi_url(return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/artikli/novi?return_to={quote(back)}"
+    return "/artikli/novi"
+
+
+def _articles_edit_url(article_id: int, return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/artikli/{article_id}/izmijeni?return_to={quote(back)}"
+    return f"/artikli/{article_id}/izmijeni"
+
+
 @router.get("/artikli", response_class=HTMLResponse)
 def articles_page(
     request: Request,
@@ -481,12 +669,17 @@ def articles_page(
     q: str | None = Query(None),
     per_page: int | None = Query(None),
     page: int = Query(1, ge=1),
+    return_to: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to)
+    # Legacy ?edit= → odvojena stranica
+    if edit:
+        return redirect(_articles_edit_url(edit, back))
     ensure_tax_rates(db, tenant)
     query = db.query(Article).filter(Article.tenant_id == tenant.id)
     if q and q.strip():
@@ -495,19 +688,7 @@ def articles_page(
     size, set_cookie = _resolve_per_page(request, per_page)
     ordered = query.order_by(Article.active.desc(), Article.name)
     articles, total, page, pages = _paginate(ordered, page, size)
-    editing = _get_article(db, tenant, edit) if edit else None
-    categories = (
-        db.query(Category)
-        .filter(Category.tenant_id == tenant.id, Category.active.is_(True))
-        .order_by(Category.position, Category.name)
-        .all()
-    )
-    tax_rates = ensure_tax_rates(db, tenant)
-    from sepko.uploads import article_thumb_public_url
-
-    thumb_url = None
-    if editing and editing.thumbnail_filename:
-        thumb_url = article_thumb_public_url(editing.id, editing.thumbnail_filename)
+    show_stock = any(a.stock_qty is not None for a in articles)
     resp = render(
         request,
         "articles.html",
@@ -515,20 +696,66 @@ def articles_page(
             "user": user,
             "tenant": tenant,
             "articles": articles,
-            "editing": editing,
-            "categories": categories,
-            "tax_rates": tax_rates,
-            "colors": ARTICLE_COLORS,
-            "thumb_url": thumb_url,
             "q": q or "",
             "per_page": size,
             "page_sizes": PAGE_SIZES,
             "page": page,
             "pages": pages,
             "total": total,
+            "return_to": back or "",
+            "show_stock": show_stock,
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.get("/artikli/novi", response_class=HTMLResponse)
+def articles_new_page(
+    request: Request,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    return render(
+        request,
+        "articles_form.html",
+        _articles_form_context(
+            user=user, tenant=tenant, db=db, return_to=back or ""
+        ),
+    )
+
+
+@router.get("/artikli/{article_id:int}/izmijeni", response_class=HTMLResponse)
+def articles_edit_page(
+    request: Request,
+    article_id: int,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    article = _get_article(db, tenant, article_id)
+    if not article:
+        flash(request, "Artikal nije pronađen.", "error")
+        return redirect("/artikli")
+    return render(
+        request,
+        "articles_form.html",
+        _articles_form_context(
+            user=user,
+            tenant=tenant,
+            db=db,
+            editing=article,
+            return_to=back or "",
+        ),
+    )
 
 
 @router.post("/artikli")
@@ -547,15 +774,18 @@ async def articles_create(
     tax_rate_code: str = Form("PDV21"),
     unit: str = Form("KOM"),
     thumb: UploadFile | None = File(None),
+    return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/artikli"
+    novi_url = _articles_novi_url(return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/artikli")
+        return redirect(novi_url)
 
     exists = (
         db.query(Article)
@@ -564,7 +794,7 @@ async def articles_create(
     )
     if exists:
         flash(request, "Artikal sa tom šifrom već postoji.", "error")
-        return redirect("/artikli")
+        return redirect(novi_url)
 
     vat, tax_code = resolve_vat(db, tenant, tax_rate_code.strip() or None)
     cat_id = int(category_id) if category_id.strip().isdigit() else None
@@ -575,7 +805,7 @@ async def articles_create(
     stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
-        return redirect("/artikli")
+        return redirect(novi_url)
     article = Article(
         tenant_id=tenant.id,
         category_id=cat_id,
@@ -603,7 +833,7 @@ async def articles_create(
     except ValueError as exc:
         db.rollback()
         flash(request, str(exc), "error")
-        return redirect("/artikli")
+        return redirect(novi_url)
     write_audit(
         db,
         "article.create",
@@ -613,7 +843,7 @@ async def articles_create(
     )
     db.commit()
     flash(request, "Artikal sačuvan.")
-    return redirect("/artikli")
+    return redirect(back)
 
 
 @router.post("/artikli/{article_id}")
@@ -633,15 +863,18 @@ async def articles_update(
     unit: str = Form("KOM"),
     thumb: UploadFile | None = File(None),
     remove_thumb: str = Form(""),
+    return_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/artikli"
+    edit_url = _articles_edit_url(article_id, return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/artikli")
+        return redirect(edit_url)
     article = _get_article(db, tenant, article_id)
     if not article:
         flash(request, "Artikal nije pronađen.", "error")
@@ -655,7 +888,7 @@ async def articles_update(
     stock = _parse_nonneg_money(stock_qty) if stock_qty.strip() else None
     if price is None or (price_retail.strip() and retail is None) or (stock_qty.strip() and stock is None):
         flash(request, "Cijena/količina mora biti nula ili pozitivna (max 10.000.000).", "error")
-        return redirect("/artikli")
+        return redirect(edit_url)
     old_price = article.price_gross
     article.name = name.strip()
     article.unit = unit.strip() or "KOM"
@@ -681,7 +914,7 @@ async def articles_update(
             )
     except ValueError as exc:
         flash(request, str(exc), "error")
-        return redirect(f"/artikli?edit={article_id}")
+        return redirect(edit_url)
     if old_price != price:
         write_audit(
             db,
@@ -693,7 +926,7 @@ async def articles_update(
         )
     db.commit()
     flash(request, f"Artikal {article.code} izmijenjen.")
-    return redirect("/artikli")
+    return redirect(back)
 
 
 @router.get("/artikli/{article_id:int}/thumb")
@@ -918,6 +1151,86 @@ def _get_customer(db: Session, tenant: Tenant, customer_id: int) -> Customer | N
     )
 
 
+def _party_lookup_payload(row) -> dict:
+    """Zajednička polja komitent/dobavljač za kopiranje forme."""
+    return {
+        "id": row.id,
+        "pib": row.pib or "",
+        "pdv_number": row.pdv_number or "",
+        "name": row.name or "",
+        "street": row.street or "",
+        "city": row.city or "",
+        "country": row.country or "Crna Gora",
+        "email": row.email or "",
+        "phone": row.phone or "",
+        "contact": row.contact or "",
+        "notes": row.notes or "",
+    }
+
+
+@router.get("/kupci/lookup.json")
+def customers_lookup(
+    request: Request,
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """Pretraga komitenata (PIB / naziv) — JSON za autocomplete."""
+    try:
+        _user, tenant = _auth(request, db)
+    except AuthRequired:
+        return JSONResponse({"items": []}, status_code=401)
+    term = (q or "").strip()[:64]
+    if len(term) < 1:
+        return JSONResponse({"items": []})
+    like = f"%{term}%"
+    rows = (
+        db.query(Customer)
+        .filter(
+            Customer.tenant_id == tenant.id,
+            Customer.active.is_(True),
+            or_(
+                Customer.pib.ilike(like),
+                Customer.name.ilike(like),
+                Customer.city.ilike(like),
+                Customer.pdv_number.ilike(like),
+            ),
+        )
+        .order_by(Customer.name)
+        .limit(15)
+        .all()
+    )
+    return JSONResponse({"items": [_party_lookup_payload(r) for r in rows]})
+
+
+def _customers_form_context(
+    *,
+    user,
+    tenant,
+    editing=None,
+    return_to: str = "",
+):
+    return {
+        "user": user,
+        "tenant": tenant,
+        "editing": editing,
+        "return_to": return_to or "",
+    }
+
+
+def _customers_novi_url(return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/kupci/novi?return_to={quote(back)}"
+    return "/kupci/novi"
+
+
+def _customers_edit_url(customer_id: int, return_to: str | None = None) -> str:
+    back = _safe_return_to(return_to) if return_to else None
+    if back:
+        return f"/kupci/{customer_id}/izmijeni?return_to={quote(back)}"
+    return f"/kupci/{customer_id}/izmijeni"
+
+
 @router.get("/kupci", response_class=HTMLResponse)
 def customers_page(
     request: Request,
@@ -925,12 +1238,17 @@ def customers_page(
     q: str | None = Query(None),
     per_page: int | None = Query(None),
     page: int = Query(1, ge=1),
+    return_to: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to)
+    # Legacy ?edit= → odvojena stranica
+    if edit:
+        return redirect(_customers_edit_url(edit, back))
     query = db.query(Customer).filter(Customer.tenant_id == tenant.id)
     if q and q.strip():
         term = f"%{q.strip()}%"
@@ -946,7 +1264,6 @@ def customers_page(
     size, set_cookie = _resolve_per_page(request, per_page)
     ordered = query.order_by(Customer.active.desc(), Customer.name)
     customers, total, page, pages = _paginate(ordered, page, size)
-    editing = _get_customer(db, tenant, edit) if edit else None
     resp = render(
         request,
         "customers.html",
@@ -954,16 +1271,62 @@ def customers_page(
             "user": user,
             "tenant": tenant,
             "customers": customers,
-            "editing": editing,
             "q": q or "",
             "per_page": size,
             "page_sizes": PAGE_SIZES,
             "page": page,
             "pages": pages,
             "total": total,
+            "return_to": back or "",
         },
     )
     return _with_per_page_cookie(resp, size, set_cookie)
+
+
+@router.get("/kupci/novi", response_class=HTMLResponse)
+def customers_new_page(
+    request: Request,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    return render(
+        request,
+        "customers_form.html",
+        _customers_form_context(user=user, tenant=tenant, return_to=back or ""),
+    )
+
+
+@router.get("/kupci/{customer_id}/izmijeni", response_class=HTMLResponse)
+def customers_edit_page(
+    request: Request,
+    customer_id: int,
+    return_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    back = _safe_return_to(return_to)
+    customer = _get_customer(db, tenant, customer_id)
+    if not customer:
+        flash(request, "Kupac nije pronađen.", "error")
+        return redirect("/kupci")
+    return render(
+        request,
+        "customers_form.html",
+        _customers_form_context(
+            user=user,
+            tenant=tenant,
+            editing=customer,
+            return_to=back or "",
+        ),
+    )
 
 
 @router.post("/kupci")
@@ -982,6 +1345,7 @@ async def customers_create(
     contact: str = Form(""),
     notes: str = Form(""),
     discount_pct: str = Form("0"),
+    return_to: str = Form(""),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -989,9 +1353,11 @@ async def customers_create(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/kupci"
+    novi_url = _customers_novi_url(return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     pib_clean = pib.strip()
     exists = (
         db.query(Customer)
@@ -1000,7 +1366,7 @@ async def customers_create(
     )
     if exists:
         flash(request, "Kupac sa tim PIB-om već postoji.", "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     street_s = street.strip() or None
     city_s = city.strip() or None
     country_s = (country.strip() or "Crna Gora")
@@ -1033,10 +1399,10 @@ async def customers_create(
     except ValueError as exc:
         db.rollback()
         flash(request, str(exc), "error")
-        return redirect("/kupci")
+        return redirect(novi_url)
     db.commit()
     flash(request, "Komitent sačuvan.")
-    return redirect("/kupci")
+    return redirect(back)
 
 
 @router.post("/kupci/{customer_id}")
@@ -1056,6 +1422,7 @@ async def customers_update(
     notes: str = Form(""),
     discount_pct: str = Form("0"),
     remove_logo: str = Form(""),
+    return_to: str = Form(""),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -1063,13 +1430,15 @@ async def customers_update(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    back = _safe_return_to(return_to) or "/kupci"
+    edit_url = _customers_edit_url(customer_id, return_to)
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/kupci")
+        return redirect(back if back != "/kupci" else "/kupci")
     customer = _get_customer(db, tenant, customer_id)
     if not customer:
         flash(request, "Kupac nije pronađen.", "error")
-        return redirect("/kupci")
+        return redirect(back)
     customer.name = name.strip()
     customer.pdv_number = pdv_number.strip() or None
     customer.street = street.strip() or None
@@ -1096,11 +1465,11 @@ async def customers_update(
             )
         except ValueError as exc:
             flash(request, str(exc), "error")
-            return redirect(f"/kupci?edit={customer_id}")
+            return redirect(edit_url)
 
     db.commit()
     flash(request, f"Komitent {customer.pib} izmijenjen.")
-    return redirect("/kupci")
+    return redirect(back)
 
 
 @router.get("/kupci/{customer_id}/logo")
@@ -1331,6 +1700,7 @@ def _invoice_list_qs(
     dir: str = "desc",
     client: str = "",
     tip: str = "",
+    doc: str = "",
 ) -> str:
     data = {
         "q": q,
@@ -1343,11 +1713,12 @@ def _invoice_list_qs(
         "dir": dir,
         "client": client,
         "tip": tip,
+        "doc": doc,
     }
     # Drop empty optional filters; keep status/sort/dir/per_page always.
     out: dict[str, str] = {}
     for key, val in data.items():
-        if key in ("q", "date_from", "date_to", "client", "tip") and not val:
+        if key in ("q", "date_from", "date_to", "client", "tip", "doc") and not val:
             continue
         if key == "page" and str(val) in ("1", ""):
             continue
@@ -1368,6 +1739,7 @@ def invoices_list(
     dir: str | None = Query("desc"),
     client: str | None = Query(None),
     tip: str | None = Query(None),
+    doc: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1389,6 +1761,7 @@ def invoices_list(
         dir=dir,
         client=client,
         tip=tip,
+        doc=doc,
         list_path="/racuni",
     )
     resp = render(
@@ -1399,6 +1772,305 @@ def invoices_list(
     return _with_per_page_cookie(resp, size, set_cookie)
 
 
+def _invoice_export_rows(
+    db: Session,
+    tenant: Tenant,
+    *,
+    q: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    sort: str | None,
+    dir: str | None,
+    client: str | None,
+    tip: str | None,
+    doc: str | None,
+    labels: dict[str, str],
+) -> list[dict]:
+    ordered, _meta = _invoice_list_ordered_query(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+    )
+    invoices = ordered.limit(_INVOICE_EXPORT_LIMIT).all()
+    status_labels = {
+        "fiscalized": labels.get("status_fiscalized", "Fiskalizovan"),
+        "failed": labels.get("status_failed", "Greška"),
+        "pending": labels.get("status_pending", "Nefiskalizovan"),
+        "draft": labels.get("status_pending", "Nefiskalizovan"),
+    }
+    pay_labels = labels.get("pay_labels") or {}
+    doc_labels = labels.get("doc_labels") or {}
+    rows: list[dict] = []
+    for inv in invoices:
+        st = status_labels.get(inv.status or "", inv.status or "")
+        pay_code = (inv.payment_method or "").strip().upper()
+        doc_code = (inv.inv_type or "INVOICE").strip().upper() or "INVOICE"
+        rows.append(
+            {
+                "number": display_inv_num(inv),
+                "status": st,
+                "doc": doc_labels.get(doc_code) or doc_code,
+                "client": inv.buyer_name or labels.get("no_buyer", "Bez kupca"),
+                "date": inv.issue_datetime.strftime("%d.%m.%Y %H:%M") if inv.issue_datetime else "",
+                "net": float(inv.total_net) if inv.total_net is not None else None,
+                "vat": float(inv.total_vat) if inv.total_vat is not None else None,
+                "amount": float(inv.total_gross) if inv.total_gross is not None else None,
+                "pay": pay_labels.get(pay_code) or pay_code or "",
+            }
+        )
+    return rows
+
+
+def _invoice_export_labels(request: Request, tenant: Tenant) -> dict:
+    from sepko.efi import UI_DOCUMENT_TYPES
+    from sepko.i18n import get_translations_map, t as i18n_t
+    from sepko.db import SessionLocal
+
+    lang = "cnr"
+    try:
+        lang = normalize_ui_language(load_tenant_ui(tenant).language)
+    except Exception:
+        lang = "cnr"
+    db = SessionLocal()
+    try:
+        bundle = get_translations_map(db, lang)
+    except Exception:
+        bundle = {}
+    finally:
+        db.close()
+
+    def t(key: str, default: str) -> str:
+        return i18n_t(bundle, key, default)
+
+    pay_labels = {
+        "BANKNOTE": t("pay.cash", "Gotovina"),
+        "CARD": t("pay.card_short", "Kartica"),
+        "BUSINESSCARD": t("pay.business_card", "Poslovna kartica"),
+        "ORDER": t("pay.wire", "Virman"),
+        "ADVANCE": t("pay.advance", "Avans"),
+        "OTHER": t("pay.other_noncash", "Drugo bezgotovinsko"),
+        "ACCOUNT": t("pay.account", "Na račun"),
+        "SVOUCHER": t("pay.voucher", "Vaučer"),
+        "COMPANY": t("pay.company", "Kompanija"),
+        "OTHER-CASH": t("pay.other_cash", "Ostalo"),
+    }
+    doc_defaults = {
+        "INVOICE": "Račun",
+        "ADVANCE": "Avansni račun",
+        "CREDIT_NOTE": "Knjižno odobrenje",
+        "CORRECTIVE": "Korektivni račun",
+        "ERROR_CORRECTIVE": "Ispravka greške",
+        "PROFORMA": "Predračun",
+        "SUMMARY": "Zbirni račun",
+        "PERIODICAL": "Periodični račun",
+    }
+    doc_labels = {
+        code: t(f"inv.doc.{code}", doc_defaults.get(code, code)) for code in UI_DOCUMENT_TYPES
+    }
+
+    return {
+        "title": t("page.fakture", "Fakture"),
+        "number": t("col.number", "Broj"),
+        "status": t("col.status", "Status"),
+        "doc": t("inv.doc_type", "Tip dokumenta"),
+        "client": t("col.client", "Klijent"),
+        "date": t("col.date", "Datum"),
+        "net": t("col.net_excl", "Bez PDV"),
+        "vat": t("col.vat", "PDV"),
+        "amount": t("col.amount", "Ukupno"),
+        "pay": t("col.payment", "Plaćanje"),
+        "total": t("col.total", "Ukupno"),
+        "empty": t("empty.invoices", "Nema faktura."),
+        "print": t("btn.print", "Štampaj"),
+        "close": t("btn.close", "Zatvori"),
+        "subtitle": t("inv.export_filtered", "Izvoz prema filterima"),
+        "status_fiscalized": t("status.fiscalized", "Fiskalizovan"),
+        "status_failed": t("status.failed", "Greška"),
+        "status_pending": t("status.unfiscalized", "Nefiskalizovan"),
+        "no_buyer": t("inv.no_buyer", "Bez kupca"),
+        "pay_labels": pay_labels,
+        "doc_labels": doc_labels,
+    }
+
+
+@router.get("/racuni/export.xlsx")
+def invoices_export_xlsx(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_xlsx
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    data = build_invoices_xlsx(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+    )
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="fakture_{stamp}.xlsx"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@router.get("/racuni/export.pdf")
+def invoices_export_pdf(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_pdf
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    data = build_invoices_pdf(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+    )
+    if data is None:
+        flash(request, "PDF nije moguće generisati (nedostaje font ili fpdf2).", "error")
+        return redirect(f"/racuni?{_invoice_list_qs(q=q or '', status=status or 'all', date_from=date_from or '', date_to=date_to or '', sort=sort or 'number', dir=dir or 'desc', client=client or '', tip=tip or '', doc=doc or '')}")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="fakture_{stamp}.pdf"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@router.get("/racuni/export/stampa", response_class=HTMLResponse)
+def invoices_export_print(
+    request: Request,
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    sort: str | None = Query("number"),
+    dir: str | None = Query("desc"),
+    client: str | None = Query(None),
+    tip: str | None = Query(None),
+    doc: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    from sepko.brand import DISPLAY_NAME
+    from sepko.invoice_export import build_invoices_pdf_html
+
+    labels = _invoice_export_labels(request, tenant)
+    rows = _invoice_export_rows(
+        db,
+        tenant,
+        q=q,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+        dir=dir,
+        client=client,
+        tip=tip,
+        doc=doc,
+        labels=labels,
+    )
+    html = build_invoices_pdf_html(
+        rows=rows,
+        tenant_name=tenant.name,
+        tenant_pib=tenant.pib or "",
+        headers=labels,
+        brand=DISPLAY_NAME,
+        auto_print=False,
+    )
+    return HTMLResponse(
+        content=html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
 def _safe_return_to(raw: str | None) -> str | None:
     """Dozvoli samo interne putanje (npr. /racuni/raspored?new=1)."""
     from urllib.parse import unquote
@@ -1407,6 +2079,13 @@ def _safe_return_to(raw: str | None) -> str | None:
     if not path.startswith("/") or path.startswith("//") or "://" in path:
         return None
     return path[:200]
+
+
+def _artikli_url(return_to: str | None = None) -> str:
+    rt = _safe_return_to(return_to)
+    if rt:
+        return f"/artikli?return_to={quote(rt)}"
+    return "/artikli"
 
 
 def _schedule_templates(db: Session, tenant: Tenant) -> list[Invoice]:
@@ -1719,9 +2398,104 @@ def schedules_activate(
 @router.get("/racuni/obrisi-odabrane")
 @router.get("/racuni/bulk-fiskalizuj")
 @router.get("/racuni/fiskalizuj-odabrane")
+@router.get("/racuni/bulk-export")
+@router.get("/racuni/export-odabrane")
 def invoices_bulk_get_redirect():
     """GET na POST-only bulk URL (refresh / pogrešan method) → lista, ne /racuni/{id}."""
     return redirect("/racuni")
+
+
+def _parse_bulk_invoice_ids(raw_ids: list[str], *, limit: int = 50) -> tuple[list[int], str | None]:
+    """Parsira ID-eve iz forme. Vraća (ids, error_flash) — error_flash ako je prazno / preko limita."""
+    seen: set[int] = set()
+    ids: list[int] = []
+    for raw in raw_ids:
+        try:
+            iid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if iid not in seen:
+            seen.add(iid)
+            ids.append(iid)
+    if not ids:
+        return [], "Označite barem jednu fakturu."
+    if len(ids) > limit:
+        return [], f"Najviše {limit} faktura odjednom."
+    return ids, None
+
+
+@router.post("/racuni/bulk-export")
+@router.post("/racuni/export-odabrane")
+def invoices_bulk_export(
+    request: Request,
+    csrf_token: str = Form(""),
+    invoice_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    """ZIP sa pojedinačnim A4 HTML računima (fiskalizovani i nacrti)."""
+    try:
+        user, tenant = _auth(request, db)
+    except AuthRequired:
+        return redirect("/login")
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect("/racuni")
+    ids, err = _parse_bulk_invoice_ids(invoice_ids, limit=50)
+    if err:
+        flash(request, err, "error")
+        return redirect("/racuni")
+
+    buf = io.BytesIO()
+    used_names: set[str] = set()
+    exported = 0
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for iid in ids:
+            ctx = _invoice_print_context(request, iid, db)
+            if ctx is None or ctx.get("missing"):
+                continue
+            ctx["embed"] = True
+            ctx["auto_print"] = False
+            ctx["back_url"] = f"/racuni/{iid}"
+            ctx["request"] = request
+            try:
+                html = templates.env.get_template("invoice_pdf.html").render(**ctx)
+            except Exception:
+                continue
+            inv = ctx["invoice"]
+            base = safe_filename(display_inv_num(inv)) or f"racun_{iid}"
+            status_bit = "fiskal" if (inv.status or "") == "fiscalized" else "nacrt"
+            fname = f"{base}_{status_bit}.html"
+            if fname in used_names:
+                fname = f"{base}_{status_bit}_{iid}.html"
+            used_names.add(fname)
+            zf.writestr(fname, html.encode("utf-8"))
+            exported += 1
+
+    if exported == 0:
+        flash(request, "Nije pronađena nijedna faktura za izvoz.", "error")
+        return redirect("/racuni")
+
+    write_audit(
+        db,
+        "invoice.bulk_export",
+        tenant_id=tenant.id,
+        entity_type="invoice",
+        detail=f"zip n={exported} ids={','.join(str(i) for i in ids[:50])}",
+    )
+    db.commit()
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    data = buf.getvalue()
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="racuni_{stamp}.zip"',
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @router.post("/racuni/kopiraj")
@@ -1738,21 +2512,9 @@ def invoices_copy(
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/racuni")
-    seen: set[int] = set()
-    ids: list[int] = []
-    for raw in invoice_ids:
-        try:
-            iid = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if iid not in seen:
-            seen.add(iid)
-            ids.append(iid)
-    if not ids:
-        flash(request, "Označite barem jednu fakturu.", "error")
-        return redirect("/racuni")
-    if len(ids) > 50:
-        flash(request, "Najviše 50 faktura odjednom.", "error")
+    ids, err = _parse_bulk_invoice_ids(invoice_ids, limit=50)
+    if err:
+        flash(request, err, "error")
         return redirect("/racuni")
     created = copy_invoices(db, tenant, ids)
     if not created:
@@ -1777,21 +2539,9 @@ def invoices_bulk_delete(
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/racuni")
-    seen: set[int] = set()
-    ids: list[int] = []
-    for raw in invoice_ids:
-        try:
-            iid = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if iid not in seen:
-            seen.add(iid)
-            ids.append(iid)
-    if not ids:
-        flash(request, "Označite barem jednu fakturu.", "error")
-        return redirect("/racuni")
-    if len(ids) > 50:
-        flash(request, "Najviše 50 faktura odjednom.", "error")
+    ids, err = _parse_bulk_invoice_ids(invoice_ids, limit=50)
+    if err:
+        flash(request, err, "error")
         return redirect("/racuni")
     result = delete_draft_invoices(db, tenant, ids)
     msg = f"Obrisano {result['ok']} nacrta."
@@ -1817,21 +2567,9 @@ def invoices_bulk_fiscalize(
     if not validate_csrf(request, csrf_token):
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/racuni")
-    seen: set[int] = set()
-    ids: list[int] = []
-    for raw in invoice_ids:
-        try:
-            iid = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if iid not in seen:
-            seen.add(iid)
-            ids.append(iid)
-    if not ids:
-        flash(request, "Označite barem jednu fakturu.", "error")
-        return redirect("/racuni")
-    if len(ids) > 50:
-        flash(request, "Najviše 50 faktura odjednom.", "error")
+    ids, err = _parse_bulk_invoice_ids(invoice_ids, limit=50)
+    if err:
+        flash(request, err, "error")
         return redirect("/racuni")
     result = fiscalize_invoices(db, tenant, ids)
     msg = (
@@ -1876,6 +2614,75 @@ def invoice_delete(
         return redirect(f"/racuni/{invoice_id}")
     flash(request, "Nacrt fakture je obrisan.")
     return redirect("/racuni")
+
+
+_PERIOD_MONTHS = (
+    "Januar",
+    "Februar",
+    "Mart",
+    "April",
+    "Maj",
+    "Jun",
+    "Jul",
+    "Avgust",
+    "Septembar",
+    "Oktobar",
+    "Novembar",
+    "Decembar",
+)
+
+
+def _parse_period_month_year(period: str, fallback: datetime | None = None) -> tuple[int, int]:
+    """Iz 'Period: Avgust 2026' ili '8/2026' vrati (mjesec, godina)."""
+    now = fallback or datetime.now(timezone.utc)
+    month, year = now.month, now.year
+    raw = (period or "").strip()
+    if not raw:
+        return month, year
+    low = raw.lower()
+    for i, name in enumerate(_PERIOD_MONTHS, start=1):
+        if name.lower() in low:
+            month = i
+            break
+    found_year = re.search(r"(20\d{2})", raw)
+    if found_year:
+        year = int(found_year.group(1))
+    found_md = re.search(r"\b(1[0-2]|0?[1-9])[./](20\d{2})\b", raw)
+    if found_md:
+        month, year = int(found_md.group(1)), int(found_md.group(2))
+    return month, year
+
+
+def _format_period_label(month: str | int | None, year: str | int | None) -> str:
+    try:
+        m = int(month or 0)
+        y = int(year or 0)
+    except (TypeError, ValueError):
+        return ""
+    if m < 1 or m > 12 or y < 2000 or y > 2100:
+        return ""
+    return f"{_PERIOD_MONTHS[m - 1]} {y}"
+
+
+def _split_line_name_note(raw: str | None) -> tuple[str, str]:
+    """Odvoji naziv stavke od opisa (novi red) i sufiksa popusta."""
+    name = raw or ""
+    if " (popust " in name:
+        name = name.split(" (popust ", 1)[0]
+    note = ""
+    if "\n" in name:
+        name, note = name.split("\n", 1)
+    return name.strip(), note.strip()
+
+
+def _compose_line_name(name: str, note: str, disc: Decimal) -> str:
+    name = (name or "").strip()
+    note = (note or "").strip()
+    if note:
+        name = f"{name}\n{note}" if name else note
+    if disc > 0 and "(popust" not in name.lower():
+        name = f"{name} (popust {disc}%)"
+    return name[:255]
 
 
 def _parse_invoice_notes(notes: str | None) -> dict[str, str]:
@@ -1943,22 +2750,29 @@ def _build_fiscalize_request_from_form(
     line_codes: list[str] | None = None,
     line_names: list[str] | None = None,
     line_vats: list[str] | None = None,
+    line_notes: list[str] | None = None,
     discount_pct: str = "0",
     payment_method: str = "BANKNOTE",
+    inv_type: str = "INVOICE",
     customer_id: str = "",
     buyer_pib: str = "",
     buyer_name: str = "",
+    buyer_email: str = "",
     due_date: str = "",
     fiscal_note: str = "",
     notes: str = "",
+    period: str = "",
     external_id: str | None = None,
+    ref_invoice_id: str = "",
 ) -> tuple[FiscalizeRequest | None, str | None]:
     """Zajednički parser forme nove/izmjene fakture. Vraća (req, None) ili (None, error)."""
     from sepko.money import parse_amount, parse_discount_pct, parse_nonneg_money
+    from sepko.efi import CASH_PAY_METHODS, CREDIT_INV_TYPES, normalize_document_type, normalize_pay_method
 
     line_codes = line_codes or []
     line_names = line_names or []
     line_vats = line_vats or []
+    line_notes = line_notes or []
     lines: list[InvoiceLineIn] = []
     for i, aid in enumerate(article_ids):
         qty = parse_amount(qtys[i] if i < len(qtys) and qtys[i] else "0", quantize=None) or Decimal("0")
@@ -1977,6 +2791,11 @@ def _build_fiscalize_request_from_form(
 
         disc = parse_discount_pct(line_discounts[i] if i < len(line_discounts) else "0")
 
+        line_vat_raw = line_vats[i] if i < len(line_vats) and line_vats[i] else ""
+        line_vat_override = parse_amount(line_vat_raw, quantize="0.01") if str(line_vat_raw).strip() else None
+        tax_code: str | None = None
+        unit = "KOM"
+
         if article:
             unit_net = parse_nonneg_money(
                 prices[i] if i < len(prices) and prices[i] else article.price_gross,
@@ -1984,12 +2803,17 @@ def _build_fiscalize_request_from_form(
             )
             if unit_net is None:
                 unit_net = Decimal(str(article.price_gross))
-            vat_rate = article.vat_rate
+            if line_vat_override is not None and line_vat_override >= 0:
+                vat_rate = line_vat_override
+            else:
+                vat_rate = article.vat_rate
+            tax_code = (article.tax_rate_code or "").strip() or None
+            unit = (article.unit or "KOM").strip() or "KOM"
             code = article.code
             name = article.name
             if unit_net <= 0:
                 return None, f"Artikal „{article.name}” nema cijenu. Unesi VP cijenu u šifrarniku."
-            if not (article.tax_rate_code or "").strip():
+            if line_vat_override is None and not tax_code:
                 return None, f"Artikal „{article.name}” nema dodijeljenu PDV stopu."
         else:
             code = (line_codes[i] if i < len(line_codes) else "") or ""
@@ -2000,15 +2824,15 @@ def _build_fiscalize_request_from_form(
                 prices[i] if i < len(prices) and prices[i] else "0",
                 quantize=None,
             ) or Decimal("0")
-            vat_rate = parse_amount(
-                line_vats[i] if i < len(line_vats) and line_vats[i] else "",
-                quantize="0.01",
-            )
+            vat_rate = line_vat_override
             if unit_net <= 0:
                 return None, f"Stavka „{name or code}” nema cijenu."
             if vat_rate is None or vat_rate < 0:
                 return None, f"Stavka „{name or code}” nema dodijeljen PDV."
             vat_rate = vat_rate
+
+        note = line_notes[i] if i < len(line_notes) else ""
+        name = _compose_line_name(name, note, disc)
 
         rate = vat_rate / Decimal("100")
         line_net = (unit_net * qty * (Decimal("1") - disc / Decimal("100"))).quantize(
@@ -2016,8 +2840,6 @@ def _build_fiscalize_request_from_form(
         )
         line_vat = (line_net * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         gross = (line_net + line_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        if disc > 0 and "(popust" not in name.lower():
-            name = f"{name} (popust {disc}%)"
         eff_unit = (
             (line_net / qty).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
             if qty
@@ -2031,6 +2853,8 @@ def _build_fiscalize_request_from_form(
                 unit_price_net=eff_unit,
                 vat_rate=vat_rate,
                 total_gross=gross,
+                tax_rate_code=tax_code,
+                unit=unit,
             )
         )
 
@@ -2068,16 +2892,55 @@ def _build_fiscalize_request_from_form(
         total_vat += vat
 
     payment_method = str(payment_method or "BANKNOTE")
-    from sepko.efi import CASH_PAY_METHODS, normalize_pay_method
-
     try:
         payment_method = normalize_pay_method(payment_method)
     except ValueError:
         return None, "Nepoznat tip plaćanja."
     invoice_type = "CASH" if payment_method in CASH_PAY_METHODS else "NONCASH"
 
+    try:
+        doc_type = normalize_document_type(inv_type)
+    except ValueError:
+        return None, "Nepoznat tip dokumenta."
+
+    iic_ref: str | None = None
+    ref_id: int | None = None
+    if doc_type in CREDIT_INV_TYPES:
+        raw_ref = (ref_invoice_id or "").strip()
+        if not raw_ref.isdigit():
+            return None, "Za knjižno odobrenje / korektivni odaberi originalni fiskalizovani račun."
+        ref_id = int(raw_ref)
+        orig = (
+            db.query(Invoice)
+            .filter(
+                Invoice.tenant_id == tenant.id,
+                Invoice.id == ref_id,
+                Invoice.status == InvoiceStatus.fiscalized.value,
+                Invoice.ikof.isnot(None),
+            )
+            .first()
+        )
+        if not orig or not orig.ikof:
+            return None, "Originalni račun nije pronađen ili nije fiskalizovan."
+        iic_ref = orig.ikof.strip().upper()
+        if total_gross > 0:
+            lines = [
+                ln.model_copy(
+                    update={
+                        "quantity": -abs(ln.quantity),
+                        "total_gross": -abs(ln.total_gross),
+                    }
+                )
+                for ln in lines
+            ]
+            total_net = -abs(total_net)
+            total_vat = -abs(total_vat)
+            total_gross = -abs(total_gross)
+
     buyer = None
     customer_id = (customer_id or "").strip()
+    form_pib = (buyer_pib or "").strip() or None
+    form_name = (buyer_name or "").strip() or None
     if customer_id:
         customer = _get_customer(db, tenant, int(customer_id))
         if customer:
@@ -2087,16 +2950,17 @@ def _build_fiscalize_request_from_form(
                 address=customer.composed_address(),
             )
     else:
-        buyer_pib = (buyer_pib or "").strip() or None
-        buyer_name = (buyer_name or "").strip() or None
-        if buyer_pib or buyer_name:
-            buyer = BuyerIn(pib=buyer_pib, name=buyer_name)
+        if form_pib or form_name:
+            buyer = BuyerIn(pib=form_pib, name=form_name)
 
     note_parts: list[str] = []
     due = (due_date or "").strip()
     if not due:
         due = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
     note_parts.append(f"Rok plaćanja: {due}")
+    period_label = (period or "").strip()
+    if period_label:
+        note_parts.append(f"Period: {period_label}")
     fiscal_note = (fiscal_note or "").strip()
     if fiscal_note:
         note_parts.append(f"Napomena fiskalizacija: {fiscal_note}")
@@ -2105,18 +2969,26 @@ def _build_fiscalize_request_from_form(
         note_parts.append(desc)
     if inv_discount > 0:
         note_parts.append(f"Popust na račun: {inv_discount}%")
+    if iic_ref:
+        note_parts.append(f"IICRef: {iic_ref}")
 
-    req = FiscalizeRequest(
-        external_id=external_id,
-        issue_datetime=datetime.now(timezone.utc),
-        invoice_type=invoice_type,
-        payment_method=payment_method,
-        currency="EUR",
-        buyer=buyer,
-        lines=lines,
-        totals=TotalsIn(net=total_net, vat=total_vat, gross=total_gross),
-        notes="\n".join(note_parts) or None,
-    )
+    try:
+        req = FiscalizeRequest(
+            external_id=external_id,
+            issue_datetime=datetime.now(timezone.utc),
+            invoice_type=invoice_type,
+            payment_method=payment_method,
+            inv_type=doc_type,
+            currency="EUR",
+            buyer=buyer,
+            lines=lines,
+            totals=TotalsIn(net=total_net, vat=total_vat, gross=total_gross),
+            notes="\n".join(note_parts) or None,
+            iic_ref=iic_ref,
+            ref_invoice_id=ref_id,
+        )
+    except Exception as exc:
+        return None, str(exc)
     return req, None
 
 
@@ -2142,7 +3014,22 @@ def _invoice_editor_context(
         .order_by(Customer.name)
         .all()
     )
-    next_num, next_ord = preview_inv_num(db, tenant)
+    from sepko.services import backfill_local_ord_nums, preview_local_display_num
+
+    needs_backfill = (
+        db.query(Invoice.id)
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.local_ord_num.is_(None),
+            Invoice.inv_ord_num.isnot(None),
+            Invoice.is_template.is_(False),
+        )
+        .limit(1)
+        .first()
+    )
+    if needs_backfill:
+        backfill_local_ord_nums(db, tenant.id)
+    _, next_ord = preview_inv_num(db, tenant)
     day = cash_day_summary(db, tenant)
     due_default = (datetime.now(timezone.utc).date() + timedelta(days=15)).isoformat()
 
@@ -2166,29 +3053,38 @@ def _invoice_editor_context(
                     articles.append(a)
                     seen_ids.add(a.id)
 
+        from sepko.efi import CREDIT_INV_TYPES as _CREDIT_TYPES
+
         prefill_lines = []
         for ln in invoice.lines:
             art = articles_by_code.get(ln.code)
-            # skinuti "(popust X%)" iz imena za prikaz
-            name = ln.name or ""
-            if " (popust " in name:
-                name = name.split(" (popust ", 1)[0]
+            name, note = _split_line_name_note(ln.name or "")
+            if not name:
+                name = art.name if art else ln.code
+            # UI unosi pozitivne količine; kredit/korektivni se negira u builderu
+            qty_ui = float(ln.quantity)
+            if (invoice.inv_type or "") in _CREDIT_TYPES and qty_ui < 0:
+                qty_ui = abs(qty_ui)
             prefill_lines.append(
                 {
                     "id": art.id if art else f"x-{ln.id}",
                     "code": ln.code,
                     "name": name or (art.name if art else ln.code),
-                    "unit": (art.unit if art else "kom"),
-                    "price": float(ln.unit_price_net),
+                    "note": note,
+                    "unit": (ln.unit or (art.unit if art else None) or "kom"),
+                    "price": float(abs(ln.unit_price_net)),
                     "vat": float(ln.vat_rate),
-                    "tax": (art.tax_rate_code if art else "") or "",
-                    "qty": float(ln.quantity),
+                    "tax": (ln.tax_rate_code or (art.tax_rate_code if art else "") or ""),
+                    "qty": qty_ui,
                     "discount": 0,
                 }
             )
 
         customer_id = ""
         customer_label = ""
+        customer_email = ""
+        buyer_pib = invoice.buyer_pib or ""
+        buyer_name = invoice.buyer_name or ""
         if invoice.buyer_pib:
             cust = (
                 db.query(Customer)
@@ -2202,39 +3098,101 @@ def _invoice_editor_context(
             if cust:
                 customer_id = str(cust.id)
                 customer_label = f"{cust.name} ({cust.pib})"
+                customer_email = (cust.email or "").strip()
+                buyer_pib = cust.pib or buyer_pib
+                buyer_name = cust.name or buyer_name
             elif invoice.buyer_name:
                 customer_label = f"{invoice.buyer_name} ({invoice.buyer_pib})"
         elif invoice.buyer_name:
             customer_label = invoice.buyer_name
 
+        issue_at = invoice.issue_datetime or datetime.now(timezone.utc)
+        period_month, period_year = _parse_period_month_year(parsed.get("period") or "", issue_at)
+        last_change = invoice.updated_at or invoice.created_at or issue_at
+        if last_change.tzinfo is None:
+            last_change = last_change.replace(tzinfo=timezone.utc)
         prefill = {
             "customer_id": customer_id,
             "customer_label": customer_label,
-            "buyer_pib": "" if customer_id else (invoice.buyer_pib or ""),
-            "buyer_name": "" if customer_id else (invoice.buyer_name or ""),
-            "manual_buyer": not customer_id and bool(invoice.buyer_pib or invoice.buyer_name),
+            "customer_email": customer_email,
+            "buyer_pib": buyer_pib,
+            "buyer_name": buyer_name,
+            "manual_buyer": not customer_id and bool(buyer_pib or buyer_name),
             "payment_method": invoice.payment_method or "ORDER",
+            "inv_type": invoice.inv_type or "INVOICE",
             "due_date": parsed["due_date_iso"] or due_default,
             "fiscal_note": parsed["fiscal_note"],
             "notes": parsed["desc_note"],
             "discount_pct": float(parsed["discount_pct"] or 0),
+            "period_month": period_month,
+            "period_year": period_year,
             "lines": prefill_lines,
+            "last_change": last_change.strftime("%d.%m.%Y %H:%M"),
+            "ref_invoice_id": str(invoice.ref_invoice_id or "") if invoice.ref_invoice_id else "",
         }
+
+    now = datetime.now(timezone.utc)
+    period_month = (prefill or {}).get("period_month") or now.month
+    period_year = (prefill or {}).get("period_year") or now.year
+    year_choices = list(range(now.year - 1, now.year + 2))
+    if period_year not in year_choices:
+        year_choices.append(int(period_year))
+        year_choices.sort()
+
+    from sepko.efi import (
+        DOCUMENT_TYPE_LABELS,
+        UI_DOCUMENT_TYPES,
+        display_inv_num,
+    )
+
+    tax_rates = ensure_tax_rates(db, tenant)
+
+    if invoice is not None and invoice.local_ord_num:
+        display_num = display_inv_num(invoice)
+    else:
+        when = (invoice.issue_datetime if invoice is not None else None) or now
+        display_num = preview_local_display_num(db, tenant, when)
+
+    ref_filters = [
+        Invoice.tenant_id == tenant.id,
+        Invoice.status == InvoiceStatus.fiscalized.value,
+        Invoice.ikof.isnot(None),
+        Invoice.is_template.is_(False),
+    ]
+    if invoice is not None:
+        ref_filters.append(Invoice.id != invoice.id)
+    ref_q = (
+        db.query(Invoice)
+        .filter(*ref_filters)
+        .order_by(Invoice.issue_datetime.desc())
+        .limit(200)
+    )
+    ref_invoices = [
+        {
+            "id": inv.id,
+            "label": f"{display_inv_num(inv)} · {(inv.ikof or '')[:8]}… · {inv.total_gross} EUR",
+            "ikof": inv.ikof,
+        }
+        for inv in ref_q.all()
+    ]
 
     return {
         "user": user,
         "tenant": tenant,
         "articles": articles,
         "customers": customers,
-        "next_inv_num": (
-            next_num if invoice is None else (invoice.inv_num or invoice.external_id or "—")
-        ),
+        "tax_rates": tax_rates,
+        "document_types": [
+            {"code": code, "label": DOCUMENT_TYPE_LABELS[code]} for code in UI_DOCUMENT_TYPES
+        ],
+        "inv_type": (prefill or {}).get("inv_type") or "INVOICE",
+        "period_months": list(enumerate(_PERIOD_MONTHS, start=1)),
+        "period_years": year_choices,
+        "period_month": int(period_month),
+        "period_year": int(period_year),
+        "next_inv_num": display_num,
         "next_ord": next_ord,
-        "next_display_num": (
-            f"1-1-{next_ord}/{datetime.now(timezone.utc).year}"
-            if invoice is None
-            else display_inv_num(invoice)
-        ),
+        "next_display_num": display_num,
         "day": day,
         "due_date_default": (
             due_default if invoice is None else (prefill or {}).get("due_date", due_default)
@@ -2244,6 +3202,8 @@ def _invoice_editor_context(
         "prefill": prefill,
         "return_to": return_to or "",
         "as_template": bool(as_template or (invoice.is_template if invoice else False)),
+        "ref_invoices": ref_invoices,
+        "ref_invoice_id": (prefill or {}).get("ref_invoice_id") or "",
     }
 
 
@@ -2258,14 +3218,27 @@ def invoice_new_page(
         user, tenant = _auth(request, db)
     except AuthRequired:
         return redirect("/login")
+    safe_return = _safe_return_to(return_to)
     ctx = _invoice_editor_context(
         request,
         db,
         user,
         tenant,
-        return_to=_safe_return_to(return_to),
+        return_to=safe_return,
         as_template=bool(as_template),
     )
+    # Bez artikala UI fakture nema šta da ponudi — vodi na šifrarnik, pa nazad.
+    if not ctx["articles"]:
+        flash(request, "Prvo dodaj barem jedan artikal, pa napravi fakturu.")
+        next_path = "/racuni/novi"
+        q: list[str] = []
+        if as_template:
+            q.append("as_template=1")
+        if safe_return:
+            q.append(f"return_to={quote(safe_return)}")
+        if q:
+            next_path = f"{next_path}?{'&'.join(q)}"
+        return redirect(_artikli_url(next_path))
     return render(request, "invoice_new.html", ctx)
 
 
@@ -2280,17 +3253,23 @@ def invoice_new_submit(
     line_code: list[str] = Form(default=[]),
     line_name: list[str] = Form(default=[]),
     line_vat: list[str] = Form(default=[]),
+    line_note: list[str] = Form(default=[]),
     discount_pct: str = Form("0"),
-    payment_method: str = Form("BANKNOTE"),
+    payment_method: str = Form("ORDER"),
+    inv_type: str = Form("INVOICE"),
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
+    buyer_email: str = Form(""),
     due_date: str = Form(""),
     fiscal_note: str = Form(""),
     notes: str = Form(""),
+    period_month: str = Form(""),
+    period_year: str = Form(""),
     action: str = Form("fiscalize"),
     return_to: str = Form(""),
     as_template: str = Form(""),
+    ref_invoice_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
@@ -2315,14 +3294,19 @@ def invoice_new_submit(
         line_codes=line_code,
         line_names=line_name,
         line_vats=line_vat,
+        line_notes=line_note,
         discount_pct=discount_pct,
         payment_method=payment_method,
+        inv_type=inv_type,
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
+        buyer_email=buyer_email,
         due_date=due_date,
         fiscal_note=fiscal_note,
         notes=notes,
+        period=_format_period_label(period_month, period_year),
+        ref_invoice_id=ref_invoice_id,
     )
     if err or not req:
         flash(request, err or "Neispravna forma.", "error")
@@ -2346,7 +3330,22 @@ def invoice_new_submit(
 
     result = fiscalize_invoice(db, tenant, req)
     if result.status == "fiscalized":
-        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
+        inv = (
+            db.query(Invoice)
+            .filter(Invoice.tenant_id == tenant.id, Invoice.external_id == result.external_id)
+            .first()
+        )
+        if inv:
+            return redirect(f"/racuni/{inv.id}")
+        return redirect("/racuni")
+
+    if result.offline and result.ikof:
+        flash(
+            request,
+            f"Offline fiskalizacija (IKOF {result.ikof}). JIKR će biti dobijen u roku od 48h.",
+            "warn",
+        )
         inv = (
             db.query(Invoice)
             .filter(Invoice.tenant_id == tenant.id, Invoice.external_id == result.external_id)
@@ -2408,17 +3407,23 @@ def invoice_edit_submit(
     line_code: list[str] = Form(default=[]),
     line_name: list[str] = Form(default=[]),
     line_vat: list[str] = Form(default=[]),
+    line_note: list[str] = Form(default=[]),
     discount_pct: str = Form("0"),
-    payment_method: str = Form("BANKNOTE"),
+    payment_method: str = Form("ORDER"),
+    inv_type: str = Form("INVOICE"),
     customer_id: str = Form(""),
     buyer_pib: str = Form(""),
     buyer_name: str = Form(""),
+    buyer_email: str = Form(""),
     due_date: str = Form(""),
     fiscal_note: str = Form(""),
     notes: str = Form(""),
+    period_month: str = Form(""),
+    period_year: str = Form(""),
     action: str = Form("save"),
     return_to: str = Form(""),
     as_template: str = Form(""),
+    ref_invoice_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
@@ -2456,15 +3461,20 @@ def invoice_edit_submit(
         line_codes=line_code,
         line_names=line_name,
         line_vats=line_vat,
+        line_notes=line_note,
         discount_pct=discount_pct,
         payment_method=payment_method,
+        inv_type=inv_type,
         customer_id=customer_id,
         buyer_pib=buyer_pib,
         buyer_name=buyer_name,
+        buyer_email=buyer_email,
         due_date=due_date,
         fiscal_note=fiscal_note,
         notes=notes,
+        period=_format_period_label(period_month, period_year),
         external_id=invoice.external_id,
+        ref_invoice_id=ref_invoice_id,
     )
     if err or not req:
         flash(request, err or "Neispravna forma.", "error")
@@ -2497,7 +3507,13 @@ def invoice_edit_submit(
             flash(request, f"Greška: {exc}", "error")
             return redirect(f"/racuni/{invoice_id}")
         if result.status == "fiscalized":
-            flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+            flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
+        elif result.offline and result.ikof:
+            flash(
+                request,
+                f"Offline fiskalizacija (IKOF {result.ikof}). JIKR će biti dobijen u roku od 48h.",
+                "warn",
+            )
         else:
             flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
         return redirect(f"/racuni/{invoice_id}")
@@ -2537,7 +3553,13 @@ def invoice_fiscalize_one(
         flash(request, f"Greška: {exc}", "error")
         return redirect(f"/racuni/{invoice_id}")
     if result.status == "fiscalized":
-        flash(request, f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}")
+        flash(request, f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}")
+    elif result.offline and result.ikof:
+        flash(
+            request,
+            f"Offline fiskalizacija (IKOF {result.ikof}). JIKR će biti dobijen u roku od 48h.",
+            "warn",
+        )
     else:
         flash(request, result.error_message or "Fiskalizacija nije uspjela.", "error")
     return redirect(f"/racuni/{invoice_id}")
@@ -2557,6 +3579,8 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
     if not invoice:
         flash(request, "Račun nije pronađen.", "error")
         return redirect("/racuni")
+    if invoice_is_editable(invoice):
+        return redirect(f"/racuni/{invoice_id}/izmijeni")
 
     readonly = not invoice_is_editable(invoice)
     parsed = _parse_invoice_notes(invoice.notes)
@@ -2575,6 +3599,8 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
         "OTHER": "Drugo bezgotovinsko",
         "ACCOUNT": "Na račun",
     }
+    from sepko.efi import document_type_label
+
     buyer_customer: Customer | None = None
     if invoice.buyer_pib:
         buyer_customer = (
@@ -2599,14 +3625,22 @@ def invoice_view(request: Request, invoice_id: int, db: Session = Depends(get_db
             "contract_number": contract_number,
             "period": period,
             "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
+            "doc_label": document_type_label(invoice.inv_type),
             "buyer_customer": buyer_customer,
         },
     )
 
 
 @router.get("/racuni/{invoice_id:int}/pdf", response_class=HTMLResponse)
-def invoice_pdf(request: Request, invoice_id: int, db: Session = Depends(get_db)):
-    return _render_invoice_print(request, invoice_id, db, force="a4")
+def invoice_pdf(
+    request: Request,
+    invoice_id: int,
+    embed: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    return _render_invoice_print(
+        request, invoice_id, db, force="a4", embed=embed in ("1", "true", "yes")
+    )
 
 
 @router.get("/racuni/{invoice_id:int}/stampa", response_class=HTMLResponse)
@@ -2616,6 +3650,7 @@ def invoice_print(
     fmt: str = Query(""),
     auto: str = Query(""),
     back: str = Query(""),
+    embed: str = Query(""),
     db: Session = Depends(get_db),
 ):
     return _render_invoice_print(
@@ -2625,6 +3660,7 @@ def invoice_print(
         force=fmt,
         auto_print=auto in ("1", "true", "yes"),
         back_url=back,
+        embed=embed in ("1", "true", "yes"),
     )
 
 
@@ -2652,7 +3688,7 @@ def invoice_escpos(request: Request, invoice_id: int, db: Session = Depends(get_
     raw = build_receipt(
         seller_name=ctx["tenant"].name,
         seller_pib=ctx["tenant"].pib,
-        inv_num=invoice.inv_num or invoice.external_id or str(invoice.id),
+        inv_num=display_inv_num(invoice),
         issue_dt=ctx["issue_dt"],
         buyer_name=invoice.buyer_name,
         lines=ctx["line_rows"],
@@ -2732,6 +3768,12 @@ def _invoice_print_context(request: Request, invoice_id: int, db: Session) -> di
             buyer_pdv = cust.pdv_number
         if cust and cust.logo_filename:
             buyer_logo_url = f"/kupci/{cust.id}/logo"
+
+    company_logo_uri = None
+    if company.logo_filename:
+        from sepko.uploads import image_data_uri, resolve_company_logo
+
+        company_logo_uri = image_data_uri(resolve_company_logo(tenant.id, company.logo_filename))
 
     article_units: dict[str, str] = {}
     codes = [ln.code for ln in invoice.lines if ln.code]
@@ -2815,6 +3857,7 @@ def _invoice_print_context(request: Request, invoice_id: int, db: Session) -> di
         "pay_label": pay_labels.get(invoice.payment_method, invoice.payment_method),
         "buyer_pdv": buyer_pdv,
         "buyer_logo_url": buyer_logo_url,
+        "company_logo_uri": company_logo_uri,
         "line_rows": line_rows,
         "exempt_rows": exempt_rows,
         "issuer_label": issuer_label,
@@ -2838,6 +3881,7 @@ def _render_invoice_print(
     *,
     auto_print: bool = False,
     back_url: str = "",
+    embed: bool = False,
 ):
     ctx = _invoice_print_context(request, invoice_id, db)
     if ctx is None:
@@ -2852,6 +3896,7 @@ def _render_invoice_print(
     ctx["escpos_url"] = f"/racuni/{invoice_id}/escpos"
     ctx["printer_name"] = ui.printer_name or ""
     ctx["auto_print"] = auto_print
+    ctx["embed"] = embed
     back = (back_url or "").strip()
     if back.startswith("/") and not back.startswith("//"):
         ctx["back_url"] = back
@@ -2931,11 +3976,26 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "fiscal": load_tenant_fiscal(tenant),
             "ui": load_tenant_ui(tenant),
             "company": load_tenant_company(tenant),
-            "token_providers": [(c, FISCAL_TOKEN_LABELS[c]) for c in FISCAL_TOKEN_PROVIDERS],
             "operators": [],
             "editing_op": None,
         },
     )
+
+
+@router.get("/podesavanja/logo")
+def settings_company_logo(request: Request, db: Session = Depends(get_db)):
+    pair = _require_admin(request, db)
+    if pair is None:
+        return redirect("/login" if not request.session.get("user_id") else "/")
+    _user, tenant = pair
+    company = load_tenant_company(tenant)
+    from sepko.uploads import resolve_company_logo
+
+    path = resolve_company_logo(tenant.id, company.logo_filename or None)
+    if not path:
+        flash(request, "Logo nije pronađen.", "error")
+        return redirect("/podesavanja")
+    return FileResponse(path)
 
 
 @router.get("/podesavanja/stampa", response_class=HTMLResponse)
@@ -2996,22 +4056,11 @@ def settings_operators_page(
 
 
 @router.post("/podesavanja")
-def settings_save_basic(
+async def settings_save_basic(
     request: Request,
     csrf_token: str = Form(""),
     name: str = Form(...),
     pib: str = Form(...),
-    mode: str = Form("test"),
-    busin_unit_code: str = Form(""),
-    tcr_code: str = Form(""),
-    soft_code: str = Form(""),
-    operator_code: str = Form(""),
-    is_issuer_in_vat: str = Form("true"),
-    token_provider: str = Form(""),
-    telekom_token: str = Form(""),
-    posta_token: str = Form(""),
-    clear_telekom_token: str = Form(""),
-    clear_posta_token: str = Form(""),
     language: str = Form("cnr"),
     max_invoice_amount: str = Form("1000000.00"),
     default_opening_cash: str = Form("0,00"),
@@ -3026,7 +4075,8 @@ def settings_save_basic(
     company_address2: str = Form(""),
     company_pdv_number: str = Form(""),
     company_bank_account: str = Form(""),
-    company_website: str = Form(""),
+    remove_logo: str = Form(""),
+    logo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
     pair = _require_admin(request, db)
@@ -3039,22 +4089,20 @@ def settings_save_basic(
 
     tenant.name = name.strip()
     tenant.pib = pib.strip()
-    tenant.mode = mode if mode in ("test", "prod") else "test"
-    save_tenant_fiscal(
-        tenant,
-        TenantFiscal(
-            busin_unit_code=busin_unit_code.strip(),
-            tcr_code=tcr_code.strip(),
-            soft_code=soft_code.strip(),
-            operator_code=operator_code.strip(),
-            is_issuer_in_vat=is_issuer_in_vat in ("true", "on", "1", "da"),
-            token_provider=token_provider.strip().lower(),
-        ),
-        telekom_token_new=telekom_token,
-        posta_token_new=posta_token,
-        clear_telekom_token=clear_telekom_token in ("1", "on", "true"),
-        clear_posta_token=clear_posta_token in ("1", "on", "true"),
-    )
+    # mode / EFI / tokeni / website — samo platform admin (/admin/tenanti/…)
+    company = load_tenant_company(tenant)
+    logo_name = company.logo_filename or None
+    try:
+        from sepko.uploads import delete_company_logo, save_company_logo
+
+        if remove_logo in ("1", "on", "true"):
+            delete_company_logo(tenant.id, logo_name)
+            logo_name = None
+        else:
+            logo_name = await save_company_logo(tenant.id, logo, previous=logo_name)
+    except ValueError as exc:
+        flash(request, str(exc), "error")
+        return redirect("/podesavanja")
     save_tenant_company(
         tenant,
         TenantCompany(
@@ -3062,7 +4110,8 @@ def settings_save_basic(
             address2=company_address2.strip(),
             pdv_number=company_pdv_number.strip(),
             bank_account=company_bank_account.strip(),
-            website=company_website.strip(),
+            website=company.website,
+            logo_filename=logo_name or "",
         ),
     )
     ui = load_tenant_ui(tenant)

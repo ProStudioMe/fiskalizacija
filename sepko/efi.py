@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from urllib.parse import urlencode
 from typing import Any
@@ -16,7 +16,41 @@ from typing import Any
 from sepko.models import Tenant
 from sepko.crypto import decrypt_secret, encrypt_secret
 
-INV_TYPES = ("INVOICE", "CORRECTIVE", "SUMMARY", "PERIODICAL", "ADVANCE", "CREDIT_NOTE")
+INV_TYPES = (
+    "INVOICE",
+    "ADVANCE",
+    "CREDIT_NOTE",
+    "CORRECTIVE",
+    "ERROR_CORRECTIVE",
+    "SUMMARY",
+    "PERIODICAL",
+)
+
+# Predračun nije EFI InvType — čuva se interno, ne šalje se na fiskalizaciju.
+DOCUMENT_TYPES = INV_TYPES + ("PROFORMA",)
+
+# Redoslijed na formi — nazivi prate Zakon o PDV-u CG (čl.31) + EFI InvType.
+UI_DOCUMENT_TYPES = (
+    "INVOICE",
+    "ADVANCE",
+    "CREDIT_NOTE",
+    "CORRECTIVE",
+    "ERROR_CORRECTIVE",
+    "PROFORMA",
+    "SUMMARY",
+    "PERIODICAL",
+)
+
+DOCUMENT_TYPE_LABELS = {
+    "INVOICE": "Račun",
+    "ADVANCE": "Avansni račun",
+    "CREDIT_NOTE": "Knjižno odobrenje",
+    "CORRECTIVE": "Korektivni račun",
+    "ERROR_CORRECTIVE": "Ispravka greške",
+    "PROFORMA": "Predračun",
+    "SUMMARY": "Zbirni račun",
+    "PERIODICAL": "Periodični račun",
+}
 
 TYPE_OF_INV = ("CASH", "NONCASH")
 
@@ -74,6 +108,9 @@ PAY_METHOD_ALIASES = {
 
 QR_BASE_TEST = "https://efitest.tax.gov.me/ic/#/verify"
 QR_BASE_PROD = "https://mapr.tax.gov.me/ic/#/verify"
+
+# Tipovi sa referencom na original (IICRef) — negativni iznosi dozvoljeni.
+CREDIT_INV_TYPES = frozenset({"CREDIT_NOTE", "CORRECTIVE", "ERROR_CORRECTIVE"})
 
 # Token / potpis: PKCS#12 fajl, ili token Telekoma / Pošte Crne Gore
 FISCAL_TOKEN_PROVIDERS = ("", "pkcs12", "telekom", "posta")
@@ -133,10 +170,24 @@ def normalize_pay_method(value: str) -> str:
 
 
 def normalize_inv_type(value: str | None) -> str:
+    """EFI InvType — bez PROFORMA."""
     v = (value or "INVOICE").strip().upper()
     if v not in INV_TYPES:
         raise ValueError(f"inv_type must be one of {INV_TYPES}")
     return v
+
+
+def normalize_document_type(value: str | None) -> str:
+    """Tip dokumenta na formi / u bazi (uključuje Predračun)."""
+    v = (value or "INVOICE").strip().upper()
+    if v not in DOCUMENT_TYPES:
+        raise ValueError(f"document type must be one of {DOCUMENT_TYPES}")
+    return v
+
+
+def document_type_label(code: str | None) -> str:
+    c = (code or "INVOICE").strip().upper()
+    return DOCUMENT_TYPE_LABELS.get(c, c)
 
 
 def _settings_dict(tenant: Tenant) -> dict[str, Any]:
@@ -221,6 +272,7 @@ class TenantCompany:
     pdv_number: str = ""
     bank_account: str = ""
     website: str = ""
+    logo_filename: str = ""
 
 
 def load_tenant_company(tenant: Tenant) -> TenantCompany:
@@ -310,50 +362,145 @@ def build_inv_num(busin_unit_code: str, ord_num: int, year: int, tcr_code: str) 
     return f"{bu}/{ord_num}/{year}/{tcr}"
 
 
-def parse_display_inv_num(text: str, series: str = "1-1") -> tuple[int, int] | None:
-    """Parsira lokalni broj 1-1-{rbr}/{godina} → (ord_num, year)."""
+def format_display_inv_num(
+    ord_num: int,
+    when: datetime | None = None,
+    *,
+    series: str = "1",
+) -> str:
+    """Lokalni prikaz: 1-{mjesec}-{rbr}/{godina} npr. 1-09-002/2026."""
+    when = when or datetime.now(timezone.utc)
+    return f"{series}-{when.month:02d}-{int(ord_num):03d}/{when.year}"
+
+
+def parse_display_inv_num(
+    text: str, series: str = "1"
+) -> tuple[int, int | None, int | None] | None:
+    """Parsira lokalni broj → (ord_num, year|None, month|None).
+
+    Podržava:
+    - 1-09-002/2026 (trenutna forma)
+    - 1-09-002 (bez godine)
+    - 1-1-32/2026 (stara forma; month=None)
+    - 32/2026
+    """
     raw = (text or "").strip()
     if not raw:
         return None
-    # 1-1-32/2026 ili 1-1-32-2026
+    # 1-09-002/2026 ili 1-9-2/2026
     m = re.match(
-        rf"^{re.escape(series)}-(\d+)[/.\-](\d{{4}})$",
+        rf"^{re.escape(series)}-(\d{{1,2}})-(\d{{1,7}})/(\d{{4}})$",
         raw,
         re.I,
     )
     if m:
-        return int(m.group(1)), int(m.group(2))
-    # samo 32/2026
+        month = int(m.group(1))
+        ord_num = int(m.group(2))
+        year = int(m.group(3))
+        if 1 <= month <= 12 and ord_num >= 1:
+            return ord_num, year, month
+    # 1-09-002 bez godine
+    m = re.match(
+        rf"^{re.escape(series)}-(\d{{1,2}})-(\d{{1,7}})$",
+        raw,
+        re.I,
+    )
+    if m:
+        month = int(m.group(1))
+        ord_num = int(m.group(2))
+        if 1 <= month <= 12 and ord_num >= 1:
+            return ord_num, None, month
+    legacy_series = f"{series}-1"
+    m = re.match(
+        rf"^{re.escape(legacy_series)}-(\d+)[/.\-](\d{{4}})$",
+        raw,
+        re.I,
+    )
+    if m:
+        return int(m.group(1)), int(m.group(2)), None
     m = re.match(r"^(\d+)[/.\-](\d{4})$", raw)
     if m:
-        return int(m.group(1)), int(m.group(2))
+        return int(m.group(1)), int(m.group(2)), None
     return None
 
 
-def display_inv_num(invoice: Any, series: str = "1-1") -> str:
-    """Lokalni VG-stil prikaz: 1-1-{rbr}/{godina}. EFI InvNum ostaje u inv_num."""
-    ord_num = getattr(invoice, "inv_ord_num", None)
+def display_inv_num(invoice: Any, series: str = "1") -> str:
+    """Lokalni prikaz: 1-{mjesec}-{rbr}/{godina}. EFI InvNum ostaje u inv_num.
+
+    rbr je mjesečni (local_ord_num), ne godišnji EFI inv_ord_num.
+    """
     when = getattr(invoice, "issue_datetime", None)
-    year = when.year if when is not None else None
+    local_ord = getattr(invoice, "local_ord_num", None)
+    ord_num = local_ord
     raw = getattr(invoice, "inv_num", None) or getattr(invoice, "external_id", None) or ""
     if not ord_num and raw:
         parts = str(raw).split("/")
         if len(parts) >= 3 and parts[1].isdigit():
-            ord_num = int(parts[1])
-            if year is None and parts[2].isdigit() and len(parts[2]) == 4:
-                year = int(parts[2])
-    if year is None:
-        year = datetime.now().year
+            if when is None and parts[2].isdigit() and len(parts[2]) == 4:
+                when = datetime(int(parts[2]), 1, 1, tzinfo=timezone.utc)
     if not ord_num:
         status = getattr(invoice, "status", None)
         if status in ("draft", "pending"):
             return "Nacrt"
         return "—"
-    return f"{series}-{ord_num}/{year}"
+    return format_display_inv_num(int(ord_num), when, series=series)
 
 
 def qr_base_url(mode: str) -> str:
     return QR_BASE_PROD if mode == "prod" else QR_BASE_TEST
+
+
+def exempt_from_vat_code(tax_rate_code: str | None) -> str | None:
+    """Map Sepko tax_rate_code (EX26…) → EFI ExemptFromVAT (VAT_CL_26).
+
+    PDV0 (nulta stopa čl.25) nije oslobođenje — šalje se samo vr=0 bez ex.
+    """
+    code = (tax_rate_code or "").strip().upper()
+    if code.startswith("EX") and code[2:].isdigit():
+        return f"VAT_CL_{int(code[2:])}"
+    return None
+
+
+def build_same_taxes(lines: list[Any]) -> list[dict[str, Any]]:
+    """EFI SameTaxes — agregacija po stopi / oslobođenju."""
+    buckets: dict[tuple[str, str], dict[str, Any]] = {}
+    for line in lines:
+        vr = f"{Decimal(str(line.vat_rate)):.2f}"
+        ex = exempt_from_vat_code(getattr(line, "tax_rate_code", None)) or ""
+        key = (vr, ex)
+        net = (Decimal(str(line.unit_price_net)) * Decimal(str(line.quantity))).quantize(
+            Decimal("0.01")
+        )
+        gross = Decimal(str(line.total_gross)).quantize(Decimal("0.01"))
+        vat = (gross - net).quantize(Decimal("0.01"))
+        if key not in buckets:
+            buckets[key] = {
+                "vatRate": vr,
+                "numOfItems": 0,
+                "priceBeforeVAT": Decimal("0.00"),
+                "vatAmt": Decimal("0.00"),
+                "priceAfterVAT": Decimal("0.00"),
+            }
+            if ex:
+                buckets[key]["exemptFromVAT"] = ex
+        b = buckets[key]
+        b["numOfItems"] += 1
+        b["priceBeforeVAT"] += net
+        b["vatAmt"] += vat
+        b["priceAfterVAT"] += gross
+    out: list[dict[str, Any]] = []
+    for b in buckets.values():
+        row = {
+            "vatRate": b["vatRate"],
+            "numOfItems": b["numOfItems"],
+            "priceBeforeVAT": f"{b['priceBeforeVAT']:.2f}",
+            "vatAmt": f"{b['vatAmt']:.2f}",
+            "priceAfterVAT": f"{b['priceAfterVAT']:.2f}",
+        }
+        if b.get("exemptFromVAT"):
+            row["exemptFromVAT"] = b["exemptFromVAT"]
+        out.append(row)
+    return out
 
 
 def build_qr_url(
@@ -403,19 +550,23 @@ def to_navira_payload(
             "name": request.buyer.name,
             "address": request.buyer.address,
         }
-    items = [
-        {
+    items: list[dict[str, Any]] = []
+    for line in request.lines:
+        item: dict[str, Any] = {
             "n": line.name,
             "c": line.code,
-            "u": "KOM",
+            "u": (getattr(line, "unit", None) or "KOM"),
             "q": str(line.quantity),
             "upb": str(line.unit_price_net),
             "vr": str(line.vat_rate),
             "pa": str(line.total_gross),
         }
-        for line in request.lines
-    ]
-    return {
+        ex = exempt_from_vat_code(getattr(line, "tax_rate_code", None))
+        if ex:
+            item["ex"] = ex
+            item["exemptFromVAT"] = ex
+        items.append(item)
+    payload: dict[str, Any] = {
         "tin": tenant.pib,
         "businUnitCode": fiscal.busin_unit_code,
         "tcrCode": fiscal.tcr_code,
@@ -433,6 +584,7 @@ def to_navira_payload(
         "payMethods": [{"type": request.payment_method, "amt": str(request.totals.gross)}],
         "buyer": buyer,
         "items": items,
+        "sameTaxes": build_same_taxes(list(request.lines)),
         "totPriceWoVAT": str(request.totals.net),
         "totVATAmt": str(request.totals.vat),
         "totPrice": str(request.totals.gross),
@@ -441,3 +593,7 @@ def to_navira_payload(
         "iicSignature": iic_signature,
         "mode": tenant.mode,
     }
+    iic_ref = (getattr(request, "iic_ref", None) or "").strip()
+    if iic_ref:
+        payload["iicRef"] = iic_ref
+    return payload

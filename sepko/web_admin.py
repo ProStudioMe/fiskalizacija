@@ -19,8 +19,11 @@ from sepko.db import get_db
 from sepko.efi import (
     FISCAL_TOKEN_LABELS,
     FISCAL_TOKEN_PROVIDERS,
+    TenantCompany,
     TenantFiscal,
+    load_tenant_company,
     load_tenant_fiscal,
+    save_tenant_company,
     save_tenant_fiscal,
 )
 from sepko.i18n import (
@@ -354,6 +357,7 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
         flash(request, "Tenant nije pronađen.", "error")
         return redirect("/admin/tenanti")
     fiscal = load_tenant_fiscal(tenant)
+    company = load_tenant_company(tenant)
     operators = (
         db.query(User)
         .filter(User.tenant_id == tenant.id)
@@ -381,6 +385,7 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
             {
                 "view": tenant,
                 "fiscal": fiscal,
+                "company": company,
                 "operators": operators,
                 "license_types": LICENSE_TYPES,
                 "license_labels": LICENSE_LABELS,
@@ -415,6 +420,7 @@ def tenant_efi_update(
     request: Request,
     tenant_id: int,
     csrf_token: str = Form(""),
+    company_website: str = Form(""),
     busin_unit_code: str = Form(""),
     tcr_code: str = Form(""),
     soft_code: str = Form(""),
@@ -437,6 +443,17 @@ def tenant_efi_update(
         return redirect("/admin/tenanti")
 
     prev = load_tenant_fiscal(tenant)
+    company = load_tenant_company(tenant)
+    save_tenant_company(
+        tenant,
+        TenantCompany(
+            address=company.address,
+            address2=company.address2,
+            pdv_number=company.pdv_number,
+            bank_account=company.bank_account,
+            website=company_website.strip()[:255],
+        ),
+    )
     save_tenant_fiscal(
         tenant,
         TenantFiscal(
@@ -454,6 +471,8 @@ def tenant_efi_update(
     )
     cur = load_tenant_fiscal(tenant)
     bits = []
+    if (company.website or "") != (company_website.strip()[:255]):
+        bits.append("web")
     if prev.token_provider != cur.token_provider:
         bits.append(f"kanal {prev.token_provider or '—'}→{cur.token_provider or '—'}")
     if clear_telekom_token in ("1", "on", "true"):

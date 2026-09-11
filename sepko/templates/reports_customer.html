@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Izvještaj · {{ customer.name }} — {{ brand }}{% endblock %}
+{% block page_title %}{{ customer.name }}{% endblock %}
+{% block page_actions %}
+  <a class="btn secondary" href="/izvjestaji/komitenti?year={{ year }}&month={{ month }}">← Komitenti</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}">Kartica</a>
+  <button type="button" class="btn secondary" onclick="window.print()">Štampaj</button>
+{% endblock %}
+{% block content %}
+<p class="muted" style="margin-top:0">
+  PIB {{ customer.pib }}
+  {% if customer.pdv_number %} · PDV {{ customer.pdv_number }}{% endif %}
+  {% if customer.city %} · {{ customer.city }}{% endif %}
+  {% if customer.email %} · {{ customer.email }}{% endif %}
+  {% if customer.phone %} · {{ customer.phone }}{% endif %}
+</p>
+
+<form method="get" action="/izvjestaji/komitenti/{{ customer.id }}" class="rpt-period no-print">
+  <label class="rpt-period-field">
+    <span>Mjesec</span>
+    <select name="month">
+      {% for i in range(1, 13) %}
+      <option value="{{ i }}" {% if i == month %}selected{% endif %}>{{ "%02d"|format(i) }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="rpt-period-field">
+    <span>Godina</span>
+    <select name="year">
+      {% for y in years %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn">Primijeni</button>
+  <span class="muted rpt-vs">{{ month_label }} {{ year }}</span>
+</form>
+
+<section class="rpt-kpis rpt-kpis--cust" aria-label="{{ t('reports.summary_aria', 'Sažetak') }}">
+  <div class="rpt-kpi">
+    <span class="rpt-kpi-label">Promet (period)</span>
+    <strong class="rpt-kpi-value">{{ inv_gross|money }} €</strong>
+    <span class="rpt-kpi-sub">{{ inv_count }} računa · neto {{ inv_net|money }} €</span>
+  </div>
+  <div class="rpt-kpi">
+    <span class="rpt-kpi-label">PDV (period)</span>
+    <strong class="rpt-kpi-value">{{ inv_vat|money }} €</strong>
+    <span class="rpt-kpi-sub">prosjek računa {{ avg_inv|money }} €</span>
+  </div>
+  <div class="rpt-kpi">
+    <span class="rpt-kpi-label">Uplate (period)</span>
+    <strong class="rpt-kpi-value">{{ paid_period|money }} €</strong>
+    <span class="rpt-kpi-sub">Evidentirane uplate</span>
+  </div>
+  <div class="rpt-kpi">
+    <span class="rpt-kpi-label">Ukupno fakturisano</span>
+    <strong class="rpt-kpi-value">{{ summary.fakturisano|money }} €</strong>
+    <span class="rpt-kpi-sub">Svi periodi</span>
+  </div>
+  <div class="rpt-kpi">
+    <span class="rpt-kpi-label">Ukupno uplaćeno</span>
+    <strong class="rpt-kpi-value">{{ summary.uplaceno|money }} €</strong>
+    <span class="rpt-kpi-sub">Svi periodi</span>
+  </div>
+  <div class="rpt-kpi {% if summary.dug > 0 %}is-bad{% elif summary.dug < 0 %}is-ok{% endif %}">
+    <span class="rpt-kpi-label">Trenutni dug</span>
+    <strong class="rpt-kpi-value">{{ summary.dug|money }} €</strong>
+    <span class="rpt-kpi-sub">Saldo kartice</span>
+  </div>
+</section>
+
+<section class="rpt-panel">
+  <header class="rpt-panel-head">
+    <h2>Dnevni promet</h2>
+    <p class="muted">{{ month_label }} {{ year }}</p>
+  </header>
+  <div class="rpt-bars">
+    {% for b in daily_chart %}
+    <div class="rpt-bar" title="{{ b.label }}. — {{ '%.2f'|format(b.value)|replace('.', ',') }} €">
+      <div class="rpt-bar-fill" style="height:{{ b.height_pct }}%"></div>
+      {% if loop.index % 5 == 1 or loop.last %}<span class="rpt-bar-label">{{ b.label }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="rpt-grid">
+  <section class="rpt-panel">
+    <header class="rpt-panel-head">
+      <h2>12-mjesečni trend</h2>
+    </header>
+    <div class="rpt-bars rpt-bars--wd">
+      {% for b in trend_chart %}
+      <div class="rpt-bar" title="{{ b.label }} — {{ '%.2f'|format(b.value)|replace('.', ',') }} €">
+        <div class="rpt-bar-fill" style="height:{{ b.height_pct }}%"></div>
+        <span class="rpt-bar-label">{{ b.label.split(' ')[0] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="rpt-panel">
+    <header class="rpt-panel-head"><h2>Plaćanje (period)</h2></header>
+    {% if pay_chart %}
+    <div class="rpt-hbar">
+      {% for b in pay_chart %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-meta">
+          <strong>{{ b.label }}</strong>
+          <span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} €</span>
+        </div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill" style="width:{{ b.height_pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Nema računa u periodu.</p>{% endif %}
+  </section>
+</div>
+
+<div class="rpt-grid">
+  <section class="rpt-panel">
+    <header class="rpt-panel-head"><h2>Artikli (period)</h2></header>
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead><tr><th>Artikal</th><th class="num">Kol.</th><th class="num">Bruto</th></tr></thead>
+        <tbody>
+        {% for r in articles %}
+          <tr>
+            <td>
+              <div class="cell-primary">{{ r.name }}</div>
+              {% if r.code %}<div class="cell-secondary">{{ r.code }}</div>{% endif %}
+            </td>
+            <td class="num">{{ '%.2f'|format(r.qty)|replace('.', ',') }}</td>
+            <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">Nema stavki.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="rpt-panel">
+    <header class="rpt-panel-head"><h2>Uplate (period)</h2></header>
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead><tr><th>Datum</th><th>Napomena</th><th class="num">Iznos</th></tr></thead>
+        <tbody>
+        {% for p in payments_table %}
+          <tr>
+            <td>{{ p.when or '—' }}</td>
+            <td>{{ p.note or '—' }}{% if p.invoice_id %} · <a href="/racuni/{{ p.invoice_id }}">račun</a>{% endif %}</td>
+            <td class="num">{{ '%.2f'|format(p.amount)|replace('.', ',') }} €</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">Nema uplata.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="rpt-panel">
+  <header class="rpt-panel-head"><h2>Računi (period)</h2></header>
+  <div class="table-wrap">
+    <table class="soft-table rpt-table">
+      <thead>
+        <tr>
+          <th>Broj</th>
+          <th>Datum</th>
+          <th>Plaćanje</th>
+          <th class="num">PDV</th>
+          <th class="num">Bruto</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in invoices_table %}
+        <tr>
+          <td><a href="/racuni/{{ r.id }}">{{ r.num }}</a></td>
+          <td>{{ r.when }}</td>
+          <td>{{ r.pay }}</td>
+          <td class="num">{{ '%.2f'|format(r.vat)|replace('.', ',') }} €</td>
+          <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Nema računa.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="rpt-panel">
+  <header class="rpt-panel-head">
+    <h2>Kartica — stavke u periodu</h2>
+    <p class="muted">Fakture i uplate · <a href="/finansije/kartica/{{ customer.id }}">puna kartica</a></p>
+  </header>
+  <div class="table-wrap">
+    <table class="soft-table rpt-table">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Vrsta</th>
+          <th>Dokument</th>
+          <th class="num">Duguje</th>
+          <th class="num">Potražuje</th>
+          <th class="num">Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in ledger_period %}
+        <tr>
+          <td>{{ r.Datum or '—' }}</td>
+          <td>{{ r.Vrsta }}</td>
+          <td>
+            {% if r.invoice_id and r.Vrsta == 'Faktura' %}
+            <a href="/racuni/{{ r.invoice_id }}">{{ r.Dokument }}</a>
+            {% else %}{{ r.Dokument }}{% endif %}
+          </td>
+          <td class="num">{% if r.Duguje %}{{ r.Duguje|money }} €{% endif %}</td>
+          <td class="num">{% if r['Potražuje'] %}{{ r['Potražuje']|money }} €{% endif %}</td>
+          <td class="num"><strong>{{ r.Saldo|money }} €</strong></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">Nema stavki u periodu.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

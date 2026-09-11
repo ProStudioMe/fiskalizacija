@@ -13,7 +13,7 @@
     <wa-option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ t('status.' ~ s, s) }}</wa-option>
     {% endfor %}
   </wa-select>
-  <wa-input name="q" id="ulazne-filter-q" label="{{ t('btn.search', 'Pretraga') }}" value="{{ filter_q or '' }}" placeholder="Broj, PIB, naziv, IKOF" style="flex:1;min-width:160px" with-clear></wa-input>
+  <wa-input name="q" id="ulazne-filter-q" label="{{ t('btn.search', 'Pretraga') }}" value="{{ filter_q or '' }}" placeholder="{{ t('ulazne.search_ph', 'Broj, PIB, naziv, IKOF') }}" style="flex:1;min-width:160px" with-clear></wa-input>
   <wa-button type="submit" variant="neutral" appearance="outlined" class="ulazne-filter-apply">{{ t('btn.apply', 'Primijeni') }}</wa-button>
 </form>
 
@@ -24,7 +24,7 @@
         <tr>
           <th class="ulazne-col-num">{{ t('col.number', 'Broj') }}</th>
           <th class="ulazne-col-status">{{ t('col.status', 'Status') }}</th>
-          <th class="ulazne-col-supplier">{{ t('col.supplier', 'Dobavljač') }}</th>
+          <th class="ulazne-col-supplier">{{ t('nav.komitenti', 'Komitent') }}</th>
           <th class="ulazne-col-date">{{ t('col.date', 'Datum') }}</th>
           <th class="num ulazne-col-amount">{{ t('col.amount', 'Iznos') }}</th>
           <th class="cell-actions"><span class="visually-hidden">{{ t('col.actions', 'Akcije') }}</span></th>

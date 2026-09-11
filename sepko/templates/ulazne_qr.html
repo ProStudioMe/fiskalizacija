@@ -13,7 +13,7 @@
 <div class="card" style="max-width:560px;margin-bottom:1rem">
   <form method="post" action="/ulazne/qr" id="qr-form" class="wa-form-stack">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <wa-textarea name="qr_raw" id="qr-raw" label="QR URL / sadržaj" rows="3" required placeholder="https://mapr.tax.gov.me/ic/#/verify?iic=...&tin=...&prc=..."></wa-textarea>
+    <wa-textarea name="qr_raw" id="qr-raw" label="{{ t('ulazne.qr_label', 'QR URL / sadržaj') }}" rows="3" required placeholder="https://mapr.tax.gov.me/ic/#/verify?iic=...&tin=...&prc=..."></wa-textarea>
     <wa-checkbox name="fetch_portal" value="1" checked>Pokušaj povući podatke sa portala</wa-checkbox>
     <div class="wa-form-actions">
       <wa-button type="submit" variant="brand">{{ t('ulazne.import', 'Uvezi ulaznu') }}</wa-button>

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from sepko.db import get_db
-from sepko.efi import CASH_PAY_METHODS, load_tenant_fiscal, load_tenant_ui
+from sepko.efi import CASH_PAY_METHODS, display_inv_num, load_tenant_fiscal, load_tenant_ui
 from sepko.models import Article, Invoice, InvoiceStatus
 from sepko.schemas import FiscalizeRequest, InvoiceLineIn, TotalsIn
 from sepko.services import cash_day_summary, fiscalize_invoice
@@ -147,11 +147,17 @@ def pos_pwa_manifest(request: Request):
             "launch_handler": {"client_mode": "focus-existing"},
             "icons": [
                 {
-                    "src": f"{origin}/static/img/sepko-mark.svg?v=9",
+                    "src": f"{origin}/static/img/sepko-mark.png?v=15",
+                    "sizes": "1024x1024",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": f"{origin}/static/img/sepko-mark.svg?v=12",
                     "sizes": "any",
                     "type": "image/svg+xml",
                     "purpose": "any maskable",
-                }
+                },
             ],
         },
         media_type="application/manifest+json",
@@ -287,7 +293,7 @@ def pos_fiscalize(
             )
             .first()
         )
-        msg = f"Fiskalizovano {result.inv_num}. JIKR: {result.jikr}"
+        msg = f"Fiskalizovano {display_inv_num(result)}. JIKR: {result.jikr}"
         receipt = None
         if inv:
             receipt = f"/racuni/{inv.id}/stampa?{urlencode({'fmt': 'thermal', 'auto': '1'})}"
@@ -297,7 +303,7 @@ def pos_fiscalize(
                     "ok": True,
                     "message": msg,
                     "receipt_url": receipt,
-                    "inv_num": result.inv_num,
+                    "inv_num": display_inv_num(result),
                 }
             )
         flash(request, msg)

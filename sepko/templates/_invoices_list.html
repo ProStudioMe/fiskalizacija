@@ -1,4 +1,4 @@
-{% set has_filters = (status and status != 'all') or tip or client or date_from or date_to or q %}
+{% set has_filters = (status and status != 'all') or tip or doc or client or date_from or date_to or q %}
 {% set status_labels = {
   'fiscalized': t('status.fiscalized', 'Fiskalizovan'),
   'pending': t('status.unfiscalized_plural', 'Nefiskalizovani'),
@@ -31,22 +31,64 @@
     {% endif %}
   </div>
 
-  <div class="inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
-    <span class="inv-filter-ico" aria-hidden="true">
-      <i data-lucide="calendar"></i>
-    </span>
-    <input type="text" class="inv-date-dmy" id="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" title="{{ t('label.from', 'Od') }}" aria-label="{{ t('label.from', 'Od') }}" autocomplete="off">
-    <input type="hidden" name="date_from" id="date_from" value="{{ date_from }}">
-    <span class="inv-date-sep">–</span>
-    <input type="text" class="inv-date-dmy" id="date_to_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_to) }}" title="{{ t('label.to', 'Do') }}" aria-label="{{ t('label.to', 'Do') }}" autocomplete="off">
-    <input type="hidden" name="date_to" id="date_to" value="{{ date_to }}">
-    {% if date_from or date_to %}
-    <a class="inv-filter-clear" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}" title="{{ t('btn.clear_filters', 'Obriši') }}">×</a>
-    {% endif %}
-  </div>
+  <div class="inv-filter-more {% if doc or date_from or date_to %}has-value is-open{% endif %}" id="inv-filter-more">
+    <button type="button" class="inv-filter-more-toggle" id="inv-filter-more-toggle" aria-expanded="{{ 'true' if (doc or date_from or date_to) else 'false' }}" aria-controls="inv-filter-more-body">
+      <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+      <span>{{ t('btn.filters', 'Filteri') }}</span>
+      {% if doc or date_from or date_to %}
+      <em class="inv-filter-more-badge" aria-hidden="true"></em>
+      {% endif %}
+    </button>
+    <div class="inv-filter-more-body" id="inv-filter-more-body">
+      {% set doc_label = t('inv.all_doc_types', 'Svi tipovi') %}
+      {% if doc %}
+        {% set doc_label = t('inv.doc.' ~ doc, doc) %}
+      {% endif %}
+      <input type="hidden" name="doc" id="inv-doc" value="{{ doc }}">
+      <details class="inv-filter-doc {% if doc %}has-value{% endif %}" id="inv-doc-filter">
+        <summary class="inv-filter-doc-summary" title="{{ t('inv.doc_type', 'Tip dokumenta') }}">
+          <span class="inv-filter-doc-label">{{ doc_label }}</span>
+        </summary>
+        <div class="inv-filter-doc-menu" role="listbox" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}">
+          <a href="{{ list_path }}?{{ qs(doc='') }}" class="{% if not doc %}on{% endif %}" role="option" aria-selected="{{ 'true' if not doc else 'false' }}">{{ t('inv.all_doc_types', 'Svi tipovi') }}</a>
+          {% for code in document_types %}
+          <a href="{{ list_path }}?{{ qs(doc=code) }}" class="{% if doc == code %}on{% endif %}" role="option" aria-selected="{{ 'true' if doc == code else 'false' }}">{{ t('inv.doc.' ~ code, code) }}</a>
+          {% endfor %}
+        </div>
+      </details>
 
-  <div class="inv-filter-actions">
-    {% include "_per_page.html" %}
+      <div class="inv-filter-dates {% if date_from or date_to %}has-value{% endif %}">
+        <span class="inv-filter-ico" aria-hidden="true">
+          <i data-lucide="calendar"></i>
+        </span>
+        <input type="text" class="inv-date-dmy" id="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" title="{{ t('label.from', 'Od') }}" aria-label="{{ t('label.from', 'Od') }}" autocomplete="off">
+        <input type="hidden" name="date_from" id="date_from" value="{{ date_from }}">
+        <span class="inv-date-sep">–</span>
+        <input type="text" class="inv-date-dmy" id="date_to_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_to) }}" title="{{ t('label.to', 'Do') }}" aria-label="{{ t('label.to', 'Do') }}" autocomplete="off">
+        <input type="hidden" name="date_to" id="date_to" value="{{ date_to }}">
+        {% if date_from or date_to %}
+        <a class="inv-filter-clear" href="{{ list_path }}?{{ qs(date_from='', date_to='') }}" title="{{ t('btn.clear_filters', 'Obriši') }}">×</a>
+        {% endif %}
+      </div>
+
+      <div class="inv-filter-actions">
+        <a class="btn secondary inv-export-btn" href="/racuni/export.xlsx?{{ export_qs }}" title="{{ t('btn.export_excel', 'Izvoz Excel') }}">
+          <i data-lucide="sheet" aria-hidden="true"></i>
+          <span>{{ t('btn.excel', 'Excel') }}</span>
+        </a>
+        <a class="btn secondary inv-export-btn" href="/racuni/export.pdf?{{ export_qs }}" title="{{ t('btn.export_pdf', 'Sačuvaj PDF') }}">
+          <i data-lucide="file-down" aria-hidden="true"></i>
+          <span>{{ t('btn.pdf', 'PDF') }}</span>
+        </a>
+        <a class="btn secondary inv-export-btn" href="/racuni/export/stampa?{{ export_qs }}"
+           title="{{ t('btn.print', 'Štampaj') }}"
+           onclick="window.open(this.href,'sepko-print','noopener,width=1100,height=900,scrollbars=yes,resizable=yes');return false;">
+          <i data-lucide="printer" aria-hidden="true"></i>
+          <span>{{ t('btn.print', 'Štampaj') }}</span>
+        </a>
+        {% include "_per_page.html" %}
+      </div>
+    </div>
   </div>
 </form>
 <script>
@@ -110,6 +152,26 @@
     });
   }
 
+  var docSel = document.getElementById('inv-doc-filter');
+  if (docSel) {
+    document.addEventListener('click', function (e) {
+      if (!docSel.contains(e.target)) docSel.open = false;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') docSel.open = false;
+    });
+  }
+
+  var more = document.getElementById('inv-filter-more');
+  var moreBtn = document.getElementById('inv-filter-more-toggle');
+  if (more && moreBtn) {
+    moreBtn.addEventListener('click', function () {
+      var open = !more.classList.contains('is-open');
+      more.classList.toggle('is-open', open);
+      moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
   ['date_from_dmy', 'date_to_dmy'].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -132,6 +194,9 @@
     {% endif %}
     {% if status and status != 'all' %}
     <a class="pill-tag" href="{{ list_path }}?{{ qs(status='all') }}">{{ t('col.status', 'Status') }}: {{ status_labels.get(status, status) }} ×</a>
+    {% endif %}
+    {% if doc %}
+    <a class="pill-tag" href="{{ list_path }}?{{ qs(doc='') }}">{{ t('inv.doc_type', 'Tip dokumenta') }}: {{ t('inv.doc.' ~ doc, doc) }} ×</a>
     {% endif %}
     {% if tip %}
     <a class="pill-tag" href="{{ list_path }}?{{ qs(tip='') }}">{{ t('col.tip', 'Tip') }}: {{ tip }} ×</a>
@@ -165,6 +230,11 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <span class="bulk-bar-count"><strong id="bulk-count">0</strong> {{ t('inv.selected', 'odabrano') }}</span>
         <wa-button type="button" variant="neutral" appearance="outlined" size="small" id="btn-select-all">{{ lbl_select_all }}</wa-button>
+        <button type="submit" class="btn secondary" formmethod="post" formaction="/racuni/bulk-export" id="btn-bulk-export" disabled
+                title="{{ t('btn.export_selected_hint', 'Preuzmi označene kao pojedinačne fajlove (ZIP)') }}">
+          <i data-lucide="download" aria-hidden="true"></i>
+          <span>{{ t('btn.export_selected', 'Preuzmi') }}</span>
+        </button>
         <button type="submit" class="btn secondary" formmethod="post" formaction="/racuni/kopiraj" id="btn-bulk-copy" disabled>
           {{ t('btn.copy', 'Kopiraj') }}
         </button>
@@ -214,6 +284,25 @@
         </th>
         <th>
           <div class="th-with-filter">
+            <span class="th-sort {% if doc %}active{% endif %}">{{ t('inv.doc_type', 'Tip dokumenta') }}</span>
+            <details class="th-filter {% if doc %}has-value{% endif %}">
+              <summary title="{{ t('inv.doc_type', 'Tip dokumenta') }}" aria-label="{{ t('inv.doc_type', 'Tip dokumenta') }}"></summary>
+              <div class="th-filter-menu">
+                <div class="th-filter-search">
+                  <input type="search" placeholder="{{ t('label.search', 'Pretraži…') }}" data-filter-list autocomplete="off">
+                </div>
+                <div class="th-filter-options">
+                  <a href="{{ list_path }}?{{ qs(doc='') }}" class="{% if not doc %}on{% endif %}" data-filter-item>{{ t('common.all', 'Svi') }}</a>
+                  {% for code in document_types %}
+                  <a href="{{ list_path }}?{{ qs(doc=code) }}" class="{% if doc == code %}on{% endif %}" data-filter-item>{{ t('inv.doc.' ~ code, code) }}</a>
+                  {% endfor %}
+                </div>
+              </div>
+            </details>
+          </div>
+        </th>
+        <th>
+          <div class="th-with-filter">
             <a class="th-sort {% if sort == 'client' %}active{% endif %}" href="{{ list_path }}?{{ qs(sort='client', dir='asc' if sort == 'client' and dir == 'desc' else 'desc') }}">
               {{ t('col.client', 'Klijent') }} {% if sort == 'client' %}{% if dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
             </a>
@@ -249,6 +338,7 @@
                   <input type="hidden" name="dir" value="{{ dir }}">
                   <input type="hidden" name="client" value="{{ client }}">
                   <input type="hidden" name="tip" value="{{ tip }}">
+                  <input type="hidden" name="doc" value="{{ doc }}">
                   <input type="hidden" name="per_page" value="{{ per_page }}">
                   <label>{{ t('label.from', 'Od') }} <input type="text" class="inv-date-dmy" name="date_from_dmy" inputmode="numeric" placeholder="dd.mm.yyyy" maxlength="10" value="{{ iso_to_dmy(date_from) }}" data-iso-target="date_from_th" autocomplete="off"></label>
                   <input type="hidden" name="date_from" id="date_from_th" value="{{ date_from }}">
@@ -273,17 +363,17 @@
     </thead>
     <tbody>
     {% for inv in invoices %}
-      <tr class="inv-row" data-href="/racuni/{{ inv.id }}" tabindex="0" role="link" aria-label="{{ inv|display_inv_num }}">
+      <tr class="inv-row" data-href="{% if inv.status == 'fiscalized' %}/racuni/{{ inv.id }}{% else %}/racuni/{{ inv.id }}/izmijeni{% endif %}" tabindex="0" role="link" aria-label="{{ inv|display_inv_num }}">
         <td class="col-check">
           <input type="checkbox" class="inv-check" name="invoice_ids" value="{{ inv.id }}" form="bulk-actions-form" data-status="{{ inv.status }}" aria-label="{{ inv|display_inv_num }}">
         </td>
-        <td>
+        <td class="cell-num">
           <div class="inv-num-stack">
             <span class="inv-status-rail {% if inv.status == 'fiscalized' %}ok{% elif inv.status == 'failed' %}bad{% else %}pending{% endif %}" aria-hidden="true"></span>
             <span class="inv-num-local">{{ inv|display_inv_num }}</span>
           </div>
         </td>
-        <td>
+        <td class="cell-status">
           {% if inv.status == 'fiscalized' %}
             <span class="pill-tag ok">{{ t('status.fiscalized', 'Fiskalizovan') }}</span>
           {% elif inv.status == 'failed' %}
@@ -292,10 +382,13 @@
             <span class="pill-tag warn">{{ t('status.unfiscalized', 'Nefiskalizovan') }}</span>
           {% endif %}
         </td>
-        <td>
+        <td class="cell-doctype">
+          <div class="cell-doc">{{ t('inv.doc.' ~ (inv.inv_type or 'INVOICE'), inv.inv_type or 'INVOICE') }}</div>
+        </td>
+        <td class="cell-buyer">
           <div class="cell-client">{{ inv.buyer_name or lbl_no_buyer }}</div>
         </td>
-        <td>
+        <td class="cell-when">
           <div class="cell-date">
             {{ inv.issue_datetime.strftime('%d.%m.%Y') if inv.issue_datetime else '—' }}
           </div>
@@ -305,8 +398,9 @@
         <td class="cell-actions">
           <div class="row-actions">
             {% if inv.status != 'fiscalized' %}
-            <a class="btn-icon-row" href="/racuni/{{ inv.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
+            <a class="btn-icon-row btn-row-labeled" href="/racuni/{{ inv.id }}/izmijeni" title="{{ t('btn.edit', 'Izmijeni') }}">
               <i data-lucide="pencil" aria-hidden="true"></i>
+              <span>{{ t('btn.edit', 'Izmijeni') }}</span>
             </a>
             <form method="post" action="/racuni/{{ inv.id }}/obrisi" class="row-actions-delete"
                   data-confirm="{{ t('inv.confirm_delete_one', 'Trajno obrisati ovaj nacrt?') }}"
@@ -314,19 +408,22 @@
                   data-confirm-tone="danger"
                   data-confirm-ok="{{ t('btn.delete', 'Obriši') }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button type="submit" class="btn-icon-row" title="{{ t('btn.delete', 'Obriši') }}" aria-label="{{ t('btn.delete', 'Obriši') }}">
+              <button type="submit" class="btn-icon-row btn-icon-row-danger btn-row-labeled" title="{{ t('btn.delete', 'Obriši') }}">
                 <i data-lucide="trash-2" aria-hidden="true"></i>
+                <span>{{ t('btn.delete', 'Obriši') }}</span>
               </button>
             </form>
             {% endif %}
-            <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" title="PDF" aria-label="PDF">
+            <a class="btn-icon-row btn-icon-row-accent" href="/racuni/{{ inv.id }}/pdf" target="sepko-print" rel="noopener"
+               onclick="window.open(this.href,'sepko-print','noopener,width=960,height=1100,scrollbars=yes,resizable=yes');return false;"
+               title="{{ t('btn.pdf_a4', 'PDF') }}" aria-label="{{ t('btn.pdf_a4', 'PDF') }}">
               <i data-lucide="file-text" aria-hidden="true"></i>
             </a>
           </div>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="muted inv-empty">{{ t('common.empty', 'Nema faktura.') }} <a href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj prvu') }}</a>.</td></tr>
+      <tr><td colspan="8" class="muted inv-empty">{{ t('common.empty', 'Nema faktura.') }} <a href="/racuni/novi">{{ t('nav.izdaj', 'Izdaj prvu') }}</a>.</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -342,6 +439,7 @@
   var btnCopy = document.getElementById('btn-bulk-copy');
   var btnDelete = document.getElementById('btn-bulk-delete');
   var btnFisc = document.getElementById('btn-bulk-fiscalize');
+  var btnExport = document.getElementById('btn-bulk-export');
   var btnSelectAll = document.getElementById('btn-select-all');
   var btnClear = document.getElementById('btn-clear-selection');
   var countEl = document.getElementById('bulk-count');
@@ -366,6 +464,7 @@
     }).length;
     var allDraftSelected = draftChecks.length > 0 && draftChecks.every(function (c) { return c.checked; });
     if (countEl) countEl.textContent = String(n);
+    if (btnExport) btnExport.disabled = n === 0;
     if (btnCopy) btnCopy.disabled = n === 0;
     if (btnDelete) btnDelete.disabled = nDraft === 0;
     if (btnFisc) {
@@ -441,6 +540,11 @@
         form.setAttribute('method', 'post');
         if (action) form.setAttribute('action', action);
         HTMLFormElement.prototype.submit.call(form);
+      }
+
+      if (action.indexOf('bulk-export') !== -1 || action.indexOf('export-odabrane') !== -1) {
+        go();
+        return;
       }
 
       if (action.indexOf('fiskalizuj') !== -1 || action.indexOf('bulk-fiskalizuj') !== -1) {

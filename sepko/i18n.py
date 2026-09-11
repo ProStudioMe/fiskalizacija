@@ -145,12 +145,12 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "nav.dobavljaci",
         "category": "nav",
-        "description": "Meni Dobavljači",
+        "description": "Zastarjelo — dobavljači su u Komitentima",
         "values": {
-            "cnr": "Dobavljači",
-            "cnr-cyrl": "Добављачи",
-            "sr": "Dobavljači",
-            "en": "Suppliers",
+            "cnr": "Komitenti",
+            "cnr-cyrl": "Комитенти",
+            "sr": "Komitenti",
+            "en": "Counterparties",
         },
     },
     {
@@ -188,8 +188,8 @@ STRINGS_SEED: list[dict] = [
         "category": "ulazne",
         "description": "Podnaslov forme nove ulazne",
         "values": {
-            "cnr": "Dobavljač, stavka i iznosi",
-            "en": "Supplier, line and amounts",
+            "cnr": "Komitent, stavka i iznosi",
+            "en": "Counterparty, line and amounts",
         },
     },
     {
@@ -201,13 +201,13 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "ulazne.pick_supplier",
         "category": "ulazne",
-        "description": "Izbor dobavljača",
+        "description": "Izbor komitenta",
         "values": {"cnr": "Iz šifrarnika", "en": "From register"},
     },
     {
         "key": "ulazne.manual_supplier",
         "category": "ulazne",
-        "description": "Ručni unos dobavljača",
+        "description": "Ručni unos komitenta",
         "values": {
             "cnr": "— ručni unos PIB / naziv —",
             "en": "— enter PIB / name manually —",
@@ -216,13 +216,13 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "ulazne.change_supplier",
         "category": "ulazne",
-        "description": "Promijeni dobavljača",
+        "description": "Promijeni komitenta",
         "values": {"cnr": "Promijeni / ručni unos", "en": "Change / manual entry"},
     },
     {
         "key": "ulazne.change_supplier_short",
         "category": "ulazne",
-        "description": "Kratko Promijeni dobavljača",
+        "description": "Kratko Promijeni komitenta",
         "values": {"cnr": "Promijeni", "en": "Change"},
     },
     {
@@ -1419,11 +1419,11 @@ STRINGS_SEED: list[dict] = [
     {
         "key": "page.invoice_edit",
         "category": "page",
-        "description": "Izmjena fakture",
+        "description": "Izmjeni fakturu",
         "values": {
-            "cnr": "Izmjena fakture",
-            "cnr-cyrl": "Измјена фактуре",
-            "sr": "Izmena fakture",
+            "cnr": "Izmjeni fakturu",
+            "cnr-cyrl": "Измијени фактуру",
+            "sr": "Izmeni fakturu",
             "sr-cyrl": "Измена фактуре",
             "sq": "Ndrysho faturën",
             "tr": "Fatura düzenle",
@@ -3220,6 +3220,10 @@ STRINGS_SEED: list[dict] = [
     },
 ]
 
+from sepko.i18n_complements import apply_complements
+
+apply_complements(STRINGS_SEED)
+
 
 def ensure_languages(db: Session) -> list[Language]:
     rows: list[Language] = []
@@ -3255,6 +3259,15 @@ _FORCE_SEED_KEYS = frozenset({
     "pwa.open_title",
     "pwa.open_ios",
     "ulazne.form_sub",
+    "inv.doc.CREDIT_NOTE",
+    "inv.doc.CORRECTIVE",
+    "inv.doc.ADVANCE",
+    "inv.doc.ERROR_CORRECTIVE",
+    "inv.notes",
+    "btn.export_pdf",
+    "col.wholesale_short",
+    "inv.wholesale_price",
+    "inv.zero_price_hint",
 })
 
 
@@ -3303,8 +3316,8 @@ def list_languages(db: Session, *, active_only: bool = True) -> list[tuple[str, 
         q = q.filter(Language.active.is_(True))
     rows = q.order_by(Language.sort_order, Language.code).all()
     if not rows:
-        return [(x["code"], x["name"]) for x in LANGUAGES_SEED]
-    return [(r.code, r.name) for r in rows]
+        return [(x["code"], x["native_name"] or x["name"]) for x in LANGUAGES_SEED]
+    return [(r.code, (r.native_name or r.name)) for r in rows]
 
 
 def get_translations_map(db: Session, language_code: str) -> dict[str, str]:

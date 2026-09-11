@@ -21,8 +21,8 @@
     right: 0;
     bottom: 0;
     z-index: 40;
-    background: var(--panel, #16101f);
-    border-top: 1px solid var(--border, #2a2038);
+    background: var(--surface);
+    border-top: 1px solid var(--line);
     padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
     justify-content: space-around;
     gap: 0.15rem;
@@ -32,14 +32,14 @@
     text-align: center;
     font-size: 0.72rem;
     font-weight: 600;
-    color: var(--muted, #9ca3af);
+    color: var(--muted);
     text-decoration: none;
-    padding: 0.45rem 0.2rem;
-    border-radius: 8px;
+    padding: 0.45rem 0.45rem;
+    border-radius: 10px;
   }
   .pwa-bottom-nav a.active {
     color: #fff;
-    background: #5b21b6;
+    background: var(--cta);
   }
   body:has(.pwa-bottom-nav) .workspace,
   body:has(.pwa-bottom-nav) .panel-body {
@@ -58,15 +58,27 @@
   text-align: center;
   padding: 1rem 0.75rem;
   border-radius: 12px;
-  background: var(--panel, #16101f);
-  border: 1px solid var(--border, #2a2038);
-  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 650;
+  box-shadow: var(--shadow-soft);
+}
+.pwa-home .pwa-actions a:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  color: var(--accent);
+  text-decoration: none;
 }
 .pwa-home .pwa-actions a.primary {
-  background: #5b21b6;
-  border-color: #5b21b6;
+  background: var(--cta);
+  border-color: var(--cta);
+  color: #fff;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--cta) 35%, transparent);
+}
+.pwa-home .pwa-actions a.primary:hover {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
   color: #fff;
 }
 .pwa-stats {
@@ -75,16 +87,29 @@
   gap: 0.5rem;
 }
 .pwa-stats .stat {
-  padding: 0.75rem;
-  border-radius: 10px;
-  background: var(--panel, #16101f);
-  border: 1px solid var(--border, #2a2038);
+  padding: 0.85rem 0.7rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  min-width: 0;
 }
 .pwa-stats .stat strong {
   display: block;
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 4.2vw, 1.25rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pwa-stats .stat span {
+  display: block;
+  margin-top: 0.25rem;
   font-size: 0.72rem;
-  color: var(--muted, #9ca3af);
+  font-weight: 550;
+  color: var(--muted);
+  line-height: 1.25;
 }

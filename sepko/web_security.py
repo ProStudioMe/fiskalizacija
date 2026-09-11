@@ -13,6 +13,11 @@ _login_attempts: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS = 5
 _WINDOW_SEC = 60
 
+# IMAP probe (Podešavanja → Mail) — sprječava SSRF/DoS spam
+_imap_probe_attempts: dict[str, list[float]] = defaultdict(list)
+_IMAP_PROBE_MAX = 8
+_IMAP_PROBE_WINDOW_SEC = 15 * 60
+
 
 def client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
@@ -31,6 +36,24 @@ def login_rate_limited(request: Request) -> bool:
 
 def record_login_attempt(request: Request) -> None:
     _login_attempts[client_ip(request)].append(time.time())
+
+
+def imap_probe_rate_limited(*, tenant_id: int, request: Request) -> bool:
+    """True ako je prekoračen limit (po tenant-u ili IP)."""
+    now = time.time()
+    keys = (f"t:{tenant_id}", f"ip:{client_ip(request)}")
+    for key in keys:
+        recent = [t for t in _imap_probe_attempts[key] if now - t < _IMAP_PROBE_WINDOW_SEC]
+        _imap_probe_attempts[key] = recent
+        if len(recent) >= _IMAP_PROBE_MAX:
+            return True
+    return False
+
+
+def record_imap_probe(*, tenant_id: int, request: Request) -> None:
+    now = time.time()
+    _imap_probe_attempts[f"t:{tenant_id}"].append(now)
+    _imap_probe_attempts[f"ip:{client_ip(request)}"].append(now)
 
 
 def ensure_csrf(request: Request) -> str:

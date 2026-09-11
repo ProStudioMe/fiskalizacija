@@ -2,8 +2,15 @@
 <html lang="{{ html_lang|default('sr-ME') }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ brand }}{% endblock %}</title>
+  <script>
+    window.__sepkoDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      window.__sepkoDeferredPrompt = e;
+    }, true);
+  </script>
   <script>
     (function () {
       try {
@@ -26,22 +33,42 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
-  <link rel="stylesheet" href="/static/style.css?v=141">
+  <link rel="stylesheet" href="/static/style.css?v=210">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
+<<<<<<< HEAD
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=10">
   <link rel="stylesheet" href="/static/pwa.css?v=2">
+=======
+  <link rel="stylesheet" href="/static/webawesome-theme.css?v=13">
+  <link rel="stylesheet" href="/static/pwa.css?v=3">
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
   {% block head_extra %}{% endblock %}
   {% block extra_css %}{% endblock %}
-  <link rel="icon" href="/static/img/sepko-mark.svg?v=9" type="image/svg+xml">
+  <link rel="icon" href="/static/img/sepko-mark.png?v=15" type="image/png" sizes="512x512">
+  <link rel="icon" href="/static/img/sepko-mark.svg?v=15" type="image/svg+xml">
   {% block manifest %}
   <link rel="manifest" href="/manifest.webmanifest">
   {% endblock %}
   <meta name="theme-color" content="#5b21b6">
+  <meta name="description" content="{% block meta_description %}{{ brand }}{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ brand }}">
+  <meta property="og:title" content="{% block og_title %}{{ brand }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ brand }}{% endblock %}">
+  <meta property="og:url" content="{% block og_url %}{{ brand_url }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ brand_url }}/static/img/og-proracun.png?v=5{% endblock %}">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:alt" content="{{ brand }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ brand }}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}{{ brand }}{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{{ brand_url }}/static/img/og-proracun.png?v=5{% endblock %}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="{{ brand }}">
-  <link rel="apple-touch-icon" href="/static/img/sepko-mark.svg?v=9">
+  <link rel="apple-touch-icon" href="/static/img/sepko-mark.png?v=15">
   <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/webawesome.loader.js"></script>
-  <script src="/static/webawesome-init.js?v=1"></script>
+  <script src="/static/webawesome-init.js?v=2"></script>
   <script src="/static/money.js?v=1"></script>
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -51,7 +78,7 @@
     <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="sepko-dialog-title" aria-describedby="sepko-dialog-msg">
       <div class="confirm-icon" data-tone="warn" aria-hidden="true">!</div>
       <div class="confirm-body">
-        <strong id="sepko-dialog-title">Obavještenje</strong>
+        <strong id="sepko-dialog-title">{{ t('dialog.title', 'Obavještenje') }}</strong>
         <p id="sepko-dialog-msg"></p>
       </div>
       <div class="confirm-actions">
@@ -72,35 +99,69 @@
           <i data-lucide="menu" aria-hidden="true"></i>
         </button>
         <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="{{ brand }}">
+<<<<<<< HEAD
           <img class="brand-logo" src="/static/img/sepko-logo.svg?v=10" alt="{{ brand }}" width="186" height="36">
+=======
+          <img class="brand-logo" src="/static/img/sepko-logo.png?v=15" alt="{{ brand }}" width="181" height="48">
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
         </a>
       </div>
       <div class="topbar-right">
-        <button type="button" class="theme-toggle" id="theme-toggle" title="Svijetla / tamna tema" aria-label="Promijeni temu">
-          <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
-          <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="topbar-install" id="btn-pwa-install" hidden>{{ t('pwa.install', 'Instaliraj') }}</button>
-        <span class="topbar-chip">{% if is_admin_portal %}platform{% else %}{{ partner_mode }}{% if tenant %} · {{ tenant.mode }}{% endif %}{% endif %}</span>
-        <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="topbar-logout">{{ t('nav.odjava', 'Odjava') }}</button>
-        </form>
-        <a class="topbar-user" href="{% if is_admin_portal %}/admin{% else %}/informacije{% endif %}" title="{{ _name }}">{{ initials }}</a>
+        {% if is_admin_portal %}
+        <span class="topbar-chip">{{ t('nav.platform', 'Platforma') }}</span>
+        {% elif tenant %}
+        <span class="topbar-chip topbar-chip--tenant" title="{{ tenant.name }}">{{ tenant.name }}</span>
+        {% if partner_mode == 'mock' %}
+        <span class="topbar-chip topbar-chip--env" data-env="demo">{{ t('env.demo', 'Demo') }}</span>
+        {% elif tenant.mode == 'test' %}
+        <span class="topbar-chip topbar-chip--env" data-env="test">{{ t('env.test', 'Test') }}</span>
+        {% endif %}
+        {% endif %}
+        <details class="topbar-account" id="topbar-account">
+          <summary class="topbar-user" title="{{ _name }}" aria-label="{{ t('nav.account', 'Nalog') }}">{{ initials }}</summary>
+          <div class="topbar-account-menu" role="menu">
+            <div class="topbar-account-head">
+              <strong>{{ _name }}</strong>
+              {% if user.email %}<span>{{ user.email }}</span>{% endif %}
+            </div>
+            <a class="topbar-account-item" role="menuitem" href="{% if is_admin_portal %}/admin{% else %}/informacije{% endif %}">
+              <i data-lucide="user" aria-hidden="true"></i>
+              <span>{{ t('nav.info', 'Informacije') }}</span>
+            </a>
+            <button type="button" class="topbar-account-item theme-toggle" id="theme-toggle" role="menuitem" title="{{ t('theme.toggle', 'Svijetla / tamna tema') }}" aria-label="{{ t('theme.aria', 'Promijeni temu') }}">
+              <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+              <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+              <span>{{ t('theme.toggle', 'Svijetla / tamna tema') }}</span>
+            </button>
+            {% if not is_admin_portal %}
+            <button type="button" class="topbar-account-item topbar-install" id="btn-pwa-install" role="menuitem" hidden>
+              <i data-lucide="download" aria-hidden="true"></i>
+              <span>{{ t('pwa.install', 'Instaliraj') }}</span>
+            </button>
+            {% endif %}
+            <form method="post" action="{% if is_admin_portal %}/admin/logout{% else %}/logout{% endif %}" class="topbar-logout-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="topbar-account-item topbar-logout" role="menuitem">
+                <i data-lucide="log-out" aria-hidden="true"></i>
+                <span>{{ t('nav.odjava', 'Odjava') }}</span>
+              </button>
+            </form>
+          </div>
+        </details>
       </div>
     </header>
 
     <div class="nav-backdrop" id="nav-backdrop" hidden></div>
 
     <div class="app-body">
-      <aside class="sidebar" id="sidebar" aria-label="Navigacija">
+      <aside class="sidebar" id="sidebar" aria-label="{{ t('nav.aria', 'Navigacija') }}">
         <div class="sidebar-mobile-head">
           <strong>{{ t('nav.meni', 'Meni') }}</strong>
           <button type="button" class="nav-close" id="nav-close" aria-label="{{ t('nav.meni', 'Meni') }}"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="nav-group">
           {% if is_admin_portal %}
-          <div class="nav-label">Platforma</div>
+          <div class="nav-label">{{ t('nav.platform', 'Platforma') }}</div>
           <a href="/admin/tenanti" class="nav-item {% if path.startswith('/admin/tenanti') %}active{% endif %}">
             <i data-lucide="building-2" aria-hidden="true"></i>
             Tenanti
@@ -176,10 +237,6 @@
             <i data-lucide="users" aria-hidden="true"></i>
             {{ t('nav.komitenti', 'Komitenti') }}
           </a>
-          <a href="/dobavljaci" class="nav-item {% if path.startswith('/dobavljaci') %}active{% endif %}">
-            <i data-lucide="truck" aria-hidden="true"></i>
-            {{ t('nav.dobavljaci', 'Dobavljači') }}
-          </a>
         </div>
         <div class="nav-group nav-bottom">
           <div class="nav-label">{{ t('nav.sistem', 'Sistem') }}</div>
@@ -202,7 +259,10 @@
 
       <div class="workspace">
         <div class="page-head">
-          <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}Platforma{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
+          <div class="page-head-text">
+            <h1 class="page-title">{% block page_title %}{% if is_admin_portal %}{{ t('nav.platform', 'Platforma') }}{% else %}{{ t('page.pregled', 'Pregled') }}{% endif %}{% endblock %}</h1>
+            {% block page_sub %}{% endblock %}
+          </div>
           <div class="page-actions">{% block page_actions %}{% endblock %}</div>
         </div>
         <main class="panel-body">
@@ -270,6 +330,17 @@
     });
     syncCompanyLogos();
   })();
+  (function () {
+    var acc = document.getElementById('topbar-account');
+    if (!acc) return;
+    document.addEventListener('click', function (e) {
+      if (!acc.open) return;
+      if (!acc.contains(e.target)) acc.open = false;
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && acc.open) acc.open = false;
+    });
+  })();
   </script>
   <script src="/static/table-sort.js?v=1" defer></script>
   <script src="/static/lucide.min.js?v=0.544.0"></script>
@@ -282,7 +353,7 @@
   }
   </script>
   {% if user and not is_admin_portal %}
-  <nav class="pwa-bottom-nav" aria-label="Mobilna navigacija">
+  <nav class="pwa-bottom-nav" aria-label="{{ t('nav.mobile_aria', 'Mobilna navigacija') }}">
     <a href="/" class="{% if path == '/' %}active{% endif %}">{{ t('nav.pregled', 'Pregled') }}</a>
     <a href="/racuni/novi" class="{% if path.startswith('/racuni/novi') %}active{% endif %}">{{ t('nav.izdaj', 'Izlaz') }}</a>
     <a href="/ulazne/qr" class="{% if path.startswith('/ulazne') %}active{% endif %}">{{ t('nav.ulazne', 'Ulaz') }}</a>
@@ -293,7 +364,11 @@
     {% block auth %}{% endblock %}
     <p class="brand-footer brand-footer-login">
       <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ company_domain }}">
+<<<<<<< HEAD
         <img class="company-logo" src="/static/img/prostudio-logo-dark.png?v=2" alt="{{ company_domain }}" width="160" height="25" data-logo-light="/static/img/prostudio-logo-dark.png?v=2" data-logo-dark="/static/img/prostudio-logo.png?v=2">
+=======
+        <img class="company-logo" src="/static/img/prostudio-logo.png?v=2" alt="{{ company_domain }}" width="160" height="25">
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
       </a>
     </p>
     <script src="/static/lucide.min.js?v=0.544.0"></script>
@@ -306,8 +381,8 @@
       btn.type = 'button';
       btn.className = 'theme-toggle';
       btn.id = 'theme-toggle-login';
-      btn.title = 'Svijetla / tamna tema';
-      btn.setAttribute('aria-label', 'Promijeni temu');
+      btn.title = {{ t('theme.toggle', 'Svijetla / tamna tema')|tojson }};
+      btn.setAttribute('aria-label', {{ t('theme.aria', 'Promijeni temu')|tojson }});
       btn.innerHTML = '<i data-lucide="moon" class="icon-moon" aria-hidden="true"></i><i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>';
       btn.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:20';
       document.body.appendChild(btn);
@@ -319,6 +394,7 @@
         root.classList.remove('wa-dark', 'wa-light');
         root.classList.add(next === 'dark' ? 'wa-dark' : 'wa-light');
         try { localStorage.setItem('sepko-theme', next); } catch (e) {}
+<<<<<<< HEAD
         var logo = document.querySelector('.login-card .brand-logo');
         if (logo) {
           logo.src = next === 'dark'
@@ -339,11 +415,15 @@
           img.setAttribute('src', img.getAttribute('data-logo-dark'));
         });
       }
+=======
+      });
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
     })();
     </script>
   {% endif %}
   <script src="/static/dialog.js?v=2"></script>
-  <script src="/static/pwa-install.js?v=3"
+  <script src="/static/pwa-install.js?v=7"
+          data-skip="{% if is_admin_portal %}1{% else %}0{% endif %}"
           data-title="{{ t('pwa.install_title', 'Instaliraj ProRačun') }}"
           data-msg="{{ t('pwa.install_msg', 'Dodaj ProRačun na početni ekran — brži pristup računima, bez browser trake.') }}"
           data-ok="{{ t('pwa.install', 'Instaliraj') }}"

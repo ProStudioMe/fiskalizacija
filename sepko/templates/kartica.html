@@ -1,16 +1,21 @@
 {% extends "base.html" %}
 {% block title %}{{ t('fin.card', 'Kartica') }} — {{ customer.name }} — {{ brand }}{% endblock %}
-{% block page_title %}{{ t('fin.card', 'Finansijska kartica') }}{% endblock %}
+{% block page_title %}{{ t('fin.card_full', 'Finansijska kartica') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/finansije">← Lista</a>
-  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/print" target="_blank">{{ t('btn.print', 'Štampa') }}</a>
+  <a class="btn secondary" href="/finansije">← {{ t('fin.list', 'Lista') }}</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/print{% if year %}?year={{ year }}{% endif %}" target="_blank">{{ t('btn.print', 'Štampa') }}</a>
+  <a class="btn secondary" href="/finansije/kartica/{{ customer.id }}/xlsx{% if year %}?year={{ year }}{% endif %}">Excel</a>
 {% endblock %}
 {% block content %}
 <div class="card" style="margin-bottom:1rem">
   <div class="row" style="align-items:flex-start">
     <div style="flex:1.5">
       <h2 style="margin:0;color:var(--ink);font-size:1.15rem">{{ customer.name }}</h2>
-      <div class="cell-secondary">PIB {{ customer.pib }}{% if customer.email %} · {{ customer.email }}{% endif %}</div>
+      <div class="cell-secondary">
+        PIB {{ customer.pib }}
+        {% if customer.email %} · {{ customer.email }}{% endif %}
+        {% if customer.phone %} · {{ customer.phone }}{% endif %}
+      </div>
     </div>
     <div class="totals-bar" style="margin:0;flex:1">
       <div><span class="muted">{{ t('fin.invoiced', 'Fakturisano') }}</span><strong>{{ summary.fakturisano|money }} €</strong></div>
@@ -20,24 +25,77 @@
   </div>
 </div>
 
+{% if years %}
+<form method="get" action="/finansije/kartica/{{ customer.id }}" class="rpt-period no-print" style="margin-bottom:1rem">
+  <label class="rpt-period-field">
+    <span>{{ t('fin.year', 'Godina') }}</span>
+    <select name="year" onchange="this.form.submit()">
+      <option value="" {% if not year %}selected{% endif %}>{{ t('common.all', 'Sve') }}</option>
+      {% for y in years %}
+      <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <span class="muted rpt-vs">{% if year %}{{ t('fin.turnover_upper', 'PROMET') }} {{ year }}{% else %}{{ t('fin.turnover_all', 'Cjelokupan promet') }}{% endif %}</span>
+</form>
+{% endif %}
+
+{% if promet %}
 <div class="plan-card" style="margin-bottom:1rem">
-  <div class="plan-head"><h2>{{ t('fin.cards', 'Kartica') }}</h2></div>
+  <div class="plan-head"><h2>{{ t('fin.turnover_sum', 'Promet — zbir') }}</h2></div>
+  <div class="table-wrap">
+    <table class="soft-table rpt-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="num" colspan="2">{{ t('fin.opening', 'Početno') }}</th>
+          <th class="num" colspan="2">{{ t('fin.current', 'Tekući') }}</th>
+          <th class="num" colspan="2">{{ t('fin.grand_total', 'Ukupan') }}</th>
+          <th class="num">{{ t('fin.balance', 'Saldo') }}</th>
+        </tr>
+        <tr>
+          <th></th>
+          <th class="num">D</th><th class="num">P</th>
+          <th class="num">D</th><th class="num">P</th>
+          <th class="num">D</th><th class="num">P</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>{{ t('fin.total_upper', 'UKUPNO') }}</strong></td>
+          <td class="num">{{ promet.open_d|money }}</td>
+          <td class="num">{{ promet.open_p|money }}</td>
+          <td class="num">{{ promet.tek_d|money }}</td>
+          <td class="num">{{ promet.tek_p|money }}</td>
+          <td class="num">{{ promet.uk_d|money }}</td>
+          <td class="num">{{ promet.uk_p|money }}</td>
+          <td class="num"><strong>{{ promet.saldo|money }} {% if promet.saldo > 0 %}D{% elif promet.saldo < 0 %}P{% endif %}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="plan-card" style="margin-bottom:1rem">
+  <div class="plan-head"><h2>{{ t('fin.card', 'Kartica') }}</h2></div>
   <div class="plan-table-wrap">
     <table class="soft-table">
       <thead>
         <tr>
-          <th>Datum</th>
-          <th>Vrsta</th>
-          <th>Dokument</th>
-          <th>Opis</th>
-          <th class="num">Duguje</th>
-          <th class="num">Potražuje</th>
-          <th class="num">Saldo</th>
+          <th>{{ t('col.date', 'Datum') }}</th>
+          <th>{{ t('fin.kind', 'Vrsta') }}</th>
+          <th>{{ t('fin.document', 'Dokument') }}</th>
+          <th>{{ t('fin.description', 'Opis') }}</th>
+          <th class="num">{{ t('fin.debit', 'Duguje') }}</th>
+          <th class="num">{{ t('fin.credit', 'Potražuje') }}</th>
+          <th class="num">{{ t('fin.balance', 'Saldo') }}</th>
         </tr>
       </thead>
       <tbody>
       {% for r in ledger %}
-        <tr>
+        <tr {% if r.Vrsta == 'Početno stanje' %}style="background:color-mix(in srgb, var(--surface) 80%, var(--muted));font-weight:600"{% endif %}>
           <td>{{ r.Datum or '—' }}</td>
           <td>{{ r.Vrsta }}</td>
           <td>
@@ -53,7 +111,7 @@
           <td class="num"><strong>{{ r.Saldo|money }} €</strong></td>
         </tr>
       {% else %}
-        <tr><td colspan="7" class="muted" style="padding:1.25rem">Nema stavki na kartici.</td></tr>
+        <tr><td colspan="7" class="muted" style="padding:1.25rem">{{ t('empty.no_card_lines', 'Nema stavki na kartici.') }}</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -62,41 +120,43 @@
 
 <div class="grid grid-2" style="gap:1rem;align-items:start">
   <div class="card">
-    <h2>Evidentiraj uplatu</h2>
+    <h2>{{ t('fin.record_payment', 'Evidentiraj uplatu') }}</h2>
     <form method="post" action="/finansije/kartica/{{ customer.id }}/uplata" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="row">
-        <wa-input name="amount" label="Iznos €" inputmode="decimal" placeholder="0,00" required></wa-input>
-        <wa-input name="paid_at" type="date" label="Datum" value="{{ '' }}"></wa-input>
+        <wa-input name="amount" label="{{ t('fin.amount_eur', 'Iznos €') }}" inputmode="decimal" placeholder="0,00" required></wa-input>
+        <wa-input name="paid_at" type="date" label="{{ t('col.date', 'Datum') }}" value=""></wa-input>
       </div>
-      <wa-input name="note" label="Napomena" placeholder="npr. virman / izvod"></wa-input>
-      <wa-select name="invoice_id" label="Veži na fakturu (opciono)">
+      <wa-input name="note" label="{{ t('inv.note', 'Napomena') }}" placeholder="{{ t('fin.payment_note_ph', 'npr. virman / izvod') }}"></wa-input>
+      <wa-select name="invoice_id" label="{{ t('fin.link_invoice', 'Veži na fakturu (opciono)') }}">
         <wa-option value="">—</wa-option>
         {% for inv in invoices %}
         <wa-option value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ inv.total_gross|money }} €</wa-option>
         {% endfor %}
       </wa-select>
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">Sačuvaj uplatu</wa-button>
+        <wa-button type="submit" variant="brand">{{ t('fin.save_payment', 'Sačuvaj uplatu') }}</wa-button>
       </div>
     </form>
   </div>
 
   <div class="card">
-    <h2>Pošalji karticu / fakture</h2>
+    <h2>{{ t('fin.send_card', 'Pošalji karticu') }}</h2>
     <form method="post" action="/finansije/kartica/{{ customer.id }}/posalji" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="to_email" type="email" label="Za (e-mail)" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required></wa-input>
-      <wa-input name="subject" label="Naslov" value="Finansijska kartica — {{ customer.name }}"></wa-input>
-      <wa-textarea name="body" label="Poruka" rows="4" value="Poštovani,
+      <input type="hidden" name="year" value="{{ year or '' }}">
+      <wa-input name="to_email" type="email" label="{{ t('fin.mail_to', 'Za (e-mail)') }}" value="{{ customer.email or '' }}" placeholder="klijent@firma.me" required></wa-input>
+      <wa-input name="subject" label="{{ t('fin.mail_subject_label', 'Naslov') }}" value="{{ t('fin.card_full', 'Finansijska kartica') }} — {{ customer.name }}{% if year %} · {{ year }}{% endif %}"></wa-input>
+      <wa-textarea name="body" label="{{ t('fin.mail_body_label', 'Poruka') }}" rows="4" value="{{ t('fin.mail_greeting', 'Poštovani,') }}
 
-u prilogu je finansijska kartica za {{ customer.name }}.
+{{ t('fin.mail_intro', 'u prilogu je finansijska kartica za') }} {{ customer.name }}{% if year %} ({{ year }}){% endif %}.
 
-Srdačan pozdrav"></wa-textarea>
-      <wa-checkbox name="attach_kartica" value="1" checked>Priloži finansijsku karticu (HTML)</wa-checkbox>
+{{ t('fin.mail_signoff', 'Srdačan pozdrav') }}"></wa-textarea>
+      <wa-checkbox name="attach_kartica" value="1" checked>{{ t('fin.attach_html', 'HTML kartica u tijelu maila + prilog') }}</wa-checkbox>
+      <wa-checkbox name="attach_xlsx" value="1" checked>{{ t('fin.attach_xlsx', 'Priloži Excel (.xlsx)') }}</wa-checkbox>
       {% if invoices %}
       <div class="field" style="margin-bottom:0">
-        <label>Priloži fakture</label>
+        <label>{{ t('fin.attach_invoices', 'Priloži fakture') }}</label>
         <div style="max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:0.5rem;display:flex;flex-direction:column;gap:0.35rem">
           {% for inv in invoices %}
           <wa-checkbox name="invoice_ids" value="{{ inv.id }}">{{ inv|display_inv_num }} · {{ inv.total_gross|money }} €</wa-checkbox>
@@ -105,9 +165,9 @@ Srdačan pozdrav"></wa-textarea>
       </div>
       {% endif %}
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">Pošalji mail</wa-button>
+        <wa-button type="submit" variant="brand">{{ t('fin.send_mail', 'Pošalji mail') }}</wa-button>
       </div>
-      <p class="cell-secondary" style="margin:0">SMTP iz Podešavanja → Mail ili `.env` (SMTP_* / IMAP_*).</p>
+      <p class="cell-secondary" style="margin:0">{{ t('fin.send_mail_hint', 'Šalje se preko ProRačun Resenda (Reply-To = tvoj IMAP mail).') }}</p>
     </form>
   </div>
 </div>

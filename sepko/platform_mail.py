@@ -11,7 +11,7 @@ import httpx
 from dotenv import load_dotenv
 
 from sepko.brand import COMPANY_BILLING_EMAIL, COMPANY_NAME, MAIL_FROM_NAME
-from sepko.finansije import MailSettings, load_mail_settings, send_firm_mail
+from sepko.finansije import MailSettings, _send_smtp_mail, load_mail_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 RESEND_URL = "https://api.resend.com/emails"
@@ -89,7 +89,7 @@ def send_platform_mail(
         )
 
     mail: MailSettings = load_mail_settings(None)
-    result = send_firm_mail(
+    result = _send_smtp_mail(
         mail=mail,
         to_addrs=recipients,
         subject=subject,

@@ -135,3 +135,34 @@ def test_sql_ident_rejects_injection():
         safe_ident("inv_num; DROP TABLE invoices")
     with pytest.raises(ValueError):
         safe_ident("hello world")
+
+
+_PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_tenant_company_keeps_logo_filename():
+    from sepko.efi import TenantCompany, load_tenant_company, save_tenant_company
+    from sepko.models import Tenant
+
+    tenant = Tenant(slug="x", name="Firma", pib="12345678")
+    save_tenant_company(tenant, TenantCompany(address="Ulica 1", logo_filename="logo-ab.png"))
+    loaded = load_tenant_company(tenant)
+    assert loaded.logo_filename == "logo-ab.png"
+    assert loaded.address == "Ulica 1"
+
+
+def test_company_logo_data_uri(tmp_path, monkeypatch):
+    monkeypatch.setattr("sepko.uploads.uploads_root", lambda: tmp_path)
+    from sepko.uploads import company_logo_dir, image_data_uri, resolve_company_logo
+
+    fname = "logo-test.png"
+    (company_logo_dir(1) / fname).write_bytes(_PNG_1X1)
+    path = resolve_company_logo(1, fname)
+    assert path is not None
+    uri = image_data_uri(path)
+    assert uri is not None
+    assert uri.startswith("data:image/png;base64,")

@@ -1,14 +1,26 @@
 /* ProRačun PWA service worker — shell + recent lists; no offline fiscalize */
+<<<<<<< HEAD
 const CACHE = "sepko-shell-v6";
+=======
+const CACHE = "sepko-shell-v13";
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
 const PRECACHE = [
   "/app",
   "/app/kasa",
-  "/static/style.css?v=109",
+  "/static/style.css?v=210",
   "/static/pos.js?v=7",
   "/manifest.webmanifest",
   "/manifest-kasa.webmanifest",
+<<<<<<< HEAD
   "/static/img/sepko-mark.svg?v=9",
   "/static/img/sepko-logo.svg?v=10",
+=======
+  "/static/img/sepko-mark.svg?v=15",
+  "/static/img/sepko-mark.png?v=15",
+  "/static/img/sepko-logo.png?v=15",
+  "/static/img/og-proracun.png?v=5",
+  "/static/img/proracun-lockup-clear.png?v=1",
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
   "/static/qr-scan.js?v=1",
   "/static/pwa.css?v=2",
   "/static/lucide.min.js?v=0.544.0",
@@ -35,8 +47,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for HTML / API; cache-first for static
+  // Network-first for versioned static (?v=); cache-first for unversioned
   if (url.pathname.startsWith("/static/") || url.pathname === "/sw.js") {
+    if (url.search || url.pathname === "/sw.js") {
+      event.respondWith(
+        fetch(req)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+            return res;
+          })
+          .catch(() => caches.match(req))
+      );
+      return;
+    }
     event.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
         const copy = res.clone();

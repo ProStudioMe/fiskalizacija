@@ -1,23 +1,38 @@
 {% extends "base.html" %}
 {% block title %}{{ t('login.title', 'Prijava') }} — {{ brand }}{% endblock %}
+{% block og_title %}{{ brand }} — {{ t('login.title', 'Prijava') }}{% endblock %}
+{% block og_url %}{{ brand_url }}/login{% endblock %}
 {% block auth %}
 <div class="login-wrap">
+<<<<<<< HEAD
   <div class="card login-card">
     <div class="brand">
       <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=10" alt="{{ brand }}" width="248" height="48">
     </div>
+=======
+  <div class="login-stack">
+    <img class="brand-logo brand-logo-lg brand-logo-stack" src="/static/img/proracun-lockup-clear.png?v=1" alt="{{ brand }}" width="280" height="280">
+    <div class="card login-card">
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
     <p class="muted">{{ t('login.title', 'Prijava') }}</p>
     {% if flash %}
       <div class="flash {% if flash_type == 'error' %}error{% endif %}" role="status">{{ flash }}</div>
     {% endif %}
     <form method="post" action="/login" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input id="email" name="email" type="email" label="{{ t('login.email', 'Email') }}" required autocomplete="username"></wa-input>
-      <wa-input id="password" name="password" type="password" password-toggle label="{{ t('login.password', 'Lozinka') }}" required autocomplete="current-password"></wa-input>
+      <div class="field">
+        <label for="email">{{ t('login.email', 'Email') }}</label>
+        <input id="email" name="email" type="email" required autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label for="password">{{ t('login.password', 'Lozinka') }}</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">{{ t('login.submit', 'Prijavi se') }}</wa-button>
+        <button type="submit" class="btn">{{ t('login.submit', 'Prijavi se') }}</button>
       </div>
     </form>
+    </div>
   </div>
 </div>
 {% endblock %}

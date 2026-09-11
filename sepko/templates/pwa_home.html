@@ -23,7 +23,7 @@
         <tbody>
         {% for inv in recent_out %}
           <tr>
-            <td><a href="/racuni/{{ inv.id }}">{{ inv|display_inv_num }}</a></td>
+            <td><a href="{% if inv.status == 'fiscalized' %}/racuni/{{ inv.id }}{% else %}/racuni/{{ inv.id }}/izmijeni{% endif %}">{{ inv|display_inv_num }}</a></td>
             <td><span class="pill-tag">{{ inv.status }}</span></td>
             <td class="num">{{ (inv.total_gross or 0)|money }} €</td>
           </tr>

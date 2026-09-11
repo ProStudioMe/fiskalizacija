@@ -2,202 +2,103 @@
 {% block title %}{{ t('page.artikli', 'Artikli') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.artikli', 'Artikli') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/podesavanja/artikli">← Hub</a>
-  <a class="btn" href="/artikli">+ {{ t('btn.add', 'Novi') }}</a>
+  {% if return_to %}
+  <a class="btn secondary" href="{{ return_to }}">{{ t('btn.continue_invoice', 'Nastavi na fakturu') }} →</a>
+  {% endif %}
+  <a class="btn" href="/artikli/novi{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">+ {{ t('article.new', 'Novi artikal') }}</a>
 {% endblock %}
 {% block content %}
-<form method="get" action="/artikli" class="filter-bar">
-  <div class="search-bar" style="margin:0;flex:1;min-width:200px">
-    <i data-lucide="search" aria-hidden="true"></i>
-    <input name="q" value="{{ q }}" placeholder="Pretraga naziv / šifra / barkod…">
-  </div>
-  {% include "_per_page.html" %}
-</form>
+{% set col_count = 4 + (1 if show_stock else 0) %}
+<div class="articles-page articles-page--list">
+  <p class="muted articles-lede">{{ t('article.intro_short', 'Šifrarnik za fakture, kasu i lager. Cijene, PDV i količine na jednom mjestu.') }}</p>
 
-<div class="grid grid-2">
-  <div class="card">
-    {% if editing %}
-    <h2>{{ t('btn.edit', 'Izmijeni') }}</h2>
-    <form method="post" action="/artikli/{{ editing.id }}" class="wa-form-stack" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input label="Šifra artikla" value="{{ editing.code }}" disabled></wa-input>
-      <wa-input name="name" label="Naziv" value="{{ editing.name }}" required maxlength="255"></wa-input>
-      <wa-input name="unit" label="Jedinica mjere" value="{{ editing.unit }}"></wa-input>
-      <div class="row">
-        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="{% if editing.price_retail is not none %}{{ editing.price_retail|money(4) }}{% endif %}"></wa-input>
-        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="{{ editing.price_gross|money(4) }}" required></wa-input>
-      </div>
-      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" value="{% if editing.stock_qty is not none %}{{ editing.stock_qty|money(4) }}{% endif %}"></wa-input>
-      <wa-input name="barcode" label="Barkod" value="{{ editing.barcode or '' }}"></wa-input>
-      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ editing.tax_rate_code or (tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true)) }}">
-        {% for tax_rate in tax_rates %}
-        <wa-option value="{{ tax_rate.code }}" {% if (editing.tax_rate_code or '') == tax_rate.code or (not editing.tax_rate_code and tax_rate.is_default) %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-select name="category_id" label="Kategorija" value="{{ editing.category_id or '' }}">
-        <wa-option value="">—</wa-option>
-        {% for c in categories %}
-        <wa-option value="{{ c.id }}" {% if editing.category_id == c.id %}selected{% endif %}>{{ c.name }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-textarea name="description" label="Opis" rows="3" value="{{ editing.description or '' }}"></wa-textarea>
-      <div class="field logo-field" style="margin-bottom:0">
-        <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
-        {% set preview_src = thumb_url if thumb_url else none %}
-        {% set show_remove = true if editing.thumbnail_filename else false %}
-        {% set input_name = 'thumb' %}
-        {% set input_id = 'thumb-edit' %}
-        {% set remove_name = 'remove_thumb' %}
-        {% include "_thumb_upload.html" %}
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
-        <div class="color-row">
-          {% for col in colors %}
-          <label class="color-dot" style="background:{{ col }}">
-            <input type="radio" name="color" value="{{ col }}" {% if (editing.color or '#c62828') == col %}checked{% endif %}>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
-        <a class="btn secondary" href="/artikli">{{ t('btn.cancel', 'Poništi') }}</a>
-      </div>
-    </form>
-    <form method="post" action="/artikli/{{ editing.id }}/obrisi" style="margin-top:0.75rem">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-button type="submit" variant="danger">{{ t('btn.delete', 'Obriši') }} (deaktiviraj)</wa-button>
-    </form>
-    {% else %}
-    <h2>{{ t('btn.add', 'Novi') }}</h2>
-    <form method="post" action="/artikli" class="wa-form-stack" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input name="code" label="Šifra artikla" required maxlength="64"></wa-input>
-      <wa-input name="name" label="Naziv" required maxlength="255"></wa-input>
-      <wa-input name="unit" label="Jedinica mjere" value="kom"></wa-input>
-      <div class="row">
-        <wa-input name="price_retail" label="Maloprodajna cijena" inputmode="decimal" placeholder="0,00" value="0,00"></wa-input>
-        <wa-input name="price_gross" label="Veleprodajna cijena (VP, bez PDV)" inputmode="decimal" placeholder="0,00" value="1,00" required></wa-input>
-      </div>
-      <wa-input name="stock_qty" label="Količina na lageru" inputmode="decimal" placeholder="0"></wa-input>
-      <wa-input name="barcode" label="Barkod"></wa-input>
-      <wa-select name="tax_rate_code" label="Poreska stopa" value="{{ tax_rates|selectattr('is_default')|map(attribute='code')|first|default('', true) }}">
-        {% for tax_rate in tax_rates %}
-        <wa-option value="{{ tax_rate.code }}" {% if tax_rate.is_default %}selected{% endif %}>{{ tax_rate.name }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-select name="category_id" label="Kategorija" value="">
-        <wa-option value="" selected>—</wa-option>
-        {% for c in categories %}
-        <wa-option value="{{ c.id }}">{{ c.name }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-textarea name="description" label="Opis" rows="3"></wa-textarea>
-      <div class="field logo-field" style="margin-bottom:0">
-        <label>{{ t('upload.thumb_label', 'Thumbnail (kasa)') }}</label>
-        {% set preview_src = none %}
-        {% set show_remove = false %}
-        {% set input_name = 'thumb' %}
-        {% set input_id = 'thumb-new' %}
-        {% include "_thumb_upload.html" %}
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label>Izaberite boju</label>
-        <div class="color-row">
-          {% for col in colors %}
-          <label class="color-dot" style="background:{{ col }}">
-            <input type="radio" name="color" value="{{ col }}" {% if loop.first %}checked{% endif %}>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.add', 'Dodaj') }}</wa-button>
-      </div>
-    </form>
-    {% endif %}
-  </div>
-
-  <div class="plan-card">
-    <div class="plan-head">
-      <div>
-        <h2>{{ t('page.artikli', 'Artikli') }} ({{ articles|length }} od {{ total }})</h2>
-        <div class="cell-secondary">Dodaj / izmijeni</div>
-      </div>
+  <form method="get" action="/artikli" class="articles-toolbar">
+    {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+    <div class="search-bar articles-search">
+      <i data-lucide="search" aria-hidden="true"></i>
+      <input name="q" value="{{ q }}" placeholder="{{ t('article.search_ph', 'Pretraga naziv / šifra / barkod…') }}" autocomplete="off">
     </div>
-    <table class="soft-table">
-      <thead>
-        <tr>
-          <th>Artikal</th>
-          <th class="num">VP cijena</th>
-          <th>PDV</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for a in articles %}
-        <tr>
-          <td>
-            <div class="cell-primary">
-              {% if a.thumbnail_filename %}
-              <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=2{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
-              {% else %}
-              <span class="entity-icon" style="width:28px;height:28px;font-size:0.65rem;background:{{ a.color or '#7c3aed' }};color:#fff;display:inline-grid">{{ (a.name or '?')[:2]|upper }}</span>
+    <div class="articles-toolbar-meta">
+      <span class="articles-count">{{ articles|length }} {{ t('common.of', 'od') }} {{ total }}{% if q %} · {{ t('article.search_active', 'filtrirano') }}{% endif %}</span>
+      {% include "_per_page.html" %}
+    </div>
+  </form>
+
+  <div class="plan-card articles-list-card">
+    <div class="plan-table-wrap">
+      <table class="soft-table articles-table{% if show_stock %} articles-table--stock{% endif %}">
+        <thead>
+          <tr>
+            <th class="articles-col-name">{{ t('article.col_item', 'Artikal') }}</th>
+            <th class="articles-col-price num">{{ t('article.col_price', 'Cijena') }}</th>
+            {% if show_stock %}
+            <th class="articles-col-stock num">{{ t('article.col_stock', 'Lager') }}</th>
+            {% endif %}
+            <th class="articles-col-vat num">{{ t('col.vat', 'PDV') }}</th>
+            <th class="articles-col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for a in articles %}
+          <tr class="article-row">
+            <td>
+              <div class="cell-primary article-name-cell">
+                {% if a.thumbnail_filename %}
+                <img class="article-thumb-sm" src="{% if a.thumbnail_filename.startswith('demo/') %}/static/img/demo-products/{{ a.thumbnail_filename[5:] }}?v=4{% else %}/artikli/{{ a.id }}/thumb{% endif %}" alt="">
+                {% else %}
+                <span class="entity-icon article-swatch" style="background:{{ a.color or 'var(--accent)' }};color:#fff">{{ (a.name or '?')[:2]|upper }}</span>
+                {% endif %}
+                <span class="article-name">
+                  {{ a.name }}
+                  {% if not a.active %}<span class="pill-tag bad">off</span>{% endif %}
+                </span>
+              </div>
+              <div class="cell-secondary article-meta">{{ a.code }} · {{ a.unit }}{% if a.barcode %} · {{ a.barcode }}{% endif %}</div>
+            </td>
+            <td class="num">
+              <div class="cell-primary article-cell-main"><strong class="article-price">{{ a.price_gross|money }} €</strong></div>
+              {% if a.price_retail is not none %}
+              <div class="cell-secondary">MP {{ a.price_retail|money }} €</div>
               {% endif %}
-              {{ a.name }}{% if not a.active %} <span class="pill-tag bad">off</span>{% endif %}
-            </div>
-            <div class="cell-secondary">Šifra {{ a.code }} · {{ a.unit }}</div>
-          </td>
-          <td class="num"><strong>{{ a.price_gross|money }} €</strong></td>
-          <td><span class="pill-tag">{{ "%.0f"|format(a.vat_rate) }}%</span></td>
-          <td class="cell-actions">
-            {% set edit_href = '/artikli?edit=' ~ a.id %}
-            {% include "_row_actions.html" %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4" class="muted" style="padding:1.25rem">Nema artikala.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+            </td>
+            {% if show_stock %}
+            <td class="num">
+              {% if a.stock_qty is not none %}
+              <span class="article-stock{% if a.stock_qty == 0 %} is-zero{% endif %}">{{ a.stock_qty|money }}</span>
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="num"><span class="pill-tag article-vat">{{ "%.0f"|format(a.vat_rate) }}%</span></td>
+            <td class="articles-actions-cell">
+              <div class="article-row-actions">
+                {% set edit_href = '/artikli/' ~ a.id ~ '/izmijeni' %}
+                {% if return_to %}{% set edit_href = edit_href ~ '?return_to=' ~ (return_to|urlencode) %}{% endif %}
+                {% set delete_url = ('/artikli/' ~ a.id ~ '/obrisi') if a.active else none %}
+                {% include "_row_actions.html" %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="{{ col_count }}" class="muted articles-empty">
+              <div class="articles-empty-title">{% if return_to %}{{ t('article.empty_return', 'Nema artikala. Dodaj prvi, pa nastavi na fakturu.') }}{% else %}{{ t('article.empty', 'Nema artikala.') }}{% endif %}</div>
+              <a class="btn" href="/artikli/novi{% if return_to %}?return_to={{ return_to|urlencode }}{% endif %}">+ {{ t('article.new', 'Novi artikal') }}</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set list_path = '/artikli' %}
     {% set pager_qs = 'q=' ~ q ~ '&per_page=' ~ per_page %}
+    {% if return_to %}{% set pager_qs = pager_qs ~ '&return_to=' ~ (return_to|urlencode) %}{% endif %}
     {% include "_pager.html" %}
   </div>
 </div>
 <script>
 (function () {
-  document.querySelectorAll('[data-file-upload]').forEach(function (root) {
-    var input = root.querySelector('[data-file-input]');
-    var zone = root.querySelector('.file-upload-zone');
-    var idle = root.querySelector('[data-file-idle]');
-    var preview = root.querySelector('[data-file-preview]');
-    var previewImg = root.querySelector('[data-file-preview-img]');
-    var nameEl = root.querySelector('[data-file-name]');
-    var noneLabel = nameEl ? nameEl.textContent : '';
-    if (!input || !zone) return;
-    function showFile(file) {
-      if (!file) {
-        if (preview) preview.hidden = true;
-        if (idle) idle.hidden = false;
-        if (nameEl) nameEl.textContent = noneLabel;
-        zone.classList.remove('has-file');
-        return;
-      }
-      if (nameEl) nameEl.textContent = file.name;
-      zone.classList.add('has-file');
-      if (preview && previewImg && file.type.indexOf('image/') === 0) {
-        var url = URL.createObjectURL(file);
-        previewImg.onload = function () { URL.revokeObjectURL(url); };
-        previewImg.src = url;
-        preview.hidden = false;
-        if (idle) idle.hidden = true;
-      }
-    }
-    input.addEventListener('change', function () {
-      showFile(input.files && input.files[0]);
-    });
-  });
   if (window.sepkoIcons) window.sepkoIcons();
 })();
 </script>

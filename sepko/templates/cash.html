@@ -2,7 +2,7 @@
 {% block title %}{{ t('page.blagajna', 'Blagajna') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('page.blagajna', 'Blagajna') }}{% endblock %}
 {% block page_actions %}
-<nav class="cash-switcher" aria-label="Maloprodaja">
+<nav class="cash-switcher" aria-label="{{ t('nav.maloprodaja', 'Maloprodaja') }}">
   {% if from_pwa %}
   <a href="/app/kasa"><i data-lucide="monitor" aria-hidden="true"></i>{{ t('page.kasa', 'Kasa') }}</a>
   <a href="/maloprodaja/promet"><i data-lucide="shopping-bag" aria-hidden="true"></i>{{ t('nav.pos_day', 'Dnevni promet') }}</a>
@@ -13,48 +13,51 @@
 </nav>
 {% endblock %}
 {% block content %}
-{% set op_labels = {'INITIAL': 'Početni depozit', 'WITHDRAW': 'Podizanje'} %}
+{% set op_labels = {
+  'INITIAL': t('cash.op_initial', 'Početni depozit'),
+  'WITHDRAW': t('cash.op_withdraw_short', 'Podizanje')
+} %}
 {% set status_labels = {
-  'registered': 'Evidentirano',
-  'failed': 'Neuspješno',
-  'superseded': 'Zamijenjeno'
+  'registered': t('cash.status_registered', 'Evidentirano'),
+  'failed': t('status.failed', 'Neuspješno'),
+  'superseded': t('cash.status_superseded', 'Zamijenjeno')
 } %}
 <div class="cash-page">
   {% if not day.has_initial %}
   <div class="flash warn cash-alert">
-    Nema početnog depozita za danas — unesi ga prije gotovinskih računa (smije biti 0,00).
+    {{ t('cash.need_initial', 'Nema početnog depozita za danas — unesi ga prije gotovinskih računa (smije biti 0,00).') }}
   </div>
   {% elif initial_locked %}
   <div class="flash ok cash-alert">
-    Početni depozit je zaključan na {{ suggest_initial }} € (default). Za veći iznos uključi override u Podešavanjima.
+    {{ t('cash.initial_locked_pre', 'Početni depozit je zaključan na') }} {{ suggest_initial }} € {{ t('cash.initial_locked_post', '(default). Za veći iznos uključi override u Podešavanjima.') }}
   </div>
   {% endif %}
 
-  <section class="cash-hero" aria-label="Stanje blagajne">
+  <section class="cash-hero" aria-label="{{ t('cash.state', 'Stanje blagajne') }}">
     <div class="cash-hero-main">
-      <p class="cash-hero-label">Gotovina u kasi</p>
+      <p class="cash-hero-label">{{ t('cash.in_drawer', 'Gotovina u kasi') }}</p>
       <p class="cash-hero-value">{{ day.cash_in_drawer|money }} <span>€</span></p>
       <div class="cash-meta">
         <span class="cash-chip">ENU <code>{{ fiscal.tcr_code or '—' }}</code></span>
-        <span class="cash-chip">Računa · {{ day.invoice_count }}</span>
+        <span class="cash-chip">{{ t('cash.invoices', 'Računa') }} · {{ day.invoice_count }}</span>
         {% if day.has_initial %}
-        <span class="cash-chip ok">{% if initial_locked %}Depozit zaključan{% else %}Depozit ok{% endif %}</span>
+        <span class="cash-chip ok">{% if initial_locked %}{{ t('cash.deposit_locked', 'Depozit zaključan') }}{% else %}{{ t('cash.deposit_ok', 'Depozit ok') }}{% endif %}</span>
         {% else %}
-        <span class="cash-chip warn">Čeka depozit</span>
+        <span class="cash-chip warn">{{ t('cash.awaiting_deposit', 'Čeka depozit') }}</span>
         {% endif %}
       </div>
     </div>
     <div class="cash-strip" role="list">
       <div class="cash-strip-item" role="listitem">
-        <span class="cash-metric-label">Početni depozit</span>
+        <span class="cash-metric-label">{{ t('cash.op_initial', 'Početni depozit') }}</span>
         <strong class="cash-metric-value">{{ day.initial|money }} €</strong>
       </div>
       <div class="cash-strip-item" role="listitem">
-        <span class="cash-metric-label">Gotovinska prodaja</span>
+        <span class="cash-metric-label">{{ t('cash.banknote_sales', 'Gotovinska prodaja') }}</span>
         <strong class="cash-metric-value">{{ day.banknote_sales|money }} €</strong>
       </div>
       <div class="cash-strip-item" role="listitem">
-        <span class="cash-metric-label">Podignuto</span>
+        <span class="cash-metric-label">{{ t('cash.withdrawn', 'Podignuto') }}</span>
         <strong class="cash-metric-value">{{ day.withdrawals|money }} €</strong>
       </div>
     </div>
@@ -63,19 +66,19 @@
   <div class="cash-workspace">
     <div class="cash-form-pane">
       <div class="cash-card-head">
-        <h2>Nova promjena</h2>
+        <h2>{{ t('cash.new_change', 'Nova promjena') }}</h2>
         {% if allow_initial or allow_withdraw %}
         <p class="cash-hint" id="cash-hint">
           {% if default_op == 'WITHDRAW' %}
-          Predloženo podizanje = gotovinska prodaja (minus već podignuto).
+          {{ t('cash.hint_withdraw', 'Predloženo podizanje = gotovinska prodaja (minus već podignuto).') }}
           {% elif not opening_override %}
-          Predloženi depozit iz podešavanja · bez override-a max {{ suggest_initial }} €.
+          {{ t('cash.hint_initial_pre', 'Predloženi depozit iz podešavanja · bez override-a max') }} {{ suggest_initial }} €.
           {% else %}
-          Predloženi depozit iz podešavanja · override je uključen.
+          {{ t('cash.hint_initial_override', 'Predloženi depozit iz podešavanja · override je uključen.') }}
           {% endif %}
         </p>
         {% else %}
-        <p class="cash-hint">Nema dostupnih operacija — sačekaj gotovinsku prodaju ili uključi override za depozit.</p>
+        <p class="cash-hint">{{ t('cash.no_operations', 'Nema dostupnih operacija — sačekaj gotovinsku prodaju ili uključi override za depozit.') }}</p>
         {% endif %}
       </div>
       {% if allow_initial or allow_withdraw %}
@@ -84,48 +87,48 @@
             data-suggest-initial="{{ suggest_initial }}"
             data-suggest-withdraw="{{ suggest_withdraw }}"
             data-max-initial="{{ max_initial }}"
-            data-hint-initial="{% if opening_override %}Predloženi depozit iz podešavanja · override je uključen.{% else %}Predloženi depozit iz podešavanja · bez override-a max {{ suggest_initial }} €.{% endif %}"
-            data-hint-withdraw="Predloženo podizanje = gotovinska prodaja (minus već podignuto).">
+            data-hint-initial="{% if opening_override %}{{ t('cash.hint_initial_override', 'Predloženi depozit iz podešavanja · override je uključen.') }}{% else %}{{ t('cash.hint_initial_pre', 'Predloženi depozit iz podešavanja · bez override-a max') }} {{ suggest_initial }} €.{% endif %}"
+            data-hint-withdraw="{{ t('cash.hint_withdraw', 'Predloženo podizanje = gotovinska prodaja (minus već podignuto).') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         {% if from_pwa %}
         <input type="hidden" name="return_to" value="/app/kasa">
         {% endif %}
         {% if allow_initial and allow_withdraw %}
-        <wa-select name="operation" id="cash-operation" label="Operacija" value="{{ default_op }}">
-          <wa-option value="INITIAL" {% if default_op == 'INITIAL' %}selected{% endif %}>Početni depozit</wa-option>
-          <wa-option value="WITHDRAW" {% if default_op == 'WITHDRAW' %}selected{% endif %}>Podizanje gotovine</wa-option>
+        <wa-select name="operation" id="cash-operation" label="{{ t('cash.operation', 'Operacija') }}" value="{{ default_op }}">
+          <wa-option value="INITIAL" {% if default_op == 'INITIAL' %}selected{% endif %}>{{ t('cash.op_initial', 'Početni depozit') }}</wa-option>
+          <wa-option value="WITHDRAW" {% if default_op == 'WITHDRAW' %}selected{% endif %}>{{ t('cash.op_withdraw', 'Podizanje gotovine') }}</wa-option>
         </wa-select>
         {% elif allow_initial %}
         <input type="hidden" name="operation" value="INITIAL">
-        <wa-input label="Operacija" value="Početni depozit" readonly></wa-input>
+        <wa-input label="{{ t('cash.operation', 'Operacija') }}" value="{{ t('cash.op_initial', 'Početni depozit') }}" readonly></wa-input>
         {% else %}
         <input type="hidden" name="operation" value="WITHDRAW">
-        <wa-input label="Operacija" value="Podizanje gotovine" readonly></wa-input>
+        <wa-input label="{{ t('cash.operation', 'Operacija') }}" value="{{ t('cash.op_withdraw', 'Podizanje gotovine') }}" readonly></wa-input>
         {% endif %}
-        <wa-input name="amount" id="cash-amount" label="Iznos (€)" inputmode="decimal" placeholder="0,00" value="{{ default_amount }}" required></wa-input>
+        <wa-input name="amount" id="cash-amount" label="{{ t('cash.amount_eur', 'Iznos (€)') }}" inputmode="decimal" placeholder="0,00" value="{{ default_amount }}" required></wa-input>
         <div class="wa-form-actions cash-form-actions">
-          <wa-button type="submit" variant="brand">Registruj</wa-button>
+          <wa-button type="submit" variant="brand">{{ t('cash.register', 'Registruj') }}</wa-button>
         </div>
       </form>
       {% else %}
       <div class="cash-form cash-form-idle">
-        <p class="muted" style="margin:0">Blagajna je otvorena. Podizanje će biti dostupno kad bude gotovinske prodaje.</p>
+        <p class="muted" style="margin:0">{{ t('cash.open_idle', 'Blagajna je otvorena. Podizanje će biti dostupno kad bude gotovinske prodaje.') }}</p>
       </div>
       {% endif %}
     </div>
 
     <div class="cash-ledger-pane">
       <div class="cash-card-head cash-ledger-head">
-        <h2>Danas</h2>
+        <h2>{{ t('cash.today', 'Danas') }}</h2>
         <span class="cash-ledger-count">{{ deposits|length }}</span>
       </div>
       <table class="soft-table cash-table">
         <thead>
           <tr>
-            <th>Vrijeme</th>
-            <th>Operacija</th>
-            <th class="num">Iznos</th>
-            <th>Status</th>
+            <th>{{ t('col.time', 'Vrijeme') }}</th>
+            <th>{{ t('cash.operation', 'Operacija') }}</th>
+            <th class="num">{{ t('col.amount', 'Iznos') }}</th>
+            <th>{{ t('col.status', 'Status') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -153,7 +156,7 @@
         {% else %}
           <tr>
             <td colspan="4" class="cash-empty">
-              Nema promjena danas.
+              {{ t('empty.no_cash_changes', 'Nema promjena danas.') }}
             </td>
           </tr>
         {% endfor %}

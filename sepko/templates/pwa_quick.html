@@ -2,22 +2,22 @@
 {% block title %}{{ t('pwa.quick', 'Brza fiskalizacija') }} — {{ brand }}{% endblock %}
 {% block page_title %}{{ t('pwa.quick', 'Brza fiskalizacija') }}{% endblock %}
 {% block page_actions %}
-  <a class="btn secondary" href="/app">← App</a>
+  <a class="btn secondary" href="/app">← {{ t('nav.vise', 'App') }}</a>
 {% endblock %}
 {% block content %}
 <form method="post" action="/app/brzo" class="card wa-form-stack" style="max-width:420px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <wa-input name="name" label="{{ t('col.item', 'Artikal / usluga') }}" required placeholder="Usluga"></wa-input>
+  <wa-input name="name" label="{{ t('col.item', 'Artikal / usluga') }}" required placeholder="{{ t('pwa.service_ph', 'Usluga') }}"></wa-input>
   <wa-input name="amount_gross" label="{{ t('col.amount', 'Iznos bruto') }} €" inputmode="decimal" required placeholder="12,00"></wa-input>
-  <wa-input name="vat_rate" label="PDV %" value="21"></wa-input>
+  <wa-input name="vat_rate" label="{{ t('col.vat_pct', 'PDV %') }}" value="21"></wa-input>
   <wa-select name="payment" label="{{ t('col.payment', 'Plaćanje') }}" value="BANKNOTE">
-    <wa-option value="BANKNOTE" selected>Gotovina</wa-option>
-    <wa-option value="CARD">Kartica</wa-option>
-    <wa-option value="ORDER">Virman</wa-option>
+    <wa-option value="BANKNOTE" selected>{{ t('pay.cash', 'Gotovina') }}</wa-option>
+    <wa-option value="CARD">{{ t('pay.card_short', 'Kartica') }}</wa-option>
+    <wa-option value="ORDER">{{ t('pay.wire', 'Virman') }}</wa-option>
   </wa-select>
   <div class="wa-form-actions">
     <wa-button type="submit" variant="brand" style="width:100%">{{ t('btn.fiscalize', 'Fiskalizuj') }}</wa-button>
   </div>
 </form>
-<p class="muted" style="max-width:420px">Offline fiskalizacija nije uključena — potreban je internet / Navira. Draft ostaje u listi ako partner padne.</p>
+<p class="muted" style="max-width:420px">{{ t('pwa.offline_hint', 'Offline fiskalizacija nije uključena — potreban je internet / Navira. Draft ostaje u listi ako partner padne.') }}</p>
 {% endblock %}

@@ -14,10 +14,40 @@
       padding: 8px;
       background: #fff;
     }
-    .noprint { margin: 0 0 12px; font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    .noprint {
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.55rem;
+      padding: 0.45rem 0.55rem;
+      background: #f4f4f6;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
+    }
+    .noprint a, .noprint button {
+      appearance: none;
+      font: inherit;
+      color: #1a1030;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #c8c8d0;
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+    }
+    .noprint button#btn-print {
+      background: #6d28d9;
+      border-color: #6d28d9;
+      color: #fff;
+      font-weight: 600;
+    }
     .receipt { width: 72mm; max-width: 100%; margin: 0 auto; }
     .center { text-align: center; }
     .seller { font-weight: 700; font-size: 1.15em; }
+    .seller-logo { max-width: 48mm; max-height: 22mm; object-fit: contain; margin: 0 auto 5px; display: block; }
     .muted { color: #333; }
     hr { border: 0; border-top: 1px dashed #333; margin: 8px 0; }
     .row { display: flex; justify-content: space-between; gap: 8px; }
@@ -36,13 +66,15 @@
 <body>
   <div class="receipt">
     <p class="noprint">
-      <a href="{{ back_url or ('/racuni/' ~ invoice.id) }}">← Nazad</a>
-      ·
+      <button type="button" onclick="window.close()">Zatvori</button>
       <button type="button" id="btn-print">Štampa</button>
-      ·
       <a href="/racuni/{{ invoice.id }}/pdf">A4</a>
+      <a href="{{ back_url or ('/racuni/' ~ invoice.id) }}">Otvori u app</a>
     </p>
     <div class="center">
+      {% if company_logo_uri %}
+      <img class="seller-logo" src="{{ company_logo_uri }}" alt="">
+      {% endif %}
       <div class="seller">{{ tenant.name }}</div>
       {% if company.address %}<div>{{ company.address }}</div>{% endif %}
       <div>PIB: {{ tenant.pib }}</div>

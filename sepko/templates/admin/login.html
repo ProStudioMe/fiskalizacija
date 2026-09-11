@@ -2,23 +2,36 @@
 {% block title %}Prijava — {{ brand }} admin{% endblock %}
 {% block auth %}
 <div class="login-wrap">
+<<<<<<< HEAD
   <div class="card login-card">
     <div class="brand">
       <img class="brand-logo brand-logo-lg" src="/static/img/sepko-logo-dark.svg?v=10" alt="{{ brand }}" width="248" height="48">
     </div>
+=======
+  <div class="login-stack">
+    <img class="brand-logo brand-logo-lg brand-logo-stack" src="/static/img/proracun-lockup-clear.png?v=1" alt="{{ brand }}" width="280" height="280">
+    <div class="card login-card">
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
     <p class="muted">Prijava u platformu</p>
     {% if flash %}
       <div class="flash {% if flash_type == 'error' %}error{% endif %}" role="status">{{ flash }}</div>
     {% endif %}
     <form method="post" action="/admin/login" class="wa-form-stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-input id="email" name="email" type="email" label="Email" required autocomplete="username"></wa-input>
-      <wa-input id="password" name="password" type="password" password-toggle label="Lozinka" required autocomplete="current-password"></wa-input>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Lozinka</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
       <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">Prijavi se</wa-button>
+        <button type="submit" class="btn">Prijavi se</button>
       </div>
     </form>
     <p class="muted" style="margin-top:1rem"><a href="/login">Prijava firme</a></p>
+    </div>
   </div>
 </div>
 {% endblock %}

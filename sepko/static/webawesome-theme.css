@@ -14,43 +14,62 @@ html.wa-theme-shoelace {
   --wa-form-control-border-radius: var(--radius-sm);
 }
 
-/* Brand / accent → Sepko purple */
+/* Brand / accent → Sepko purple
+   WA scale is 95=lightest → 05=darkest. Light filled buttons use brand-50 + white text. */
 html.wa-theme-shoelace {
-  --wa-color-brand-50: #ede7ff;
-  --wa-color-brand-40: #b9a0f5;
+  --wa-color-brand-95: #f4efff;
+  --wa-color-brand-90: #ebe4ff;
+  --wa-color-brand-80: #d4c4fb;
+  --wa-color-brand-70: #b9a0f5;
   --wa-color-brand-60: var(--accent);
-  --wa-color-brand-70: var(--cta);
-  --wa-color-brand-80: var(--cta-hover);
+  --wa-color-brand-50: var(--cta);
+  --wa-color-brand-40: var(--cta-hover);
   --wa-color-focus: var(--accent);
   --wa-color-text-link: var(--accent);
 }
 
 html.wa-theme-shoelace.wa-dark {
-  --wa-color-brand-50: rgba(103, 61, 230, 0.18);
+  --wa-color-brand-20: rgba(103, 61, 230, 0.18);
+  --wa-color-brand-30: rgba(103, 61, 230, 0.28);
   --wa-color-brand-40: #b29af5;
+  --wa-color-brand-50: var(--cta);
   --wa-color-brand-60: var(--accent);
   --wa-color-brand-70: var(--cta);
   --wa-color-brand-80: var(--cta-hover);
 }
 
-.inv-compose-form wa-button[variant="brand"]::part(base) {
-  background: var(--cta);
+/* Default WA appearance is accent: fill-loud + on-loud (white). Tokens alone
+   can still resolve to a pale tint; pierce the shadow with ::part. */
+html.wa-theme-shoelace,
+html.wa-theme-shoelace.wa-light,
+html.wa-theme-shoelace:not(.wa-dark),
+html.wa-theme-shoelace.wa-dark {
+  --wa-color-brand-fill-loud: var(--cta);
+  --wa-color-brand-on-loud: #fff;
+  --wa-color-brand-border-loud: var(--cta);
+}
+
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]) {
+  --wa-color-fill-loud: var(--cta);
+  --wa-color-on-loud: #fff;
+  --wa-color-brand-fill-loud: var(--cta);
+  --wa-color-brand-on-loud: #fff;
+  color: #fff;
+}
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(button),
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(base) {
+  background-color: var(--cta);
   border-color: var(--cta);
   color: #fff;
 }
-.inv-compose-form wa-button[variant="brand"]:hover::part(base) {
-  background: var(--cta-hover);
-  border-color: var(--cta-hover);
-}
-.inv-actions wa-button[variant="brand"]::part(base) {
-  background: var(--cta);
-  border-color: var(--cta);
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"])::part(label) {
   color: #fff;
-  font-weight: 600;
 }
-.inv-actions wa-button[variant="brand"]:hover::part(base) {
-  background: var(--cta-hover);
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]):hover::part(button),
+wa-button[variant="brand"]:not([appearance="outlined"]):not([appearance="plain"]):not([appearance="filled-outlined"]):hover::part(base) {
+  background-color: var(--cta-hover);
   border-color: var(--cta-hover);
+  color: #fff;
 }
 
 html.wa-theme-shoelace.wa-light,
@@ -70,6 +89,24 @@ html.wa-theme-shoelace.wa-dark {
   --wa-color-surface-border: var(--line);
   --wa-color-text-normal: var(--ink);
   --wa-color-text-quiet: var(--muted);
+  --wa-color-neutral-on-quiet: var(--ink);
+  --wa-color-neutral-on-normal: var(--ink);
+}
+
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(base),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(button),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(base),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(button) {
+  color: var(--ink);
+  border-color: var(--line);
+}
+html.wa-theme-shoelace.wa-dark wa-button[appearance="outlined"]::part(label),
+html.wa-theme-shoelace.wa-dark wa-button[appearance="plain"]::part(label) {
+  color: var(--ink);
+}
+html.wa-theme-shoelace.wa-dark wa-button[variant="neutral"][appearance="outlined"]::part(label),
+html.wa-theme-shoelace.wa-dark wa-button[variant="neutral"][appearance="plain"]::part(label) {
+  color: #f4f1ff;
 }
 
 /* Stack WA form controls like Sepko .field */
@@ -255,4 +292,47 @@ wa-alert.inv-cash-alert::part(base) {
 wa-alert.inv-cash-alert::part(message) {
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+/* Svi wa-select — jasna strelica i klikabilan izgled (stariji korisnici) */
+wa-select::part(combobox) {
+  cursor: pointer;
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--input-line, var(--line, #d4d4d8));
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+wa-select::part(combobox):hover {
+  border-color: color-mix(in srgb, var(--accent, #5b21b6) 45%, var(--line, #d4d4d8));
+  background: color-mix(in srgb, var(--accent-soft, #ede9fe) 35%, var(--surface, #fff));
+}
+wa-select:focus-within::part(combobox) {
+  border-color: var(--accent, #5b21b6);
+  box-shadow: 0 0 0 3px var(--accent-soft, #ede9fe);
+}
+wa-select::part(display-input) {
+  cursor: pointer;
+  font-weight: 600;
+}
+wa-select::part(expand-icon) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-inline-end: 0.2rem;
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--accent, #5b21b6);
+}
+.wa-select-chevron,
+.inv-select-chevron {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--accent, #5b21b6);
+  flex-shrink: 0;
+}
+wa-select[open]::part(expand-icon) {
+  transform: rotate(180deg);
 }

@@ -3,136 +3,211 @@
 {% block page_title %}{{ t('page.podesavanja', 'Podešavanja') }}{% endblock %}
 {% block content %}
 <div class="settings-layout">
-  <nav class="settings-nav">
+  <nav class="settings-nav" aria-label="{{ t('page.podesavanja', 'Podešavanja') }}">
     <a href="/podesavanja" class="{% if section == 'osnovna' %}active{% endif %}">{{ t('settings.basic', 'Osnovna podešavanja') }} <span class="chevron">›</span></a>
     <a href="/podesavanja/stampa" class="{% if section == 'stampa' %}active{% endif %}">{{ t('settings.print', 'Štampa') }} <span class="chevron">›</span></a>
-    <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail', 'Mail') }} (izvodi / SMTP) <span class="chevron">›</span></a>
-    <a href="/podesavanja/artikli" class="{% if section == 'artikli' %}active{% endif %}">{{ t('settings.articles', 'Artikli') }} <span class="chevron">›</span></a>
-    <a href="/kupci">{{ t('nav.komitenti', 'Komitenti') }} <span class="chevron">›</span></a>
+    <a href="/podesavanja/mail" class="{% if section == 'mail' %}active{% endif %}">{{ t('settings.mail_izvodi', 'Mail (izvodi)') }} <span class="chevron">›</span></a>
     <a href="/podesavanja/operateri" class="{% if section == 'operateri' %}active{% endif %}">{{ t('settings.operators', 'Operateri') }} <span class="chevron">›</span></a>
   </nav>
 
   <div class="settings-panel card">
     {% if section == 'osnovna' %}
-    <h2>{{ t('settings.basic', 'Osnovna podešavanja') }}</h2>
-    <form method="post" action="/podesavanja" class="wa-form-stack">
+    <header class="settings-panel-head">
+      <h2>{{ t('settings.basic', 'Osnovna podešavanja') }}</h2>
+      <p class="settings-panel-sub muted">{{ t('settings.basic_hint', 'Jezik, limiti, PIN i podaci firme za račune.') }}</p>
+    </header>
+    <form method="post" action="/podesavanja" class="wa-form-stack settings-form" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="section" value="osnovna">
 
-      <wa-select name="language" label="{{ t('label.language', 'Jezik') }}" value="{{ ui.language }}">
-        {% for code, label in ui_languages %}
-        <wa-option value="{{ code }}" {% if ui.language == code %}selected{% endif %}>{{ label }}</wa-option>
-        {% endfor %}
-      </wa-select>
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_general', 'Opšte') }}</div>
+        <div class="settings-grid settings-grid--2">
+          <wa-select name="language" label="{{ t('label.language', 'Jezik') }}" value="{{ ui.language }}">
+            {% for code, label in ui_languages %}
+            <wa-option value="{{ code }}" {% if ui.language == code %}selected{% endif %}>{{ label }}</wa-option>
+            {% endfor %}
+          </wa-select>
+          <wa-input name="max_invoice_amount" label="{{ t('settings.max_invoice', 'Maksimalni iznos računa') }}" value="{{ ui.max_invoice_amount }}"></wa-input>
+        </div>
+        <wa-input class="settings-field-half" name="default_opening_cash" label="{{ t('settings.opening_cash', 'Početni depozit (default)') }}" value="{{ ui.default_opening_cash|money }}" placeholder="0,00"></wa-input>
+        <div class="settings-checks settings-checks--soft">
+          <wa-checkbox name="auto_login" value="1" {% if ui.auto_login %}checked{% endif %}>{{ t('settings.auto_login', 'Automatsko logovanje') }}</wa-checkbox>
+          <wa-checkbox name="allow_opening_cash_override" value="1" {% if ui.allow_opening_cash_override %}checked{% endif %}>{{ t('settings.opening_cash_override', 'Dozvoli izmjenu / veći početni depozit (override)') }}</wa-checkbox>
+        </div>
+      </section>
 
-      <wa-checkbox name="auto_login" value="1" {% if ui.auto_login %}checked{% endif %}>Automatsko logovanje</wa-checkbox>
-      <wa-input name="max_invoice_amount" label="Maksimalni iznos računa" value="{{ ui.max_invoice_amount }}"></wa-input>
-      <wa-input name="default_opening_cash" label="Početni depozit (default)" value="{{ ui.default_opening_cash|money }}" placeholder="0,00"></wa-input>
-      <wa-checkbox name="allow_opening_cash_override" value="1" {% if ui.allow_opening_cash_override %}checked{% endif %}>Dozvoli izmjenu / veći početni depozit (override)</wa-checkbox>
-      <wa-select name="pin_length" label="Dužina PIN koda" value="{{ ui.pin_length }}">
-        {% for n in [4,5,6] %}
-        <wa-option value="{{ n }}" {% if ui.pin_length == n %}selected{% endif %}>{{ n }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-checkbox name="pin_only_login" value="1" {% if ui.pin_only_login %}checked{% endif %}>Logovanje samo sa PIN kodom</wa-checkbox>
-      <wa-checkbox name="a4_item_name_own_line" value="1" {% if ui.a4_item_name_own_line %}checked{% endif %}>Prikaži naziv artikla u posebnoj liniji na A4 računu</wa-checkbox>
-      <wa-checkbox name="a4_signature_lines" value="1" {% if ui.a4_signature_lines %}checked{% endif %}>Prikaži linije za potpis na A4 računu</wa-checkbox>
-      <wa-checkbox name="qty_no_decimals" value="1" {% if ui.qty_no_decimals %}checked{% endif %}>Prikaz količina na fakturama bez decimala</wa-checkbox>
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_access', 'Pristup') }}</div>
+        <wa-select class="settings-field-half" name="pin_length" label="{{ t('settings.pin_length', 'Dužina PIN koda') }}" value="{{ ui.pin_length }}">
+          {% for n in [4,5,6] %}
+          <wa-option value="{{ n }}" {% if ui.pin_length == n %}selected{% endif %}>{{ n }}</wa-option>
+          {% endfor %}
+        </wa-select>
+        <div class="settings-checks settings-checks--soft">
+          <wa-checkbox name="pin_only_login" value="1" {% if ui.pin_only_login %}checked{% endif %}>{{ t('settings.pin_only', 'Logovanje samo sa PIN kodom') }}</wa-checkbox>
+        </div>
+      </section>
 
-      <hr class="settings-hr">
-      <h2>Firma / EFI</h2>
-      <wa-input name="name" label="Naziv" value="{{ tenant.name }}" required></wa-input>
-      <wa-input name="pib" label="PIB (TIN)" value="{{ tenant.pib }}" required></wa-input>
-      <wa-input name="company_address" label="Adresa (linija 1)" value="{{ company.address }}" placeholder="npr. BUL. 21. MAJ BR. 24, Podgorica"></wa-input>
-      <wa-input name="company_address2" label="Adresa (linija 2)" value="{{ company.address2 }}"></wa-input>
-      <wa-input name="company_pdv_number" label="PDV broj" value="{{ company.pdv_number }}"></wa-input>
-      <wa-input name="company_bank_account" label="Žiro / HB račun" value="{{ company.bank_account }}" placeholder="npr. 520-45519-94"></wa-input>
-      <wa-input name="company_website" label="Web (footer PDF)" value="{{ company.website }}" placeholder="www.primjer.me"></wa-input>
-      <wa-select name="mode" label="Režim" value="{{ tenant.mode }}">
-        <wa-option value="test" {% if tenant.mode == 'test' %}selected{% endif %}>Test (efitest)</wa-option>
-        <wa-option value="prod" {% if tenant.mode == 'prod' %}selected{% endif %}>Produkcija (mapr)</wa-option>
-      </wa-select>
-      <wa-input name="busin_unit_code" label="BusinUnitCode" value="{{ fiscal.busin_unit_code }}" maxlength="10"></wa-input>
-      <wa-input name="tcr_code" label="TCRCode (ENU)" value="{{ fiscal.tcr_code }}" maxlength="10"></wa-input>
-      <wa-input name="soft_code" label="SoftCode" value="{{ fiscal.soft_code }}" maxlength="10"></wa-input>
-      <wa-input name="operator_code" label="OperatorCode (default)" value="{{ fiscal.operator_code }}" maxlength="10"></wa-input>
-      <wa-select name="is_issuer_in_vat" label="IsIssuerInVAT" value="{{ 'true' if fiscal.is_issuer_in_vat else 'false' }}">
-        <wa-option value="true" {% if fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.yes', 'Da') }}</wa-option>
-        <wa-option value="false" {% if not fiscal.is_issuer_in_vat %}selected{% endif %}>{{ t('common.no', 'Ne') }}</wa-option>
-      </wa-select>
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_invoice', 'Računi') }}</div>
+        <div class="settings-checks settings-checks--soft">
+          <wa-checkbox name="a4_item_name_own_line" value="1" {% if ui.a4_item_name_own_line %}checked{% endif %}>{{ t('settings.a4_item_line', 'Prikaži naziv artikla u posebnoj liniji na A4 računu') }}</wa-checkbox>
+          <wa-checkbox name="a4_signature_lines" value="1" {% if ui.a4_signature_lines %}checked{% endif %}>{{ t('settings.a4_sign', 'Prikaži linije za potpis na A4 računu') }}</wa-checkbox>
+          <wa-checkbox name="qty_no_decimals" value="1" {% if ui.qty_no_decimals %}checked{% endif %}>{{ t('settings.qty_int', 'Prikaz količina na fakturama bez decimala') }}</wa-checkbox>
+        </div>
+      </section>
 
-      <hr class="settings-hr">
-      <h2>Token za fiskalizaciju</h2>
-      <p class="muted">Ako firma ima token od Telekoma ili Pošte, unesi ga ovdje. Koristi se prema fiskalizacionom partneru umjesto (ili pored) PKCS#12 certifikata.</p>
-      <wa-select name="token_provider" label="Aktivan kanal" value="{{ fiscal.token_provider }}">
-        {% for code, label in token_providers %}
-        <wa-option value="{{ code }}" {% if fiscal.token_provider == code %}selected{% endif %}>{{ label }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-input type="password" password-toggle name="telekom_token" label="Crnogorski Telekom — token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_telekom_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}"></wa-input>
-      {% if fiscal.has_telekom_token() %}
-      <wa-checkbox name="clear_telekom_token" value="1">Ukloni Telekom token</wa-checkbox>
-      {% endif %}
-      <wa-input type="password" password-toggle name="posta_token" label="Pošta Crne Gore — token" value="" autocomplete="new-password" placeholder="{% if fiscal.has_posta_token() %}•••••••• (ostavi prazno da zadržiš){% else %}Zalijepi token{% endif %}"></wa-input>
-      {% if fiscal.has_posta_token() %}
-      <wa-checkbox name="clear_posta_token" value="1">Ukloni Pošta token</wa-checkbox>
-      {% endif %}
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.company', 'Firma') }}</div>
+        <div class="settings-company-top">
+          <div class="settings-company-id">
+            <wa-input name="name" label="{{ t('settings.company_name', 'Naziv') }}" value="{{ tenant.name }}" required></wa-input>
+            <wa-input name="pib" label="{{ t('settings.company_pib', 'PIB (TIN)') }}" value="{{ tenant.pib }}" required></wa-input>
+          </div>
+          <div class="settings-company-logo field logo-field">
+            <label>{{ t('upload.logo_company', 'Logo firme') }}</label>
+            <p class="muted settings-logo-hint">{{ t('settings.logo_hint', 'Prikazuje se u zaglavlju A4 i termalnog računa.') }}</p>
+            {% set preview_src = '/podesavanja/logo' if company.logo_filename else None %}
+            {% set show_remove = true if company.logo_filename else false %}
+            {% set input_id = 'logo-company' %}
+            {% include "_logo_upload.html" %}
+          </div>
+        </div>
+        <wa-input name="company_address" label="{{ t('settings.address1', 'Adresa (linija 1)') }}" value="{{ company.address }}" placeholder="{{ t('settings.address1_ph', 'npr. BUL. 21. MAJ BR. 24, Podgorica') }}"></wa-input>
+        <wa-input name="company_address2" label="{{ t('settings.address2', 'Adresa (linija 2)') }}" value="{{ company.address2 }}"></wa-input>
+        <div class="settings-grid settings-grid--2">
+          <wa-input name="company_pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}" value="{{ company.pdv_number }}"></wa-input>
+          <wa-input name="company_bank_account" label="{{ t('settings.bank', 'Žiro / HB račun') }}" value="{{ company.bank_account }}" placeholder="{{ t('settings.bank_ph', 'npr. 520-45519-94') }}"></wa-input>
+        </div>
+      </section>
 
-      <p class="muted">Partner: {{ partner_mode }} · API: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}nema ključa{% endfor %}</p>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+      <details class="settings-system">
+        <summary>{{ t('settings.system_info', 'Sistem') }}</summary>
+        <p class="settings-meta">{{ t('settings.admin_footer_hint', 'Režim, EFI kodovi, tokeni i web u footeru podešava platform admin.') }}</p>
+        <p class="settings-meta">{{ t('settings.partner_label', 'Partner') }}: {{ partner_mode }} · {{ t('settings.api_label', 'API') }}: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}{{ t('settings.no_api_key', 'nema ključa') }}{% endfor %}</p>
+      </details>
+
+      <div class="wa-form-actions settings-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="/">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
 
     {% elif section == 'stampa' %}
-    <h2>{{ t('settings.print', 'Štampanje računa') }}</h2>
-    <form method="post" action="/podesavanja/stampa" class="wa-form-stack">
+    <header class="settings-panel-head">
+      <h2>{{ t('settings.print', 'Štampa') }}</h2>
+      <p class="settings-panel-sub muted">{{ t('settings.print_hint', 'Štampač, širina računa i ponašanje pri štampi.') }}</p>
+    </header>
+    <form method="post" action="/podesavanja/stampa" class="wa-form-stack settings-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <wa-checkbox name="print_enabled" value="1" {% if ui.print_enabled %}checked{% endif %}>Štampanje računa</wa-checkbox>
-      <wa-select name="printer_number" label="Broj štampača" value="{{ ui.printer_number }}">
-        {% for n in ['1','2','3'] %}
-        <wa-option value="{{ n }}" {% if ui.printer_number == n %}selected{% endif %}>Štampač {{ n }}</wa-option>
-        {% endfor %}
-      </wa-select>
-      <wa-input name="printer_name" label="Izbor štampača" value="{{ ui.printer_name }}" placeholder="npr. POS-80"></wa-input>
-      <wa-select name="printer_type" label="Izbor tipa štampača" value="{{ ui.printer_type or '' }}">
-        <wa-option value="" {% if not ui.printer_type %}selected{% endif %}>—</wa-option>
-        <wa-option value="thermal" {% if ui.printer_type == 'thermal' %}selected{% endif %}>Termalni</wa-option>
-        <wa-option value="a4" {% if ui.printer_type == 'a4' %}selected{% endif %}>A4</wa-option>
-        <wa-option value="browser" {% if ui.printer_type == 'browser' %}selected{% endif %}>Preglednik</wa-option>
-      </wa-select>
-      <wa-input name="receipt_width_px" label="Širina računa u pikselima" value="{{ ui.receipt_width_px }}"></wa-input>
-      <wa-input name="text_size" label="Veličina teksta" value="{{ ui.text_size }}"></wa-input>
-      <wa-input name="qr_width_px" label="Širina QR koda u pikselima" value="{{ ui.qr_width_px }}"></wa-input>
-      <wa-input name="blank_lines_start" label="Broj praznih linija na početku računa" value="{{ ui.blank_lines_start }}"></wa-input>
-      <wa-input name="blank_lines_end" label="Broj praznih linija na kraju računa" value="{{ ui.blank_lines_end }}"></wa-input>
-      <wa-input name="max_print_height" label="Maksimalna visina štampe" value="{{ ui.max_print_height }}"></wa-input>
-      <wa-select name="paper_cut" label="Siječenje papira" value="{{ ui.paper_cut }}">
-        <wa-option value="none" {% if ui.paper_cut == 'none' %}selected{% endif %}>Ne</wa-option>
-        <wa-option value="partial" {% if ui.paper_cut == 'partial' %}selected{% endif %}>Djelimično</wa-option>
-        <wa-option value="full" {% if ui.paper_cut == 'full' %}selected{% endif %}>Potpuno</wa-option>
-      </wa-select>
-      <wa-select name="open_drawer" label="Otvaranje fioke" value="{{ ui.open_drawer }}">
-        <wa-option value="never" {% if ui.open_drawer == 'never' %}selected{% endif %}>Nikad</wa-option>
-        <wa-option value="cash" {% if ui.open_drawer == 'cash' %}selected{% endif %}>Samo gotovina</wa-option>
-        <wa-option value="always" {% if ui.open_drawer == 'always' %}selected{% endif %}>Uvijek</wa-option>
-      </wa-select>
-      <wa-input name="print_pause_sec" label="Pauza između štampe (sekunde)" value="{{ ui.print_pause_sec }}"></wa-input>
-      <wa-input name="print_agent_url" label="Lokalni agent (WebSocket)" value="{{ ui.print_agent_url }}" placeholder="ws://127.0.0.1:17890/ws" hint="Preglednik nema USB. Za ESC/POS na kasi: python -m sepko.print_agent. Ako agent nije pokrenut, koristi se window.print()."></wa-input>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_printer', 'Štampač') }}</div>
+        <div class="settings-checks settings-checks--soft">
+          <wa-checkbox name="print_enabled" value="1" {% if ui.print_enabled %}checked{% endif %}>{{ t('settings.print_enabled', 'Štampanje računa') }}</wa-checkbox>
+        </div>
+        <div class="settings-grid settings-grid--2">
+          <wa-select name="printer_number" label="{{ t('settings.printer_number', 'Broj štampača') }}" value="{{ ui.printer_number }}">
+            {% for n in ['1','2','3'] %}
+            <wa-option value="{{ n }}" {% if ui.printer_number == n %}selected{% endif %}>{{ t('settings.printer_n', 'Štampač') }} {{ n }}</wa-option>
+            {% endfor %}
+          </wa-select>
+          <wa-select name="printer_type" label="{{ t('settings.printer_type', 'Izbor tipa štampača') }}" value="{{ ui.printer_type or '' }}">
+            <wa-option value="" {% if not ui.printer_type %}selected{% endif %}>—</wa-option>
+            <wa-option value="thermal" {% if ui.printer_type == 'thermal' %}selected{% endif %}>{{ t('settings.printer_thermal', 'Termalni') }}</wa-option>
+            <wa-option value="a4" {% if ui.printer_type == 'a4' %}selected{% endif %}>{{ t('settings.printer_a4', 'A4') }}</wa-option>
+            <wa-option value="browser" {% if ui.printer_type == 'browser' %}selected{% endif %}>{{ t('settings.printer_browser', 'Preglednik') }}</wa-option>
+          </wa-select>
+        </div>
+        <wa-input name="printer_name" label="{{ t('settings.printer_name', 'Izbor štampača') }}" value="{{ ui.printer_name }}" placeholder="{{ t('settings.printer_name_ph', 'npr. POS-80') }}"></wa-input>
+        <wa-input name="print_agent_url" label="{{ t('settings.print_agent', 'Lokalni agent (WebSocket)') }}" value="{{ ui.print_agent_url }}" placeholder="ws://127.0.0.1:17890/ws" hint="{{ t('settings.print_agent_hint', 'Preglednik nema USB. Za ESC/POS na kasi: python -m sepko.print_agent. Ako agent nije pokrenut, koristi se window.print().') }}"></wa-input>
+      </section>
+
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_receipt', 'Račun') }}</div>
+        <div class="settings-grid settings-grid--3">
+          <wa-input name="receipt_width_px" label="{{ t('settings.receipt_width', 'Širina računa u pikselima') }}" value="{{ ui.receipt_width_px }}"></wa-input>
+          <wa-input name="text_size" label="{{ t('settings.text_size', 'Veličina teksta') }}" value="{{ ui.text_size }}"></wa-input>
+          <wa-input name="qr_width_px" label="{{ t('settings.qr_width', 'Širina QR koda u pikselima') }}" value="{{ ui.qr_width_px }}"></wa-input>
+        </div>
+        <div class="settings-grid settings-grid--3">
+          <wa-input name="blank_lines_start" label="{{ t('settings.blank_lines_start', 'Broj praznih linija na početku računa') }}" value="{{ ui.blank_lines_start }}"></wa-input>
+          <wa-input name="blank_lines_end" label="{{ t('settings.blank_lines_end', 'Broj praznih linija na kraju računa') }}" value="{{ ui.blank_lines_end }}"></wa-input>
+          <wa-input name="max_print_height" label="{{ t('settings.max_print_height', 'Maksimalna visina štampe') }}" value="{{ ui.max_print_height }}"></wa-input>
+        </div>
+      </section>
+
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_hardware', 'Hardver') }}</div>
+        <div class="settings-grid settings-grid--3">
+          <wa-select name="paper_cut" label="{{ t('settings.paper_cut', 'Siječenje papira') }}" value="{{ ui.paper_cut }}">
+            <wa-option value="none" {% if ui.paper_cut == 'none' %}selected{% endif %}>{{ t('common.no', 'Ne') }}</wa-option>
+            <wa-option value="partial" {% if ui.paper_cut == 'partial' %}selected{% endif %}>{{ t('settings.cut_partial', 'Djelimično') }}</wa-option>
+            <wa-option value="full" {% if ui.paper_cut == 'full' %}selected{% endif %}>{{ t('settings.cut_full', 'Potpuno') }}</wa-option>
+          </wa-select>
+          <wa-select name="open_drawer" label="{{ t('settings.open_drawer', 'Otvaranje fioke') }}" value="{{ ui.open_drawer }}">
+            <wa-option value="never" {% if ui.open_drawer == 'never' %}selected{% endif %}>{{ t('settings.drawer_never', 'Nikad') }}</wa-option>
+            <wa-option value="cash" {% if ui.open_drawer == 'cash' %}selected{% endif %}>{{ t('settings.drawer_cash', 'Samo gotovina') }}</wa-option>
+            <wa-option value="always" {% if ui.open_drawer == 'always' %}selected{% endif %}>{{ t('settings.drawer_always', 'Uvijek') }}</wa-option>
+          </wa-select>
+          <wa-input name="print_pause_sec" label="{{ t('settings.print_pause', 'Pauza između štampe (sekunde)') }}" value="{{ ui.print_pause_sec }}"></wa-input>
+        </div>
+      </section>
+
+      <div class="wa-form-actions settings-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="/podesavanja">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>
 
+    {% elif section == 'mail' %}
+    <header class="settings-panel-head">
+      <h2>{{ t('settings.mail_imap_title', 'IMAP (izvodi)') }}</h2>
+      <p class="settings-panel-sub muted">{{ t('settings.mail_intro', 'Skidanje bankovnih izvoda s maila. Slanje kartica ide preko ProRačun Resenda (Reply-To = tvoj mail).') }}</p>
+    </header>
+    <form method="post" action="/podesavanja/mail" class="wa-form-stack settings-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_imap', 'Veza') }}</div>
+        <wa-input name="imap_host" label="{{ t('settings.imap_host', 'Mail server (host)') }}" value="{{ mail.imap_host }}" placeholder="{{ t('settings.imap_host_ph', 'npr. mail.firma.me ili fusion.mxrouting.net') }}"></wa-input>
+        <p class="cell-secondary">{{ t('settings.imap_port_auto', 'Port se automatski otkriva (993 SSL, pa 143 STARTTLS) pri snimanju kad promijeniš host, user ili lozinku.') }}</p>
+        {% if mail.imap_port %}
+        <p class="muted">{{ t('settings.imap_port_current', 'Trenutni port') }}: <strong>{{ mail.imap_port }}</strong></p>
+        {% endif %}
+        <div class="settings-grid settings-grid--2">
+          <wa-input name="imap_user" label="{{ t('settings.imap_user', 'User (email)') }}" value="{{ mail.imap_user }}" autocomplete="username"></wa-input>
+          <wa-input name="imap_password" type="password" password-toggle label="{{ t('label.password', 'Lozinka') }}" value="" placeholder="{% if mail.imap_password %}{{ t('settings.password_keep', '•••••• (ostavi prazno da zadržiš)') }}{% else %}{{ t('settings.password_ph', 'lozinka') }}{% endif %}" autocomplete="current-password"></wa-input>
+        </div>
+        <div class="settings-grid settings-grid--2">
+          <wa-input name="imap_folder" label="{{ t('settings.imap_folder', 'Folder') }}" value="{{ mail.imap_folder }}"></wa-input>
+          <wa-input name="mail_since_date" label="{{ t('settings.mail_since', 'Uvoz izvoda od (YYYY-MM-DD)') }}" value="{{ mail.mail_since_date }}"></wa-input>
+        </div>
+      </section>
+
+      <section class="settings-fieldset">
+        <div class="settings-fieldset-label">{{ t('settings.section_filters', 'Filteri') }}</div>
+        <wa-textarea name="izvod_subjects" label="{{ t('settings.izvod_subjects', 'Subject termini (jedan po redu)') }}" rows="3" value="{{ mail.izvod_subjects }}"></wa-textarea>
+        <wa-textarea name="faktura_subjects" label="{{ t('settings.faktura_subjects', 'Faktura subject termini') }}" rows="2" value="{{ mail.faktura_subjects }}"></wa-textarea>
+      </section>
+
+      <div class="wa-form-actions settings-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="/podesavanja">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    <p class="cell-secondary settings-meta">{{ t('settings.mail_platform_hint', 'Platforma') }}: <code>RESEND_API_KEY</code> + <code>RESEND_FROM</code> u <code>.env</code>.</p>
+
     {% elif section == 'operateri' %}
-    <h2>{{ t('settings.operators', 'Operateri') }}</h2>
-    <p class="muted">Korisnici tenanta — kasir / admin. PIN dolazi kasnije.</p>
-    <div class="plan-card" style="box-shadow:none;border:1px solid var(--line)">
+    <header class="settings-panel-head">
+      <h2>{{ t('settings.operators', 'Operateri') }}</h2>
+      <p class="settings-panel-sub muted">{{ t('settings.operators_intro', 'Korisnici tenanta — kasir / admin. PIN dolazi kasnije.') }}</p>
+    </header>
+    <div class="plan-card settings-operators-card">
       <table class="soft-table">
         <thead>
-          <tr><th>Operater</th><th>Uloga</th><th></th></tr>
+          <tr><th>{{ t('settings.col_operator', 'Operater') }}</th><th>{{ t('settings.col_role', 'Uloga') }}</th><th></th></tr>
         </thead>
         <tbody>
         {% for op in operators %}
@@ -142,8 +217,8 @@
               <div class="cell-secondary">{{ op.email }}</div>
             </td>
             <td>
-              <span class="pill-tag">{{ op.role }}</span>
-              {% if not op.active %}<span class="pill-tag bad">neaktivan</span>{% endif %}
+              <span class="pill-tag">{% if op.role == 'admin' %}{{ t('role.admin', 'admin') }}{% elif op.role == 'kasir' %}{{ t('role.kasir', 'kasir') }}{% else %}{{ op.role }}{% endif %}</span>
+              {% if not op.active %}<span class="pill-tag bad">{{ t('common.inactive', 'Neaktivan') }}</span>{% endif %}
             </td>
             <td class="cell-actions">
               {% set edit_href = '/podesavanja/operateri?edit=' ~ op.id %}
@@ -151,24 +226,26 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="3" class="muted" style="padding:1.25rem">Nema operatera.</td></tr>
+          <tr><td colspan="3" class="muted" style="padding:1.25rem">{{ t('settings.operators_empty', 'Nema operatera.') }}</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
 
     {% if editing_op %}
-    <form method="post" action="/podesavanja/operateri/{{ editing_op.id }}" class="card wa-form-stack" style="margin-top:1rem;box-shadow:none">
+    <form method="post" action="/podesavanja/operateri/{{ editing_op.id }}" class="card wa-form-stack settings-op-edit">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <h2>{{ t('btn.edit', 'Izmijeni') }} · {{ editing_op.email }}</h2>
-      <wa-input name="full_name" label="Ime" value="{{ editing_op.full_name or '' }}" required></wa-input>
-      <wa-select name="role" label="Uloga" value="{{ editing_op.role }}">
-        <wa-option value="admin" {% if editing_op.role == 'admin' %}selected{% endif %}>admin</wa-option>
-        <wa-option value="kasir" {% if editing_op.role == 'kasir' %}selected{% endif %}>kasir</wa-option>
-      </wa-select>
+      <div class="settings-grid settings-grid--2">
+        <wa-input name="full_name" label="{{ t('settings.op_name', 'Ime') }}" value="{{ editing_op.full_name or '' }}" required></wa-input>
+        <wa-select name="role" label="{{ t('settings.col_role', 'Uloga') }}" value="{{ editing_op.role }}">
+          <wa-option value="admin" {% if editing_op.role == 'admin' %}selected{% endif %}>{{ t('role.admin', 'admin') }}</wa-option>
+          <wa-option value="kasir" {% if editing_op.role == 'kasir' %}selected{% endif %}>{{ t('role.kasir', 'kasir') }}</wa-option>
+        </wa-select>
+      </div>
       <wa-checkbox name="active" value="1" {% if editing_op.active %}checked{% endif %}>{{ t('common.active', 'Aktivan') }}</wa-checkbox>
-      <div class="wa-form-actions">
-        <wa-button type="submit" variant="brand">OK · {{ t('btn.save', 'Sačuvaj') }}</wa-button>
+      <div class="wa-form-actions settings-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
         <a class="btn secondary" href="/podesavanja/operateri">{{ t('btn.cancel', 'Poništi') }}</a>
       </div>
     </form>

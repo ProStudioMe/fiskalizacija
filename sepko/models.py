@@ -169,6 +169,7 @@ class Customer(Base):
 
     tenant: Mapped[Tenant] = relationship(back_populates="customers")
     payments: Mapped[list["CustomerPayment"]] = relationship(back_populates="customer")
+    incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="customer")
 
     def composed_address(self) -> str | None:
         parts = [p for p in (self.street, self.city, self.country) if p]
@@ -235,8 +236,13 @@ class Invoice(Base):
     jikr: Mapped[str | None] = mapped_column(String(128), nullable=True)
     qr_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     partner_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    iic_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Referenca na originalni fiskalizovani račun (kreditni / korektivni)
+    ref_ikof: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    ref_invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
     inv_num: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    inv_ord_num: Mapped[int | None] = mapped_column(nullable=True)
+    inv_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # EFI godišnji rbr
+    local_ord_num: Mapped[int | None] = mapped_column(nullable=True)  # lokalni mjesečni rbr (1-MM-###/YYYY)
     type_of_inv: Mapped[str | None] = mapped_column(String(16), nullable=True)
     inv_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -263,6 +269,8 @@ class InvoiceLine(Base):
     unit_price_net: Mapped[Decimal] = mapped_column(Numeric(14, 4))
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(6, 2))
     total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    tax_rate_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    unit: Mapped[str] = mapped_column(String(16), default="KOM")
 
     invoice: Mapped[Invoice] = relationship(back_populates="lines")
 
@@ -419,7 +427,7 @@ class IncomingInvoiceSource(str, Enum):
 
 
 class Supplier(Base):
-    """Dobavljač (ulazne fakture / AP)."""
+    """Legacy šifarnik — podaci se prebacuju u Customer; tabela ostaje (nema DROP)."""
 
     __tablename__ = "suppliers"
     __table_args__ = (UniqueConstraint("tenant_id", "pib", name="uq_tenant_supplier_pib"),)
@@ -427,18 +435,24 @@ class Supplier(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     pib: Mapped[str] = mapped_column(String(32))
+    pdv_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     street: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     country: Mapped[str | None] = mapped_column(String(64), nullable=True, default="Crna Gora")
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tenant: Mapped[Tenant] = relationship(back_populates="suppliers")
     incoming_invoices: Mapped[list["IncomingInvoice"]] = relationship(back_populates="supplier")
+
+    def composed_address(self) -> str | None:
+        parts = [p for p in (self.street, self.city, self.country) if p]
+        return ", ".join(parts) if parts else None
 
 
 class IncomingInvoice(Base):
@@ -449,6 +463,7 @@ class IncomingInvoice(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     supplier_id: Mapped[int | None] = mapped_column(ForeignKey("suppliers.id"), nullable=True, index=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
     number: Mapped[str] = mapped_column(String(64), default="")
     issue_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     supplier_pib: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
@@ -471,6 +486,7 @@ class IncomingInvoice(Base):
 
     tenant: Mapped[Tenant] = relationship(back_populates="incoming_invoices")
     supplier: Mapped[Supplier | None] = relationship(back_populates="incoming_invoices")
+    customer: Mapped[Customer | None] = relationship(back_populates="incoming_invoices")
     lines: Mapped[list["IncomingInvoiceLine"]] = relationship(
         back_populates="invoice", cascade="all, delete-orphan"
     )

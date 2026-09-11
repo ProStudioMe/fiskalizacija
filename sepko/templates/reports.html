@@ -1,19 +1,763 @@
 {% extends "base.html" %}
 {% block title %}{{ t('page.izvjestaji', 'Izvještaji') }} — {{ brand }}{% endblock %}
-{% block page_title %}{{ t('page.izvjestaji', 'Izvještaji') }}{% endblock %}
+{% block page_title %}{{ t('page.izvjestaji', 'Izvještaji') }} · {{ month_label }} {{ year }}{% endblock %}
+{% block page_actions %}
+  <button type="button" class="btn secondary" onclick="window.print()">Štampaj</button>
+{% endblock %}
 {% block content %}
-<nav class="menu-list" style="max-width:560px">
-  <a href="/izvjestaji/pregled">Ulaz / izlaz / troškovi / PDV <span class="chevron">›</span></a>
-  <a href="/racuni">Pregled računa (izlazne) <span class="chevron">›</span></a>
-  <a href="/ulazne">Ulazne fakture <span class="chevron">›</span></a>
-  <a href="/troskovi">Troškovnik <span class="chevron">›</span></a>
-  <a href="/kasa">Kasa / maloprodaja <span class="chevron">›</span></a>
-  <a href="/blagajna">Rekapitulacija / blagajna <span class="chevron">›</span></a>
-  <a href="/maloprodaja/promet">Dnevni gotovinski promet <span class="chevron">›</span></a>
-  <a href="/artikli">Presjek po artiklima <span class="chevron">›</span></a>
-  <a href="/kupci">Presjek po komitentima <span class="chevron">›</span></a>
-  <span class="menu-item muted">Periodični fiskalni izvještaj <span class="chevron">›</span></span>
-  <span class="menu-item muted">Presjek po operaterima <span class="chevron">›</span></span>
-  <span class="menu-item muted">Avansni računi <span class="chevron">›</span></span>
+{% macro delta_badge(d, invert=false) -%}
+{%- if d and d.kind == 'pct' and d.pct is not none -%}
+{%- set good = (d.pct <= 0) if invert else (d.pct >= 0) -%}
+<span class="rpt-delta {% if good %}up{% else %}down{% endif %}">{{ "%+.1f"|format(d.pct) }}%</span>
+{%- elif d and d.kind in ('new', 'abs') -%}
+{%- set good = (d.abs <= 0) if invert else (d.abs >= 0) -%}
+<span class="rpt-delta {% if good %}up{% else %}down{% endif %} is-abs">{{ "%+.2f"|format(d.abs)|replace('.', ',') }} €</span>
+{%- endif -%}
+{%- endmacro %}
+{% macro delta_cell(d) -%}
+{%- if d and d.kind == 'pct' and d.pct is not none -%}{{ "%+.1f"|format(d.pct) }}%
+{%- elif d and d.kind in ('new', 'abs') -%}{{ "%+.2f"|format(d.abs)|replace('.', ',') }} €
+{%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% macro sparse_rows(items, empty_msg, dotted=true) -%}
+{%- if not items -%}
+<p class="rpt-empty">{{ empty_msg }}</p>
+{%- else -%}
+<ul class="rpt-sparse">
+  {% for b in items %}
+  <li class="rpt-sparse-item">
+    <span class="rpt-sparse-day">{{ b.label }}{% if dotted %}.{% endif %}</span>
+    <strong class="rpt-sparse-val">{{ '%.2f'|format(b.value)|replace('.', ',') }} €</strong>
+    {% if b.count is defined %}<span class="rpt-sparse-meta">{{ b.count }}×</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{%- endif -%}
+{%- endmacro %}
+
+<form method="get" action="/izvjestaji" class="rpt-toolbar no-print">
+  <div class="rpt-period">
+    <label class="rpt-period-field">
+      <span>Mjesec</span>
+      <select name="month">
+        {% for i in range(1, 13) %}
+        <option value="{{ i }}" {% if i == month %}selected{% endif %}>{{ "%02d"|format(i) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="rpt-period-field">
+      <span>Godina</span>
+      <select name="year">
+        {% for y in years %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn">Primijeni</button>
+    <span class="muted rpt-vs">vs {{ prev_label }}</span>
+  </div>
+  <a class="btn secondary" href="/izvjestaji/komitenti?year={{ year }}&month={{ month }}">Po komitentima</a>
+</form>
+
+<nav class="rpt-toc no-print" role="tablist" aria-label="{{ t('reports.toc_aria', 'Sekcije na stranici') }}">
+  <div class="rpt-toc-primary">
+    <button type="button" class="rpt-tab is-active" role="tab" aria-selected="true" data-rpt-tab="summary">Sažetak</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="daily">Dnevno</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="trend">Trend</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="pay">Plaćanja</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="vat">PDV</button>
+  </div>
+  <div class="rpt-toc-rest">
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="buyers">Kupci</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="arts">Artikli</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="in">Ulaz</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="exp">Troškovi</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="cash">Blagajna</button>
+  </div>
 </nav>
+
+<div class="rpt-shell">
+{# ——— Sažetak ——— #}
+<div class="rpt-panel-tab is-active" data-rpt-panel="summary" role="tabpanel">
+  <section class="rpt-summary" aria-label="{{ t('reports.summary_aria', 'Sažetak') }}">
+    <div class="rpt-summary-hero {% if promet_saldo >= 0 %}is-ok{% else %}is-bad{% endif %}">
+      <div class="rpt-summary-hero-main">
+        <span class="rpt-kpi-label">Saldo prometa</span>
+        <strong class="rpt-summary-hero-val">{{ promet_saldo|money }} €</strong>
+        <span class="rpt-kpi-sub">
+          Izlaz − ulaz
+          {% if exp_total and exp_total != 0 %}
+          · nakon troškova <strong>{{ netto_after_exp|money }} €</strong>
+          {% endif %}
+        </span>
+      </div>
+      <div class="rpt-summary-hero-side">
+        <div class="rpt-summary-pill {% if pdv_saldo >= 0 %}is-ok{% else %}is-bad{% endif %}">
+          <span>PDV saldo</span>
+          <strong>{{ pdv_saldo|money }} €</strong>
+        </div>
+        <div class="rpt-summary-pill">
+          <span>Uplate</span>
+          <strong>{{ payments_total|money }} €</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="rpt-kpis rpt-kpis--focus">
+      <div class="rpt-kpi">
+        <span class="rpt-kpi-label">Izlazne (bruto)</span>
+        <strong class="rpt-kpi-value">{{ out_gross|money }} €</strong>
+        <span class="rpt-kpi-sub">{{ out_count }} računa · neto {{ out_net|money }} €</span>
+        {{ delta_badge(delta_out) }}
+      </div>
+      <div class="rpt-kpi">
+        <span class="rpt-kpi-label">Ulazne (bruto)</span>
+        <strong class="rpt-kpi-value">{{ in_gross|money }} €</strong>
+        <span class="rpt-kpi-sub">{{ in_count }} faktura · PDV {{ in_vat|money }} €</span>
+        {{ delta_badge(delta_in, invert=true) }}
+      </div>
+      <div class="rpt-kpi">
+        <span class="rpt-kpi-label">Troškovi</span>
+        <strong class="rpt-kpi-value">{{ exp_total|money }} €</strong>
+        <span class="rpt-kpi-sub">{% if exp_summary %}{{ exp_summary|length }} kategorija{% else %}nema u periodu{% endif %}</span>
+        {{ delta_badge(delta_exp, invert=true) }}
+      </div>
+      <div class="rpt-kpi">
+        <span class="rpt-kpi-label">Prosječan račun</span>
+        <strong class="rpt-kpi-value">{{ avg_out|money }} €</strong>
+        <span class="rpt-kpi-sub">{% if out_count %}min {{ min_out|money }} · max {{ max_out|money }}{% else %}nema izlaznih{% endif %}</span>
+      </div>
+    </div>
+
+    <div class="rpt-meta" aria-label="Dodatni pokazatelji">
+      <span class="rpt-meta-item">
+        <em>Aktivni dani</em>
+        <strong>{{ active_days }}</strong>
+        {% if best_day and best_day.value %}
+        <small>vrh {{ best_day.label }}. · {{ '%.2f'|format(best_day.value)|replace('.', ',') }} €</small>
+        {% endif %}
+      </span>
+      <span class="rpt-meta-item">
+        <em>PDV izlaz</em>
+        <strong>{{ out_vat|money }} €</strong>
+      </span>
+      <span class="rpt-meta-item">
+        <em>PDV ulaz</em>
+        <strong>{{ in_vat|money }} €</strong>
+      </span>
+      <span class="rpt-meta-item">
+        <em>Broj izlaznih</em>
+        <strong>{{ out_count }}</strong>
+        {{ delta_badge(delta_out_cnt) }}
+      </span>
+    </div>
+  </section>
+
+  <div class="rpt-grid rpt-grid--summary">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Pregled perioda</h2>
+      </header>
+      <div class="table-wrap">
+        <table class="soft-table rpt-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="num">Broj</th>
+              <th class="num">Neto</th>
+              <th class="num">PDV</th>
+              <th class="num">Bruto</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Izlazne</strong></td>
+              <td class="num">{{ out_count }}</td>
+              <td class="num">{{ out_net|money }} €</td>
+              <td class="num">{{ out_vat|money }} €</td>
+              <td class="num"><strong>{{ out_gross|money }} €</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Ulazne</strong></td>
+              <td class="num">{{ in_count }}</td>
+              <td class="num">{{ in_net|money }} €</td>
+              <td class="num">{{ in_vat|money }} €</td>
+              <td class="num"><strong>{{ in_gross|money }} €</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Troškovi</strong></td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num"><strong>{{ exp_total|money }} €</strong></td>
+            </tr>
+            <tr class="rpt-total-row">
+              <td><strong>Saldo</strong></td>
+              <td class="num"></td>
+              <td class="num"></td>
+              <td class="num"><strong>{{ pdv_saldo|money }} €</strong></td>
+              <td class="num"><strong>{{ promet_saldo|money }} €</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted rpt-note">PDV saldo je indikativan — nije poreska prijava.</p>
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Poređenje sa {{ prev_label }}</h2>
+      </header>
+      <div class="table-wrap">
+        <table class="soft-table rpt-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="num">{{ month_label }} {{ year }}</th>
+              <th class="num">{{ prev_label }}</th>
+              <th class="num">Razlika</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Izlazne bruto</td>
+              <td class="num">{{ out_gross|money }} €</td>
+              <td class="num">{{ p_out_gross|money }} €</td>
+              <td class="num">{{ delta_cell(delta_out) }}</td>
+            </tr>
+            <tr>
+              <td>Broj izlaznih</td>
+              <td class="num">{{ out_count }}</td>
+              <td class="num">{{ p_out_count }}</td>
+              <td class="num">{{ delta_cell(delta_out_cnt) }}</td>
+            </tr>
+            <tr>
+              <td>Ulazne bruto</td>
+              <td class="num">{{ in_gross|money }} €</td>
+              <td class="num">{{ p_in_gross|money }} €</td>
+              <td class="num">{{ delta_cell(delta_in) }}</td>
+            </tr>
+            <tr>
+              <td>Troškovi</td>
+              <td class="num">{{ exp_total|money }} €</td>
+              <td class="num">{{ p_exp_total|money }} €</td>
+              <td class="num">{{ delta_cell(delta_exp) }}</td>
+            </tr>
+            <tr>
+              <td>Izlazni PDV</td>
+              <td class="num">{{ out_vat|money }} €</td>
+              <td class="num">{{ p_out_vat|money }} €</td>
+              <td class="num"></td>
+            </tr>
+            <tr>
+              <td>Ulazni PDV</td>
+              <td class="num">{{ in_vat|money }} €</td>
+              <td class="num">{{ p_in_vat|money }} €</td>
+              <td class="num"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+{# ——— Dnevno ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="daily" role="tabpanel" hidden>
+  <div class="rpt-grid">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Dnevni promet — izlazne</h2>
+        <p class="muted">Fiskalizovani bruto{% if daily_active %} · {{ daily_active|length }} aktivnih{% endif %}</p>
+      </header>
+      {% if daily_active|length == 0 %}
+      <p class="rpt-empty">Nema izlaznog prometa u periodu.</p>
+      {% elif daily_active|length <= 5 %}
+      {{ sparse_rows(daily_active, 'Nema izlaznog prometa u periodu.') }}
+      {% else %}
+      <div class="rpt-bars" role="img" aria-label="{{ t('reports.daily_out_aria', 'Dnevni izlazni promet') }}">
+        {% for b in daily_chart %}
+        <div class="rpt-bar{% if b.value > 0 %} has-val{% endif %}" title="{{ b.label }}. — {{ '%.2f'|format(b.value)|replace('.', ',') }} € ({{ b.count }})">
+          <div class="rpt-bar-fill" style="height:{{ b.height_pct }}%"></div>
+          {% if loop.index % 5 == 1 or loop.last %}<span class="rpt-bar-label">{{ b.label }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Dnevni ulaz</h2>
+        <p class="muted">Po datumu izdavanja{% if daily_in_active %} · {{ daily_in_active|length }} aktivnih{% endif %}</p>
+      </header>
+      {% if daily_in_active|length == 0 %}
+      <p class="rpt-empty">Nema ulaznih u periodu.</p>
+      {% elif daily_in_active|length <= 5 %}
+      {{ sparse_rows(daily_in_active, 'Nema ulaznih u periodu.') }}
+      {% else %}
+      <div class="rpt-bars rpt-bars--in" role="img" aria-label="{{ t('reports.daily_in_aria', 'Dnevni ulaz') }}">
+        {% for b in daily_in_chart %}
+        <div class="rpt-bar{% if b.value > 0 %} has-val{% endif %}" title="{{ b.label }}. — {{ '%.2f'|format(b.value)|replace('.', ',') }} € ({{ b.count }})">
+          <div class="rpt-bar-fill is-in" style="height:{{ b.height_pct }}%"></div>
+          {% if loop.index % 5 == 1 or loop.last %}<span class="rpt-bar-label">{{ b.label }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{# ——— Trend ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="trend" role="tabpanel" hidden>
+  <div class="rpt-grid">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>12-mjesečni trend</h2>
+        <p class="muted">Izlaz (ljubičasto) · ulaz (plavo)</p>
+      </header>
+      {% if trend_active|length == 0 %}
+      <p class="rpt-empty">Nema prometa u posljednjih 12 mjeseci.</p>
+      {% elif trend_active|length <= 3 %}
+      <ul class="rpt-sparse">
+        {% for t in trend_active %}
+        <li class="rpt-sparse-item rpt-sparse-item--trend">
+          <span class="rpt-sparse-day">{{ t.label }}</span>
+          <strong class="rpt-sparse-val">{{ '%.2f'|format(t.out)|replace('.', ',') }} €</strong>
+          <span class="rpt-sparse-meta">ulaz {{ '%.2f'|format(t.inn)|replace('.', ',') }} €</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="rpt-trend">
+        {% for t in trend %}
+        <div class="rpt-trend-col{% if t.out or t.inn %} has-val{% endif %}" title="{{ t.label }}: izlaz {{ '%.0f'|format(t.out) }} · ulaz {{ '%.0f'|format(t.inn) }}">
+          <div class="rpt-trend-bars">
+            <div class="rpt-trend-out" style="height:{{ t.out_pct }}%"></div>
+            <div class="rpt-trend-in" style="height:{{ t.in_pct }}%"></div>
+          </div>
+          <span class="rpt-trend-label">{{ t.label.split(' ')[0] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Po danu u sedmici</h2>
+        <p class="muted">Izlazni bruto</p>
+      </header>
+      {% if weekday_active|length == 0 %}
+      <p class="rpt-empty">Nema izlaznog prometa.</p>
+      {% elif weekday_active|length <= 2 %}
+      {{ sparse_rows(weekday_active, 'Nema izlaznog prometa.', dotted=false) }}
+      {% else %}
+      <div class="rpt-bars rpt-bars--wd">
+        {% for b in weekday_chart %}
+        <div class="rpt-bar{% if b.value > 0 %} has-val{% endif %}" title="{{ b.label }} — {{ '%.2f'|format(b.value)|replace('.', ',') }} €">
+          <div class="rpt-bar-fill" style="height:{{ b.height_pct }}%"></div>
+          <span class="rpt-bar-label">{{ b.label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{# ——— Plaćanja ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="pay" role="tabpanel" hidden>
+  <div class="rpt-grid">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head"><h2>Po načinu plaćanja</h2></header>
+      {% if pay_chart %}
+      <div class="rpt-hbar">
+        {% for b in pay_chart %}
+        <div class="rpt-hbar-row">
+          <div class="rpt-hbar-meta">
+            <strong>{{ b.label }}</strong>
+            <span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} € ({{ b.share }}%)</span>
+          </div>
+          <div class="rpt-hbar-track"><div class="rpt-hbar-fill" style="width:{{ b.height_pct }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Nema podataka.</p>{% endif %}
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head"><h2>Tip računa</h2></header>
+      {% if type_chart %}
+      <div class="rpt-hbar">
+        {% for b in type_chart %}
+        <div class="rpt-hbar-row">
+          <div class="rpt-hbar-meta">
+            <strong>{{ b.label }}</strong>
+            <span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} €</span>
+          </div>
+          <div class="rpt-hbar-track"><div class="rpt-hbar-fill" style="width:{{ b.height_pct }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Nema podataka.</p>{% endif %}
+    </section>
+  </div>
+
+  <section class="rpt-panel">
+    <header class="rpt-panel-head">
+      <h2>Status izdatih (period)</h2>
+      <p class="muted">Svi računi po datumu izdavanja</p>
+    </header>
+    {% if status_chart %}
+    <div class="rpt-hbar">
+      {% for b in status_chart %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-meta">
+          <strong>{{ b.label }}</strong>
+          <span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} €</span>
+        </div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill is-status-{{ b.status }}" style="width:{{ b.height_pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Nema podataka.</p>{% endif %}
+  </section>
+</div>
+
+{# ——— PDV ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="vat" role="tabpanel" hidden>
+  <section class="rpt-panel">
+    <header class="rpt-panel-head"><h2>PDV po stopama (izlaz)</h2></header>
+    {% if vat_table %}
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead>
+          <tr><th>Stopa</th><th class="num">Stavki</th><th class="num">Neto</th><th class="num">PDV</th><th class="num">Bruto</th></tr>
+        </thead>
+        <tbody>
+        {% for v in vat_table %}
+          <tr>
+            <td>{{ '%.0f'|format(v.rate) if v.rate == (v.rate|int) else '%.2f'|format(v.rate) }}%</td>
+            <td class="num">{{ v.count }}</td>
+            <td class="num">{{ '%.2f'|format(v.net)|replace('.', ',') }} €</td>
+            <td class="num">{{ '%.2f'|format(v.vat)|replace('.', ',') }} €</td>
+            <td class="num">{{ '%.2f'|format(v.gross)|replace('.', ',') }} €</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if vat_chart %}
+    <div class="rpt-hbar" style="margin-top:0.85rem">
+      {% for b in vat_chart %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-meta"><strong>PDV {{ b.label }}</strong><span>{{ '%.2f'|format(b.value)|replace('.', ',') }} €</span></div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill is-vat" style="width:{{ b.height_pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}<p class="muted">Nema stavki.</p>{% endif %}
+  </section>
+</div>
+
+{# ——— Kupci ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="buyers" role="tabpanel" hidden>
+  <section class="rpt-panel">
+    <header class="rpt-panel-head">
+      <h2>Top komitenti</h2>
+      <p class="muted">Po bruto prometu · <a href="/izvjestaji/komitenti?year={{ year }}&month={{ month }}">pojedinačni izvještaji</a></p>
+    </header>
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead>
+          <tr><th>Komitent</th><th class="num">Rač.</th><th class="num">Udio</th><th class="num">Bruto</th></tr>
+        </thead>
+        <tbody>
+        {% for r in buyers_table %}
+          <tr>
+            <td>
+              <div class="cell-primary">
+                {% if r.customer_id %}
+                <a href="/izvjestaji/komitenti/{{ r.customer_id }}?year={{ year }}&month={{ month }}">{{ r.name }}</a>
+                {% else %}{{ r.name }}{% endif %}
+              </div>
+              {% if r.pib %}<div class="cell-secondary">PIB {{ r.pib }}</div>{% endif %}
+            </td>
+            <td class="num">{{ r.count }}</td>
+            <td class="num">{{ r.share }}%</td>
+            <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">Nema podataka.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="rpt-panel">
+    <header class="rpt-panel-head">
+      <h2>Najveći računi</h2>
+    </header>
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead>
+          <tr>
+            <th>Broj</th>
+            <th>Kupac</th>
+            <th>Datum</th>
+            <th>Plaćanje</th>
+            <th class="num">Bruto</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in biggest_table %}
+          <tr>
+            <td><a href="/racuni/{{ r.id }}">{{ r.num }}</a></td>
+            <td>
+              <div class="cell-primary">{{ r.buyer }}</div>
+              {% if r.pib %}<div class="cell-secondary">{{ r.pib }}</div>{% endif %}
+            </td>
+            <td>{{ r.when }}</td>
+            <td>{{ r.pay }}</td>
+            <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">Nema podataka.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# ——— Artikli ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="arts" role="tabpanel" hidden>
+  <section class="rpt-panel">
+    <header class="rpt-panel-head">
+      <h2>Top artikli</h2>
+      <p class="muted">Po bruto prometu</p>
+    </header>
+    <div class="table-wrap">
+      <table class="soft-table rpt-table">
+        <thead>
+          <tr><th>Artikal</th><th class="num">Kol.</th><th class="num">Udio</th><th class="num">Bruto</th></tr>
+        </thead>
+        <tbody>
+        {% for r in articles_table %}
+          <tr>
+            <td>
+              <div class="cell-primary">{{ r.name }}</div>
+              {% if r.code %}<div class="cell-secondary">{{ r.code }}</div>{% endif %}
+            </td>
+            <td class="num">{{ '%.2f'|format(r.qty)|replace('.', ',') }}</td>
+            <td class="num">{{ r.share }}%</td>
+            <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">Nema podataka.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# ——— Ulaz ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="in" role="tabpanel" hidden>
+  <div class="rpt-grid">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Top komitenti (ulazne)</h2>
+        <p class="muted">Ulazne fakture</p>
+      </header>
+      <div class="table-wrap">
+        <table class="soft-table rpt-table">
+          <thead>
+            <tr><th>Komitent</th><th class="num">Fakt.</th><th class="num">Udio</th><th class="num">Bruto</th></tr>
+          </thead>
+          <tbody>
+          {% for r in suppliers_table %}
+            <tr>
+              <td>
+                <div class="cell-primary">{{ r.name }}</div>
+                {% if r.pib %}<div class="cell-secondary">PIB {{ r.pib }}</div>{% endif %}
+              </td>
+              <td class="num">{{ r.count }}</td>
+              <td class="num">{{ r.share }}%</td>
+              <td class="num">{{ '%.2f'|format(r.gross)|replace('.', ',') }} €</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="muted">Nema podataka.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head"><h2>Ulaz — status i izvor</h2></header>
+      {% if in_status_chart %}
+      <h3 class="rpt-subh">Status</h3>
+      <div class="rpt-hbar">
+        {% for b in in_status_chart %}
+        <div class="rpt-hbar-row">
+          <div class="rpt-hbar-meta"><strong>{{ b.label }}</strong><span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} €</span></div>
+          <div class="rpt-hbar-track"><div class="rpt-hbar-fill is-in" style="width:{{ b.height_pct }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if in_source_chart %}
+      <h3 class="rpt-subh">Izvor</h3>
+      <div class="rpt-hbar">
+        {% for b in in_source_chart %}
+        <div class="rpt-hbar-row">
+          <div class="rpt-hbar-meta"><strong>{{ b.label }}</strong><span>{{ b.count }} · {{ '%.2f'|format(b.value)|replace('.', ',') }} €</span></div>
+          <div class="rpt-hbar-track"><div class="rpt-hbar-fill is-in" style="width:{{ b.height_pct }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if not in_status_chart and not in_source_chart %}<p class="muted">Nema ulaznih.</p>{% endif %}
+    </section>
+  </div>
+</div>
+
+{# ——— Troškovi ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="exp" role="tabpanel" hidden>
+  <section class="rpt-panel">
+    <header class="rpt-panel-head"><h2>Troškovi po kategoriji</h2></header>
+    {% if exp_chart %}
+    <div class="rpt-hbar">
+      {% for b in exp_chart %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-meta">
+          <strong>{{ b.label }}</strong>
+          <span>{{ '%.2f'|format(b.value)|replace('.', ',') }} €</span>
+        </div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill is-exp" style="width:{{ b.height_pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Nema troškova u periodu.</p>{% endif %}
+  </section>
+</div>
+
+{# ——— Blagajna ——— #}
+<div class="rpt-panel-tab" data-rpt-panel="cash" role="tabpanel" hidden>
+  <div class="rpt-grid">
+    <section class="rpt-panel">
+      <header class="rpt-panel-head"><h2>Blagajna (EFI depoziti)</h2></header>
+      <div class="rpt-cash-stats">
+        <div>
+          <span class="rpt-kpi-label">INITIAL</span>
+          <strong>{{ '%.2f'|format(cash_initial.amount)|replace('.', ',') }} €</strong>
+          <span class="muted">{{ cash_initial.count }}×</span>
+        </div>
+        <div>
+          <span class="rpt-kpi-label">WITHDRAW</span>
+          <strong>{{ '%.2f'|format(cash_withdraw.amount)|replace('.', ',') }} €</strong>
+          <span class="muted">{{ cash_withdraw.count }}×</span>
+        </div>
+      </div>
+      {% if operators_table %}
+      <h3 class="rpt-subh">Po operateru (depoziti)</h3>
+      <div class="table-wrap">
+        <table class="soft-table rpt-table">
+          <thead><tr><th>Operater</th><th class="num">Op.</th><th class="num">Iznos</th></tr></thead>
+          <tbody>
+          {% for r in operators_table %}
+            <tr>
+              <td>{{ r.code }}</td>
+              <td class="num">{{ r.count }}</td>
+              <td class="num">{{ '%.2f'|format(r.amount)|replace('.', ',') }} €</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="rpt-panel">
+      <header class="rpt-panel-head">
+        <h2>Uplate kupaca</h2>
+        <p class="muted">Ukupno {{ payments_total|money }} €</p>
+      </header>
+      <div class="table-wrap">
+        <table class="soft-table rpt-table">
+          <thead><tr><th>Komitent</th><th class="num">Br.</th><th class="num">Iznos</th></tr></thead>
+          <tbody>
+          {% for r in payments_table %}
+            <tr>
+              <td>
+                <div class="cell-primary">{{ r.name }}</div>
+                {% if r.pib %}<div class="cell-secondary">PIB {{ r.pib }}</div>{% endif %}
+              </td>
+              <td class="num">{{ r.count }}</td>
+              <td class="num">{{ '%.2f'|format(r.amount)|replace('.', ',') }} €</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3" class="muted">Nema uplata u periodu.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+</div>{# /.rpt-shell #}
+
+<script>
+(function () {
+  var root = document.querySelector('.rpt-toc');
+  if (!root) return;
+  var tabs = Array.prototype.slice.call(root.querySelectorAll('[data-rpt-tab]'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('[data-rpt-panel]'));
+  var valid = {};
+  tabs.forEach(function (t) { valid[t.getAttribute('data-rpt-tab')] = true; });
+
+  function activate(id, push) {
+    if (!valid[id]) id = 'summary';
+    tabs.forEach(function (t) {
+      var on = t.getAttribute('data-rpt-tab') === id;
+      t.classList.toggle('is-active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      var on = p.getAttribute('data-rpt-panel') === id;
+      p.classList.toggle('is-active', on);
+      if (on) {
+        p.removeAttribute('hidden');
+        p.setAttribute('aria-hidden', 'false');
+      } else {
+        p.setAttribute('hidden', '');
+        p.setAttribute('aria-hidden', 'true');
+      }
+    });
+    if (push) {
+      try {
+        history.replaceState(null, '', '#' + id);
+      } catch (e) {}
+    }
+  }
+
+  root.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-rpt-tab]');
+    if (!btn || !root.contains(btn)) return;
+    activate(btn.getAttribute('data-rpt-tab'), true);
+  });
+
+  var hash = (location.hash || '').replace(/^#/, '');
+  activate(hash || 'summary', false);
+
+  window.addEventListener('hashchange', function () {
+    activate((location.hash || '').replace(/^#/, '') || 'summary', false);
+  });
+})();
+</script>
 {% endblock %}

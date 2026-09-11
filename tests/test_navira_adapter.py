@@ -168,3 +168,75 @@ def test_http_cash_deposit_success():
 
     assert result.ok
     assert result.partner_ref == "dep-9"
+
+
+def test_to_navira_payload_credit_exempt_sametaxes():
+    from sepko.efi import load_tenant_fiscal, to_navira_payload
+
+    tenant = _tenant()
+    fiscal = load_tenant_fiscal(tenant)
+    req = FiscalizeRequest(
+        external_id="cn-1",
+        invoice_type="NONCASH",
+        payment_method="ORDER",
+        inv_type="CREDIT_NOTE",
+        iic_ref="AABBCCDDEEFF00112233445566778899",
+        issue_datetime=datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc),
+        lines=[
+            InvoiceLineIn(
+                code="EX1",
+                name="Oslobodjeno",
+                quantity=Decimal("-1"),
+                unit_price_net=Decimal("100"),
+                vat_rate=Decimal("0"),
+                total_gross=Decimal("-100"),
+                tax_rate_code="EX26",
+                unit="SAT",
+            )
+        ],
+        totals=TotalsIn(net=Decimal("-100"), vat=Decimal("0"), gross=Decimal("-100")),
+    )
+    payload = to_navira_payload(
+        tenant, req, fiscal, inv_num="ph000bu001/1/2026/ph000cr001", inv_ord_num=1, iic="LOCALIKOF"
+    )
+    assert payload["invType"] == "CREDIT_NOTE"
+    assert payload["iicRef"] == "AABBCCDDEEFF00112233445566778899"
+    assert payload["items"][0]["u"] == "SAT"
+    assert payload["items"][0]["ex"] == "VAT_CL_26"
+    assert payload["sameTaxes"][0]["exemptFromVAT"] == "VAT_CL_26"
+    assert payload["totPrice"] == "-100"
+
+
+def test_http_fiscalize_offline_on_503():
+    settings = Settings(
+        secret_key="test-secret-key-for-unit",
+        partner_mode="navira",
+        navira_base_url="https://navira.test",
+        navira_api_key="secret-key",
+    )
+    adapter = HttpPartnerAdapter(settings)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 503
+    mock_resp.content = b'{"message":"busy"}'
+    mock_resp.reason_phrase = "Service Unavailable"
+    mock_resp.json.return_value = {"message": "busy"}
+
+    with patch("sepko.partner.httpx.Client") as client_cls, patch("sepko.partner.time.sleep"):
+        client = MagicMock()
+        client.__enter__ = MagicMock(return_value=client)
+        client.__exit__ = MagicMock(return_value=False)
+        client.post.return_value = mock_resp
+        client_cls.return_value = client
+        result = adapter.fiscalize(
+            _tenant(),
+            _fiscalize_req(),
+            inv_ord_num=1,
+            reuse_iic="AABBCCDDEEFF00112233445566778899",
+            reuse_iic_signature="sig",
+        )
+
+    assert not result.ok
+    assert result.offline
+    assert result.ikof == "AABBCCDDEEFF00112233445566778899"
+    assert result.iic_signature == "sig"
+    assert not result.jikr

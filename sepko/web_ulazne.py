@@ -1,21 +1,20 @@
-"""Web UI — ulazne fakture i dobavljači."""
+"""Web UI — ulazne fakture."""
 from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from sepko.db import get_db
-from sepko.models import IncomingInvoice, IncomingInvoiceStatus, Supplier
+from sepko.models import Customer, IncomingInvoice, IncomingInvoiceStatus
 from sepko.ulazne import (
     add_line_name,
     create_from_qr,
     create_incoming_invoice,
     d,
     expense_from_incoming,
-    get_or_create_supplier,
     line_names_payload,
     list_line_names,
     parse_date,
@@ -44,15 +43,15 @@ def _get_incoming(db: Session, tenant, invoice_id: int) -> IncomingInvoice | Non
     )
 
 
-def _form_suppliers_and_names(db: Session, tenant):
-    suppliers = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id, Supplier.active.is_(True))
-        .order_by(Supplier.name)
+def _form_customers_and_names(db: Session, tenant):
+    customers = (
+        db.query(Customer)
+        .filter(Customer.tenant_id == tenant.id, Customer.active.is_(True))
+        .order_by(Customer.name)
         .all()
     )
     line_names = list_line_names(db, tenant)
-    return suppliers, line_names
+    return customers, line_names
 
 
 def _parse_form_line(
@@ -131,7 +130,7 @@ def ulazne_new_form(request: Request, db: Session = Depends(get_db)):
         return redirect("/login")
     from datetime import date as date_cls
 
-    suppliers, line_names = _form_suppliers_and_names(db, tenant)
+    customers, line_names = _form_customers_and_names(db, tenant)
     db.commit()
     return render(
         request,
@@ -139,7 +138,7 @@ def ulazne_new_form(request: Request, db: Session = Depends(get_db)):
         {
             "user": user,
             "tenant": tenant,
-            "suppliers": suppliers,
+            "customers": customers,
             "invoice": None,
             "prefill": {},
             "today_dmy": date_cls.today().strftime("%d.%m.%Y"),
@@ -251,6 +250,7 @@ def ulazne_create(
     csrf_token: str = Form(""),
     number: str = Form(""),
     issue_date: str = Form(""),
+    customer_id: str = Form(""),
     supplier_id: str = Form(""),
     supplier_pib: str = Form(""),
     supplier_name: str = Form(""),
@@ -273,7 +273,8 @@ def ulazne_create(
         flash(request, "Nevažeći CSRF token.", "error")
         return redirect("/ulazne/nova")
     try:
-        sid = int(supplier_id) if supplier_id.strip().isdigit() else None
+        sid = (customer_id or supplier_id).strip()
+        cid = int(sid) if sid.isdigit() else None
         lines = _parse_form_line(
             line_name=line_name,
             line_qty=line_qty,
@@ -285,7 +286,7 @@ def ulazne_create(
             tenant,
             number=number.strip(),
             issue_date=parse_date(issue_date),
-            supplier_id=sid,
+            customer_id=cid,
             supplier_pib=supplier_pib.strip() or None,
             supplier_name=supplier_name.strip() or None,
             status=status.strip() or IncomingInvoiceStatus.recorded.value,
@@ -337,13 +338,13 @@ def ulazne_edit_form(request: Request, invoice_id: int, db: Session = Depends(ge
     if not inv:
         flash(request, "Ulazna faktura nije pronađena.", "error")
         return redirect("/ulazne")
-    suppliers, line_names = _form_suppliers_and_names(db, tenant)
+    customers, line_names = _form_customers_and_names(db, tenant)
     db.commit()
     first = inv.lines[0] if inv.lines else None
     prefill = {
         "number": inv.number or "",
         "issue_date": inv.issue_date.isoformat() if inv.issue_date else "",
-        "supplier_id": str(inv.supplier_id) if inv.supplier_id else "",
+        "customer_id": str(inv.customer_id) if inv.customer_id else "",
         "supplier_pib": inv.supplier_pib or "",
         "supplier_name": inv.supplier_name or "",
         "notes": inv.notes or "",
@@ -362,7 +363,7 @@ def ulazne_edit_form(request: Request, invoice_id: int, db: Session = Depends(ge
         {
             "user": user,
             "tenant": tenant,
-            "suppliers": suppliers,
+            "customers": customers,
             "invoice": inv,
             "prefill": prefill,
             "today_dmy": date_cls.today().strftime("%d.%m.%Y"),
@@ -378,6 +379,7 @@ def ulazne_edit_submit(
     csrf_token: str = Form(""),
     number: str = Form(""),
     issue_date: str = Form(""),
+    customer_id: str = Form(""),
     supplier_id: str = Form(""),
     supplier_pib: str = Form(""),
     supplier_name: str = Form(""),
@@ -405,7 +407,8 @@ def ulazne_edit_submit(
         flash(request, "Ulazna faktura nije pronađena.", "error")
         return redirect("/ulazne")
     try:
-        sid = int(supplier_id) if supplier_id.strip().isdigit() else None
+        sid = (customer_id or supplier_id).strip()
+        cid = int(sid) if sid.isdigit() else None
         lines = _parse_form_line(
             line_name=line_name,
             line_qty=line_qty,
@@ -418,7 +421,7 @@ def ulazne_edit_submit(
             inv,
             number=number.strip(),
             issue_date=parse_date(issue_date),
-            supplier_id=sid,
+            customer_id=cid,
             supplier_pib=supplier_pib.strip() or None,
             supplier_name=supplier_name.strip() or None,
             status=status.strip() or IncomingInvoiceStatus.recorded.value,
@@ -501,53 +504,22 @@ def ulazne_to_expense(
         return redirect(f"/ulazne/{invoice_id}")
 
 
-@router.get("/dobavljaci", response_class=HTMLResponse)
-def suppliers_list(request: Request, db: Session = Depends(get_db)):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    rows = (
-        db.query(Supplier)
-        .filter(Supplier.tenant_id == tenant.id)
-        .order_by(Supplier.name)
-        .all()
-    )
-    return render(
-        request,
-        "dobavljaci.html",
-        {"user": user, "tenant": tenant, "suppliers": rows},
-    )
+@router.get("/dobavljaci/lookup.json")
+def suppliers_lookup_gone(q: str = Query("")):
+    qs = f"?q={q}" if q else ""
+    return redirect("/kupci/lookup.json" + qs)
 
 
-@router.post("/dobavljaci")
-def suppliers_create(
-    request: Request,
-    csrf_token: str = Form(""),
-    pib: str = Form(...),
-    name: str = Form(...),
-    street: str = Form(""),
-    city: str = Form(""),
-    email: str = Form(""),
-    phone: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    try:
-        user, tenant = _auth(request, db)
-    except AuthRequired:
-        return redirect("/login")
-    if not validate_csrf(request, csrf_token):
-        flash(request, "Nevažeći CSRF token.", "error")
-        return redirect("/dobavljaci")
-    try:
-        s = get_or_create_supplier(db, tenant, pib=pib, name=name, street=street or None, city=city or None)
-        if email:
-            s.email = email.strip()[:255]
-        if phone:
-            s.phone = phone.strip()[:64]
-        db.commit()
-        flash(request, "Dobavljač sačuvan.")
-    except Exception as exc:
-        db.rollback()
-        flash(request, str(exc), "error")
-    return redirect("/dobavljaci")
+@router.api_route("/dobavljaci", methods=["GET", "POST"])
+def suppliers_gone():
+    return redirect("/kupci")
+
+
+@router.api_route("/dobavljaci/{supplier_id}/obrisi", methods=["GET", "POST"])
+def suppliers_delete_gone(supplier_id: int):
+    return redirect("/kupci")
+
+
+@router.api_route("/dobavljaci/{supplier_id}", methods=["GET", "POST"])
+def suppliers_item_gone(supplier_id: int):
+    return redirect("/kupci")

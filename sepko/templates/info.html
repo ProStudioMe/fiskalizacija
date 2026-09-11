@@ -51,17 +51,13 @@
       </p>
     </div>
     <div class="info-block">
-      <h3>Sertifikat / EFI kodovi</h3>
+      <h3>Fiskalizacija</h3>
       <p>
-        Poslovna jedinica: <code>{{ fiscal.busin_unit_code or '—' }}</code><br>
-        Kod ENU-a: <code>{{ fiscal.tcr_code or '—' }}</code><br>
-        SoftCode: <code>{{ fiscal.soft_code or '—' }}</code><br>
-        Operator: <code>{{ fiscal.operator_code or '—' }}</code><br>
-        U PDV-u: {{ 'Da' if fiscal.is_issuer_in_vat else 'Ne' }}<br>
-        Token kanal: <code>{{ fiscal.token_provider or '—' }}</code>
-        · Telekom: {{ 'da' if fiscal.has_telekom_token() else 'ne' }}
-        · Pošta: {{ 'da' if fiscal.has_posta_token() else 'ne' }}
+        Okruženje: {{ 'Produkcija' if tenant.mode == 'prod' else 'Test' }}<br>
+        EFI / token: {% if fiscal.busin_unit_code and fiscal.tcr_code %}podešeno{% else %}nije podešeno{% endif %}
+        {% if fiscal.token_provider %} · kanal {{ fiscal.token_provider }}{% endif %}
       </p>
+      <p class="muted">Kodove i tokene podešava platform admin.</p>
     </div>
     <div class="info-block">
       <h3>Uređaj</h3>

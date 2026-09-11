@@ -133,13 +133,26 @@ def init_db() -> None:
             extras = {
                 "inv_num": "VARCHAR(64)",
                 "inv_ord_num": "INTEGER",
+                "local_ord_num": "INTEGER",
                 "type_of_inv": "VARCHAR(16)",
                 "inv_type": "VARCHAR(32)",
                 "is_template": "BOOLEAN",
+                "iic_signature": "TEXT",
+                "ref_ikof": "VARCHAR(128)",
+                "ref_invoice_id": "INTEGER",
             }
             for name, coltype in extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "invoices", name, coltype)
+        if "invoice_lines" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("invoice_lines")}
+            line_extras = {
+                "tax_rate_code": "VARCHAR(32)",
+                "unit": "VARCHAR(16)",
+            }
+            for name, coltype in line_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "invoice_lines", name, coltype)
         if "customers" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("customers")}
             cust_extras = {
@@ -157,6 +170,21 @@ def init_db() -> None:
             for name, coltype in cust_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "customers", name, coltype)
+        if "suppliers" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("suppliers")}
+            supp_extras = {
+                "pdv_number": "VARCHAR(64)",
+                "street": "VARCHAR(255)",
+                "city": "VARCHAR(128)",
+                "country": "VARCHAR(64)",
+                "email": "VARCHAR(255)",
+                "phone": "VARCHAR(64)",
+                "contact": "VARCHAR(255)",
+                "notes": "TEXT",
+            }
+            for name, coltype in supp_extras.items():
+                if name not in existing:
+                    add_column_if_missing(conn, "suppliers", name, coltype)
         if "articles" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("articles")}
             art_extras = {
@@ -191,6 +219,10 @@ def init_db() -> None:
             for name, coltype in lic_inv_extras.items():
                 if name not in existing:
                     add_column_if_missing(conn, "license_invoices", name, coltype)
+        if "incoming_invoices" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("incoming_invoices")}
+            if "customer_id" not in existing:
+                add_column_if_missing(conn, "incoming_invoices", "customer_id", "INTEGER")
         if "bank_transactions" in insp.get_table_names():
             existing = {c["name"] for c in insp.get_columns("bank_transactions")}
             if "incoming_invoice_id" not in existing:
@@ -216,6 +248,12 @@ def init_db() -> None:
 
         ensure_superadmin(db)
         ensure_client_tenants(db)
+<<<<<<< HEAD
+=======
+        from sepko.ulazne import merge_suppliers_into_customers
+
+        merge_suppliers_into_customers(db)
+>>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
         db.commit()
     except Exception:
         db.rollback()

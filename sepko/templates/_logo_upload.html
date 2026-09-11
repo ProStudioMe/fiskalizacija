@@ -1,11 +1,12 @@
-{# Custom logo file picker. Expects: input_name, input_id, preview_src (optional), show_remove (bool) #}
+{# Custom logo file picker. Expects: input_name, input_id, preview_src (optional), show_remove (bool); optional upload_compact #}
 {% set input_name = input_name|default('logo') %}
 {% set input_id = input_id|default('logo-input') %}
 {% set show_remove = show_remove|default(false) %}
-<div class="file-upload" data-file-upload>
+{% set upload_compact = upload_compact|default(false) %}
+<div class="file-upload{% if upload_compact %} file-upload--compact{% endif %}" data-file-upload>
   {% if preview_src %}
   <div class="file-upload-current">
-    <img class="komitent-logo" src="{{ preview_src }}" alt="" data-file-preview-current>
+    <img class="komitent-logo{% if upload_compact %} komitent-logo--sm{% endif %}" src="{{ preview_src }}" alt="" data-file-preview-current>
     {% if show_remove %}
     <label class="toggle-row file-upload-remove">
       <span>{{ t('upload.remove_logo', 'Ukloni logo') }}</span>
@@ -31,7 +32,9 @@
         <i data-lucide="upload"></i>
       </span>
       <span class="file-upload-title">{{ t('upload.choose', 'Odaberi sliku') }}</span>
+      {% if not upload_compact %}
       <span class="file-upload-hint">{{ t('upload.hint', 'PNG, JPG, WEBP ili GIF · max 2 MB') }}</span>
+      {% endif %}
       <span class="file-upload-name muted" data-file-name>{{ t('upload.none', 'Nije odabran fajl') }}</span>
     </span>
   </label>

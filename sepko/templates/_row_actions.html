@@ -1,13 +1,13 @@
 <div class="row-icon-actions">
 {% if edit_href is defined and edit_href %}
-  <a class="btn-icon" href="{{ edit_href }}" title="Izmijeni" aria-label="Izmijeni">
+  <a class="btn-icon" href="{{ edit_href }}" title="{{ t('btn.edit', 'Izmijeni') }}" aria-label="{{ t('btn.edit', 'Izmijeni') }}">
     <i data-lucide="pencil" aria-hidden="true"></i>
   </a>
 {% endif %}
 {% if delete_url is defined and delete_url %}
-  <form method="post" action="{{ delete_url }}" class="row-icon-form">
+  <form method="post" action="{{ delete_url }}" class="row-icon-form"{% if delete_confirm is defined and delete_confirm %} data-confirm="{{ delete_confirm }}" data-confirm-title="{{ delete_confirm_title|default(t('dialog.title', 'Obavještenje')) }}" data-confirm-tone="danger" data-confirm-ok="{{ delete_confirm_ok|default(t('btn.remove', 'Ukloni')) }}"{% endif %}>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn-icon danger" type="submit" title="Ukloni" aria-label="Ukloni">
+    <button class="btn-icon danger" type="submit" title="{{ t('btn.remove', 'Ukloni') }}" aria-label="{{ t('btn.remove', 'Ukloni') }}">
       <i data-lucide="trash-2" aria-hidden="true"></i>
     </button>
   </form>

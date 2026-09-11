@@ -155,7 +155,51 @@
     return null;
   }
 
+  var cashWarned = false;
+
+  function cashIsOpen() {
+    return form && form.getAttribute("data-has-initial") === "1";
+  }
+
+  function cashUrl() {
+    return (form && form.getAttribute("data-blagajna")) || "/blagajna";
+  }
+
+  function promptOpenCash(opts) {
+    opts = opts || {};
+    var go = function () {
+      window.location.href = cashUrl();
+    };
+    if (window.sepkoDialog && typeof window.sepkoDialog.confirm === "function") {
+      window.sepkoDialog.confirm({
+        title: opts.title || "Blagajna nije otvorena",
+        message:
+          opts.message ||
+          "Prije gotovinskih računa unesi INITIAL depozit za danas (smije biti 0,00).",
+        tone: "warn",
+        okLabel: opts.okLabel || "Otvori blagajnu",
+        cancelLabel: opts.cancelLabel || "Kasnije",
+        onOk: go,
+      });
+      return;
+    }
+    if (window.confirm((opts.title || "Blagajna nije otvorena") + "\n\n" + (opts.message || ""))) {
+      go();
+    }
+  }
+
+  function ensureCashOrWarn(force) {
+    if (cashIsOpen()) return true;
+    if (!force && cashWarned) return false;
+    cashWarned = true;
+    promptOpenCash();
+    return false;
+  }
+
   function addLine(a, qty, tileBtn) {
+    if (!cashIsOpen()) {
+      ensureCashOrWarn(false);
+    }
     qty = qty || 1;
     var existing = findLine(a.id, a.price, a.name);
     if (existing) {
@@ -181,19 +225,69 @@
     }
   }
 
-  function addCustom() {
-    var name = window.prompt("Naziv / usluga", "Usluga");
-    if (name == null) return;
-    name = String(name).trim() || "Usluga";
-    var raw = window.prompt("Iznos bruto (€)", "10,00");
-    if (raw == null) return;
-    var n = window.SepkoMoney
-      ? window.SepkoMoney.parse(raw)
-      : parseFloat(String(raw).replace(",", "."));
-    if (!n || n <= 0) return;
-    var vatRaw = window.prompt("PDV %", "21");
-    var vat = parseFloat(String(vatRaw || "21").replace(",", ".")) || 21;
+  var customModal = document.getElementById("pos-custom-modal");
+  var customForm = document.getElementById("pos-custom-form");
+  var customName = document.getElementById("pos-custom-name");
+  var customAmount = document.getElementById("pos-custom-amount");
+  var customVat = document.getElementById("pos-custom-vat");
+  var customPrevFocus = null;
+
+  function parseMoney(raw) {
+    if (window.SepkoMoney) return window.SepkoMoney.parse(raw);
+    return parseFloat(String(raw || "").replace(/\s/g, "").replace(",", "."));
+  }
+
+  function closeCustomModal() {
+    if (!customModal || customModal.hidden) return;
+    customModal.hidden = true;
+    document.body.classList.remove("sepko-dialog-open");
+    if (customPrevFocus && typeof customPrevFocus.focus === "function") {
+      try {
+        customPrevFocus.focus();
+      } catch (e) {}
+    }
+    customPrevFocus = null;
+  }
+
+  function openCustomModal() {
+    if (!cashIsOpen()) {
+      ensureCashOrWarn(true);
+      return;
+    }
+    if (!customModal) return;
+    customPrevFocus = document.activeElement;
+    if (customName) customName.value = "Usluga";
+    if (customAmount) customAmount.value = "";
+    if (customVat) customVat.value = "21";
+    customModal.hidden = false;
+    document.body.classList.add("sepko-dialog-open");
+    if (window.sepkoIcons) window.sepkoIcons();
+    setTimeout(function () {
+      if (customAmount) {
+        customAmount.focus();
+        customAmount.select();
+      }
+    }, 30);
+  }
+
+  function submitCustom() {
+    if (!customAmount) return;
+    var name = customName ? String(customName.value || "").trim() : "Usluga";
+    if (!name) name = "Usluga";
+    var n = parseMoney(customAmount.value);
+    if (!n || n <= 0) {
+      customAmount.focus();
+      customAmount.select();
+      return;
+    }
+    var vat = parseFloat(String((customVat && customVat.value) || "21").replace(",", "."));
+    if (isNaN(vat) || vat < 0) vat = 21;
     addLine({ id: 0, code: "POS", name: name, vat: vat, price: n }, 1, null);
+    closeCustomModal();
+  }
+
+  function addCustom() {
+    openCustomModal();
   }
 
   function renderCart() {
@@ -262,8 +356,7 @@
     });
     if (totalEl) totalEl.textContent = money(total);
     if (cartEmpty) cartEmpty.hidden = cart.length > 0;
-    var canSell = form && form.getAttribute("data-has-initial") === "1";
-    if (submitBtn) submitBtn.disabled = !canSell || cart.length === 0;
+    if (submitBtn) submitBtn.disabled = cart.length === 0;
     if (clearBtn) clearBtn.disabled = cart.length === 0;
     if (justAddedKey) {
       setTimeout(function () {
@@ -305,6 +398,34 @@
   var customBtn = document.getElementById("pos-custom-btn");
   if (customBtn) customBtn.addEventListener("click", addCustom);
 
+  if (customForm) {
+    customForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitCustom();
+    });
+  }
+  var customClose = document.getElementById("pos-custom-close");
+  var customCancel = document.getElementById("pos-custom-cancel");
+  if (customClose) customClose.addEventListener("click", closeCustomModal);
+  if (customCancel) customCancel.addEventListener("click", closeCustomModal);
+  if (customModal) {
+    customModal.addEventListener("click", function (e) {
+      if (e.target === customModal) closeCustomModal();
+    });
+  }
+  document.querySelectorAll(".pos-custom-chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      if (customVat) customVat.value = chip.getAttribute("data-vat") || "21";
+      if (customAmount) customAmount.focus();
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && customModal && !customModal.hidden) {
+      e.preventDefault();
+      closeCustomModal();
+    }
+  });
+
   if (clearBtn) {
     clearBtn.addEventListener("click", function () {
       if (!cart.length) return;
@@ -323,8 +444,13 @@
       }
       if (form.getAttribute("data-has-initial") !== "1") {
         e.preventDefault();
-        var blag = form.getAttribute("data-blagajna") || "/blagajna";
-        window.location.href = blag;
+        promptOpenCash({
+          title: "Blagajna nije otvorena",
+          message:
+            "Ne možeš fiskalizovati gotovinski račun dok ne uneseš INITIAL depozit za danas (smije biti 0,00).",
+          okLabel: "Otvori blagajnu",
+          cancelLabel: "Odustani",
+        });
         return;
       }
       e.preventDefault();

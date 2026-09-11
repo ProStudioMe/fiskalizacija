@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% set is_edit = editing is defined and editing %}
+{% block title %}{% if is_edit %}{{ t('customer.edit', 'Izmijeni komitenta') }}{% else %}{{ t('customer.new', 'Novi komitent') }}{% endif %} — {{ brand }}{% endblock %}
+{% block page_title %}
+  <span class="inv-page-title inv-page-title--with-back">
+    <a class="btn secondary inv-actions-icon inv-title-back" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}" title="{{ t('btn.back', 'Nazad') }}" aria-label="{{ t('btn.back', 'Nazad') }}">
+      <i data-lucide="arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="inv-page-title-body">
+      <span class="inv-page-heading">{% if is_edit %}{{ t('customer.edit', 'Izmijeni komitenta') }}{% else %}{{ t('customer.new', 'Novi komitent') }}{% endif %}</span>
+      <span class="inv-page-sub">{% if is_edit %}{{ editing.name }} · PIB {{ editing.pib }}{% else %}{{ t('customer.form_hint', 'Obavezna polja su označena zvjezdicom.') }}{% endif %}</span>
+    </span>
+  </span>
+{% endblock %}
+{% block page_actions %}
+  {% if return_to %}
+  <a class="btn secondary" href="{{ return_to }}">{{ t('customer.back_invoice', 'Nazad na fakturu') }}</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="customers-page customers-page--form">
+  <div class="card customers-form-card customers-form-card--solo">
+    {% if is_edit %}
+    {% set more_open = editing.logo_filename or editing.tax_card_number or (editing.discount_pct and editing.discount_pct > 0) or editing.notes %}
+    <form method="post" action="/kupci/{{ editing.id }}" enctype="multipart/form-data" class="wa-form-stack customers-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_id', 'Identifikacija') }}</div>
+        <div class="row">
+          <wa-input label="{{ t('customer.pib', 'PIB / JMBG broj') }}" value="{{ editing.pib }}" disabled></wa-input>
+          <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}" value="{{ editing.pdv_number or '' }}"></wa-input>
+        </div>
+        <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" value="{{ editing.name }}" required></wa-input>
+      </div>
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_address', 'Adresa') }}</div>
+        <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}" value="{{ editing.street or '' }}"></wa-input>
+        <div class="row">
+          <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}" value="{{ editing.city or '' }}"></wa-input>
+          {% set ctry = editing.country or 'Crna Gora' %}
+          <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="{{ ctry }}">
+            {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
+            <wa-option value="{{ c }}" {% if ctry == c %}selected{% endif %}>{{ c }}</wa-option>
+            {% endfor %}
+          </wa-select>
+        </div>
+      </div>
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_contact', 'Kontakt') }}</div>
+        <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}" value="{{ editing.email or '' }}"></wa-input>
+        <div class="row">
+          <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" value="{{ editing.phone or '' }}" placeholder="+382 …"></wa-input>
+          <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" value="{{ editing.contact or '' }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
+        </div>
+      </div>
+
+      <details class="customers-more"{% if more_open %} open{% endif %}>
+        <summary>{{ t('customer.more', 'Dodatno') }}</summary>
+        <div class="customers-fieldset customers-fieldset--soft">
+          <div class="field logo-field" style="margin-bottom:0">
+            <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
+            {% set preview_src = ('/kupci/' ~ editing.id ~ '/logo') if editing.logo_filename else None %}
+            {% set show_remove = true if editing.logo_filename else false %}
+            {% set input_id = 'logo-edit' %}
+            {% set upload_compact = true %}
+            {% include "_logo_upload.html" %}
+          </div>
+          <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}" value="{{ editing.tax_card_number or '' }}"></wa-input>
+          <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="{{ (editing.discount_pct or 0)|money }}" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
+          <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2" value="{{ editing.notes or '' }}"></wa-textarea>
+        </div>
+      </details>
+
+      <div class="wa-form-actions customers-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('btn.save', 'Sačuvaj') }}</wa-button>
+        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    {% else %}
+    <form method="post" action="/kupci" enctype="multipart/form-data" class="wa-form-stack customers-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_id', 'Identifikacija') }}</div>
+        <div class="row">
+          <wa-input name="pib" label="{{ t('customer.pib', 'PIB / JMBG broj') }}" required></wa-input>
+          <wa-input name="pdv_number" label="{{ t('settings.pdv', 'PDV broj') }}"></wa-input>
+        </div>
+        <wa-input name="name" label="{{ t('customer.name', 'Naziv komitenta') }}" required></wa-input>
+      </div>
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_address', 'Adresa') }}</div>
+        <wa-input name="street" label="{{ t('customer.street', 'Ulica i broj') }}"></wa-input>
+        <div class="row">
+          <wa-input name="city" label="{{ t('customer.city', 'Mjesto') }}"></wa-input>
+          <wa-select name="country" label="{{ t('customer.country', 'Država') }}" value="Crna Gora">
+            {% for c in ['Crna Gora','Srbija','Bosna i Hercegovina','Hrvatska','Slovenija','Ostalo'] %}
+            <wa-option value="{{ c }}" {% if c == 'Crna Gora' %}selected{% endif %}>{{ c }}</wa-option>
+            {% endfor %}
+          </wa-select>
+        </div>
+      </div>
+
+      <div class="customers-fieldset">
+        <div class="customers-fieldset-label">{{ t('customer.section_contact', 'Kontakt') }}</div>
+        <wa-input name="email" type="email" label="{{ t('customer.email', 'E-mail') }}"></wa-input>
+        <div class="row">
+          <wa-input name="phone" label="{{ t('customer.phone', 'Broj telefona') }}" placeholder="+382 …"></wa-input>
+          <wa-input name="contact" label="{{ t('customer.contact', 'Kontakt') }}" placeholder="{{ t('customer.contact_ph', 'Ime kontakt osobe') }}"></wa-input>
+        </div>
+      </div>
+
+      <details class="customers-more">
+        <summary>{{ t('customer.more', 'Dodatno') }}</summary>
+        <div class="customers-fieldset customers-fieldset--soft">
+          <div class="field logo-field" style="margin-bottom:0">
+            <label>{{ t('upload.logo_label', 'Logo komitenta') }}</label>
+            {% set preview_src = None %}
+            {% set show_remove = false %}
+            {% set input_id = 'logo-new' %}
+            {% set upload_compact = true %}
+            {% include "_logo_upload.html" %}
+          </div>
+          <wa-input name="tax_card_number" label="{{ t('customer.tax_card', 'Broj poreske identifikacione kartice') }}"></wa-input>
+          <wa-input name="discount_pct" label="{{ t('customer.discount', 'Stalni popust (%)') }}" inputmode="decimal" placeholder="0,00" value="0,00" hint="{{ t('customer.discount_hint', 'Automatski se primjenjuje kao popust na račun pri izdavanju fakture.') }}"></wa-input>
+          <wa-textarea name="notes" label="{{ t('customer.notes', 'Napomena') }}" rows="2"></wa-textarea>
+        </div>
+      </details>
+
+      <div class="wa-form-actions customers-form-foot">
+        <wa-button type="submit" variant="brand">{{ t('customer.add_submit', 'Dodaj komitenta') }}</wa-button>
+        <a class="btn secondary" href="{% if return_to %}{{ return_to }}{% else %}/kupci{% endif %}">{{ t('btn.cancel', 'Poništi') }}</a>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  document.querySelectorAll('[data-file-upload]').forEach(function (root) {
+    var input = root.querySelector('[data-file-input]');
+    var zone = root.querySelector('.file-upload-zone');
+    var idle = root.querySelector('[data-file-idle]');
+    var preview = root.querySelector('[data-file-preview]');
+    var previewImg = root.querySelector('[data-file-preview-img]');
+    var nameEl = root.querySelector('[data-file-name]');
+    var noneLabel = nameEl ? nameEl.textContent : '';
+    if (!input || !zone) return;
+
+    function showFile(file) {
+      if (!file) {
+        if (preview) preview.hidden = true;
+        if (idle) idle.hidden = false;
+        if (nameEl) nameEl.textContent = noneLabel;
+        zone.classList.remove('has-file');
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      zone.classList.add('has-file');
+      if (preview && previewImg && file.type.indexOf('image/') === 0) {
+        var url = URL.createObjectURL(file);
+        previewImg.onload = function () { URL.revokeObjectURL(url); };
+        previewImg.src = url;
+        preview.hidden = false;
+        if (idle) idle.hidden = true;
+      }
+    }
+
+    input.addEventListener('change', function () {
+      showFile(input.files && input.files[0]);
+    });
+
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.add('is-drag');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('is-drag');
+      });
+    });
+    zone.addEventListener('drop', function (e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      try {
+        var dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+      } catch (err) {
+        return;
+      }
+      showFile(files[0]);
+    });
+  });
+  if (window.sepkoIcons) window.sepkoIcons();
+})();
+</script>
+{% endblock %}
