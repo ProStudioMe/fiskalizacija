@@ -1,5 +1,5 @@
 /* ProRačun PWA service worker — shell + recent lists; no offline fiscalize */
-const CACHE = "sepko-shell-v14";
+const CACHE = "sepko-shell-v15";
 const PRECACHE = [
   "/app",
   "/app/kasa",
@@ -9,7 +9,8 @@ const PRECACHE = [
   "/manifest-kasa.webmanifest",
   "/static/img/sepko-mark.svg?v=15",
   "/static/img/sepko-mark.png?v=15",
-  "/static/img/proracun-logo.png?v=1",
+  "/static/img/proracun-logo.svg?v=1",
+  "/static/img/proracun-logo-dark.svg?v=1",
   "/static/img/og-proracun.png?v=5",
   "/static/qr-scan.js?v=1",
   "/static/pwa.css?v=3",
