@@ -1828,8 +1828,8 @@ th { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: 
   margin: 0 0 0.85rem;
   width: auto;
   height: auto;
-  max-width: min(220px, 62vw);
-  max-height: min(22vh, 148px);
+  max-width: min(280px, 72vw);
+  max-height: 56px;
   border-radius: 0;
   object-fit: contain;
   background: transparent;
