@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     navira_api_key: str = ""
     cron_secret: str = ""
     superadmin_password: str = ""
+    prostudio_admin_password: str = ""
+    hotel_admin_password: str = ""
     block_probes: bool = True
     global_rate_limit: bool = True
     cert_dir: str = ""
