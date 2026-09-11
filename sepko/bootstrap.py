@@ -2,15 +2,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-<<<<<<< HEAD
-
-from sqlalchemy.orm import Session
-
-from sepko.catalog import ensure_tax_rates
-from sepko.config import get_settings
-from sepko.efi import TenantCompany, TenantFiscal, save_tenant_company, save_tenant_fiscal
-from sepko.models import Tenant, TenantStatus, User
-=======
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -20,13 +11,10 @@ from sepko.catalog import ensure_tax_rates
 from sepko.config import get_settings
 from sepko.efi import TenantCompany, TenantFiscal, save_tenant_company, save_tenant_fiscal
 from sepko.models import Article, Tenant, TenantStatus, User
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
 from sepko.web_auth import hash_password
 
 _DEV_PASSWORD = "sepko123"
 
-<<<<<<< HEAD
-=======
 # ProStudio usluge (+ licenca) — kopija seed kataloga bez hotelskih soba
 _PROSTUDIO_ARTICLES: list[tuple[str, str, str, Decimal, Decimal, str, str]] = [
     ("PR-BASIC", LICENSE_ITEM, "KOM", Decimal("15.00"), Decimal("21"), "#5a32d6", "demo/proracun.svg"),
@@ -86,7 +74,6 @@ def _ensure_articles(
             existing.thumbnail_filename = thumb
         existing.active = True
 
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
 
 def _password(env_value: str, *, production: bool) -> str | None:
     value = (env_value or "").strip()
@@ -127,10 +114,6 @@ def _ensure_tenant(
     save_tenant_fiscal(tenant, fiscal)
     save_tenant_company(tenant, company)
     ensure_tax_rates(db, tenant)
-<<<<<<< HEAD
-
-    user = db.query(User).filter(User.email == email).first()
-=======
     if slug == "prostudio":
         _ensure_articles(db, tenant, _PROSTUDIO_ARTICLES)
 
@@ -140,7 +123,6 @@ def _ensure_tenant(
         user = db.query(User).filter(User.email == "admin@hotel.me").first()
         if user:
             user.email = email
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
     if not user:
         db.add(
             User(
@@ -172,11 +154,7 @@ def ensure_client_tenants(db: Session) -> None:
                 slug="prostudio",
                 name="PROSTUDIO.ME DOO",
                 pib="03452668",
-<<<<<<< HEAD
-                email="admin@prostudio.me",
-=======
                 email="finansije@prostudio.me",
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
                 full_name="ProStudio Admin",
                 fiscal=TenantFiscal(
                     busin_unit_code="ps000bu001",
@@ -200,11 +178,7 @@ def ensure_client_tenants(db: Session) -> None:
                 slug="hotel",
                 name="Hotel",
                 pib="TBD-HOTEL-PIB",
-<<<<<<< HEAD
-                email="admin@hotel.me",
-=======
                 email="admin@philiahotel.com",
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
                 full_name="Hotel Admin",
                 fiscal=TenantFiscal(
                     busin_unit_code="ht000bu001",
