@@ -1,9 +1,5 @@
 /* ProRačun PWA service worker — shell + recent lists; no offline fiscalize */
-<<<<<<< HEAD
-const CACHE = "sepko-shell-v6";
-=======
-const CACHE = "sepko-shell-v13";
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
+const CACHE = "sepko-shell-v14";
 const PRECACHE = [
   "/app",
   "/app/kasa",
@@ -11,18 +7,12 @@ const PRECACHE = [
   "/static/pos.js?v=7",
   "/manifest.webmanifest",
   "/manifest-kasa.webmanifest",
-<<<<<<< HEAD
-  "/static/img/sepko-mark.svg?v=9",
-  "/static/img/sepko-logo.svg?v=10",
-=======
   "/static/img/sepko-mark.svg?v=15",
   "/static/img/sepko-mark.png?v=15",
-  "/static/img/sepko-logo.png?v=15",
+  "/static/img/proracun-logo.png?v=1",
   "/static/img/og-proracun.png?v=5",
-  "/static/img/proracun-lockup-clear.png?v=1",
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
   "/static/qr-scan.js?v=1",
-  "/static/pwa.css?v=2",
+  "/static/pwa.css?v=3",
   "/static/lucide.min.js?v=0.544.0",
   "/static/lucide-init.js?v=1",
 ];

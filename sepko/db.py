@@ -248,12 +248,9 @@ def init_db() -> None:
 
         ensure_superadmin(db)
         ensure_client_tenants(db)
-<<<<<<< HEAD
-=======
         from sepko.ulazne import merge_suppliers_into_customers
 
         merge_suppliers_into_customers(db)
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
         db.commit()
     except Exception:
         db.rollback()

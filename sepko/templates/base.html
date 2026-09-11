@@ -35,13 +35,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.12.0/dist-cdn/styles/themes/shoelace.css">
   <link rel="stylesheet" href="/static/style.css?v=210">
   <link rel="stylesheet" href="/static/fb-table.css?v=5">
-<<<<<<< HEAD
-  <link rel="stylesheet" href="/static/webawesome-theme.css?v=10">
-  <link rel="stylesheet" href="/static/pwa.css?v=2">
-=======
   <link rel="stylesheet" href="/static/webawesome-theme.css?v=13">
   <link rel="stylesheet" href="/static/pwa.css?v=3">
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
   {% block head_extra %}{% endblock %}
   {% block extra_css %}{% endblock %}
   <link rel="icon" href="/static/img/sepko-mark.png?v=15" type="image/png" sizes="512x512">
@@ -99,11 +94,7 @@
           <i data-lucide="menu" aria-hidden="true"></i>
         </button>
         <a class="topbar-brand" href="{% if is_admin_portal %}/admin{% else %}/{% endif %}" aria-label="{{ brand }}">
-<<<<<<< HEAD
-          <img class="brand-logo" src="/static/img/sepko-logo.svg?v=10" alt="{{ brand }}" width="186" height="36">
-=======
-          <img class="brand-logo" src="/static/img/sepko-logo.png?v=15" alt="{{ brand }}" width="181" height="48">
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
+          <img class="brand-logo" src="/static/img/proracun-logo.png?v=1" alt="{{ brand }}" width="189" height="36">
         </a>
       </div>
       <div class="topbar-right">
@@ -364,11 +355,7 @@
     {% block auth %}{% endblock %}
     <p class="brand-footer brand-footer-login">
       <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ company_domain }}">
-<<<<<<< HEAD
         <img class="company-logo" src="/static/img/prostudio-logo-dark.png?v=2" alt="{{ company_domain }}" width="160" height="25" data-logo-light="/static/img/prostudio-logo-dark.png?v=2" data-logo-dark="/static/img/prostudio-logo.png?v=2">
-=======
-        <img class="company-logo" src="/static/img/prostudio-logo.png?v=2" alt="{{ company_domain }}" width="160" height="25">
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
       </a>
     </p>
     <script src="/static/lucide.min.js?v=0.544.0"></script>
@@ -394,30 +381,16 @@
         root.classList.remove('wa-dark', 'wa-light');
         root.classList.add(next === 'dark' ? 'wa-dark' : 'wa-light');
         try { localStorage.setItem('sepko-theme', next); } catch (e) {}
-<<<<<<< HEAD
-        var logo = document.querySelector('.login-card .brand-logo');
-        if (logo) {
-          logo.src = next === 'dark'
-            ? '/static/img/sepko-logo.svg?v=10'
-            : '/static/img/sepko-logo-dark.svg?v=10';
-        }
         document.querySelectorAll('img.company-logo[data-logo-light]').forEach(function (img) {
           var src = next === 'dark' ? img.getAttribute('data-logo-dark') : img.getAttribute('data-logo-light');
           if (src) img.setAttribute('src', src);
         });
       });
-      var logo0 = document.querySelector('.login-card .brand-logo');
-      if (logo0 && root.getAttribute('data-theme') === 'dark') {
-        logo0.src = '/static/img/sepko-logo.svg?v=10';
-      }
       if (root.getAttribute('data-theme') === 'dark') {
         document.querySelectorAll('img.company-logo[data-logo-dark]').forEach(function (img) {
           img.setAttribute('src', img.getAttribute('data-logo-dark'));
         });
       }
-=======
-      });
->>>>>>> e15daf9c35a3a1ef58b6ab66854dc526c7b88708
     })();
     </script>
   {% endif %}
