@@ -57,12 +57,13 @@ EFI `ORDER` (virman) se šalje kao `ACCOUNT`.
 
 ## Datumi (Oracle)
 
-EXTFISK parsira datume preko Oracle `TO_DATE` — **ne** šalji ISO-8601 (`2026-09-15T12:00:00+00:00`), inače `ORA-01841`.
+EXTFISK parsira datume preko Oracle — **ne** šalji offset (`+00:00` / `Z`), inače `ORA-01841`.  
+`dd.MM.yyyy` daje `ORA-01861`.
 
 | Polje | Format | Primjer |
 |-------|--------|---------|
-| `IssueDateTime` | `dd.MM.yyyy HH:mm:ss` | `15.09.2026 14:30:00` |
-| `PayDeadline` | `dd.MM.yyyy` | `30.09.2026` |
+| `IssueDateTime` | `yyyy-MM-ddTHH:mm:ss` | `2026-09-15T14:30:00` |
+| `PayDeadline` | `yyyy-MM-dd` | `2026-09-30` |
 | `TaxPeriod` | `MM/yyyy` | `09/2026` |
 
 ## Implementacija (Sepko)

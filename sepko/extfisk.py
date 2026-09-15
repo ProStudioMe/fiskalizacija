@@ -35,9 +35,9 @@ DEFAULT_URL = "http://62.4.59.86:3366/api/extfisk"
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_S = (0.4, 0.8, 1.6)
 
-# Oracle TO_DATE na EXTFISK strani — ne ISO-8601 (inače ORA-01841)
-_DT_FMT = "%d.%m.%Y %H:%M:%S"
-_DATE_FMT = "%d.%m.%Y"
+# EXTFISK Oracle: ISO lokalno bez offseta (sa +00:00 → ORA-01841; dd.MM.yyyy → ORA-01861)
+_DT_FMT = "%Y-%m-%dT%H:%M:%S"
+_DATE_FMT = "%Y-%m-%d"
 _TAX_PERIOD_FMT = "%m/%Y"
 
 _INV_TYPE_XML = {
@@ -117,7 +117,7 @@ def extfisk_request_id(tenant: Tenant, inv_num: str) -> str:
 
 
 def _fmt_issue_datetime(dt: datetime) -> str:
-    """EXTFISK/Oracle: dd.MM.yyyy HH:mm:ss (bez T i timezone — inače ORA-01841)."""
+    """EXTFISK: yyyy-MM-ddTHH:mm:ss (bez timezone offseta)."""
     if dt.tzinfo is not None:
         dt = dt.astimezone().replace(tzinfo=None)
     return dt.strftime(_DT_FMT)
