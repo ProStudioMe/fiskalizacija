@@ -55,6 +55,16 @@ Zbir stavki = zaglavlje (`TotPriceWoVAT` / `TotVATAmt` / `TotPrice`). Zbir `PayM
 
 EFI `ORDER` (virman) se šalje kao `ACCOUNT`.
 
+## Datumi (Oracle)
+
+EXTFISK parsira datume preko Oracle `TO_DATE` — **ne** šalji ISO-8601 (`2026-09-15T12:00:00+00:00`), inače `ORA-01841`.
+
+| Polje | Format | Primjer |
+|-------|--------|---------|
+| `IssueDateTime` | `dd.MM.yyyy HH:mm:ss` | `15.09.2026 14:30:00` |
+| `PayDeadline` | `dd.MM.yyyy` | `30.09.2026` |
+| `TaxPeriod` | `MM/yyyy` | `09/2026` |
+
 ## Implementacija (Sepko)
 
 - Adapter: `sepko/extfisk.py` (`SEPKO_PARTNER_MODE=extfisk`)

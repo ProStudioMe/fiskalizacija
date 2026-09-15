@@ -102,6 +102,10 @@ def test_xml_api_key_inside_body_not_header():
     assert root.findtext("Buyer/BuyerType") == "PRAVNO"
     assert root.findtext("Invoice/PayMethods/PayMethod/Type") == "ACCOUNT"
     assert extfisk_pay_type("ORDER") == "ACCOUNT"
+    # Oracle TO_DATE — dd.MM.yyyy (ne ISO)
+    assert root.findtext("Invoice/IssueDateTime") == "09.09.2026 14:00:00"
+    assert root.findtext("Invoice/PayDeadline") == "24.09.2026"
+    assert root.findtext("Invoice/TaxPeriod") == "09/2026"
 
 
 def test_request_id_stable_for_retry():

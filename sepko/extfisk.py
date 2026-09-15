@@ -116,6 +116,21 @@ def extfisk_request_id(tenant: Tenant, inv_num: str) -> str:
     return str(int(digest[:15], 16))
 
 
+def _fmt_issue_datetime(dt: datetime) -> str:
+    """EXTFISK/Oracle: dd.MM.yyyy HH:mm:ss (bez T i timezone — inače ORA-01841)."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone().replace(tzinfo=None)
+    return dt.strftime(_DT_FMT)
+
+
+def _fmt_pay_deadline(dt: datetime, *, days: int = 15) -> str:
+    return (dt + timedelta(days=days)).date().strftime(_DATE_FMT)
+
+
+def _fmt_tax_period(dt: datetime) -> str:
+    return dt.strftime(_TAX_PERIOD_FMT)
+
+
 def _buyer_type(request: FiscalizeRequest) -> str:
     buyer = request.buyer
     if not buyer:
@@ -173,14 +188,13 @@ def build_register_invoice_xml(
     invoice = ET.SubElement(root, "Invoice")
     _text(invoice, "InvNum", inv_num)
     _text(invoice, "InvOrdNum", str(inv_ord_num))
-    _text(invoice, "IssueDateTime", request.issue_datetime.isoformat(timespec="seconds"))
-    deadline = (request.issue_datetime + timedelta(days=15)).date().isoformat()
-    _text(invoice, "PayDeadline", deadline)
+    _text(invoice, "IssueDateTime", _fmt_issue_datetime(request.issue_datetime))
+    _text(invoice, "PayDeadline", _fmt_pay_deadline(request.issue_datetime))
     _text(invoice, "TypeOfInv", request.invoice_type)
     _text(invoice, "BusinessUnitCode", fiscal_busin_unit)
     _text(invoice, "OperatorCode", fiscal_operator)
     _text(invoice, "TCRCode", fiscal_tcr)
-    _text(invoice, "TaxPeriod", request.issue_datetime.strftime("%m/%Y"))
+    _text(invoice, "TaxPeriod", _fmt_tax_period(request.issue_datetime))
     _text(invoice, "TotPriceWoVAT", _q(request.totals.net, 2))
     _text(invoice, "TotVATAmt", _q(request.totals.vat, 2))
     _text(invoice, "TotPrice", _q(request.totals.gross, 2))
