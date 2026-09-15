@@ -480,7 +480,12 @@ class HttpPartnerAdapter(PartnerAdapter):
 
 def get_partner_adapter() -> PartnerAdapter:
     settings = get_settings()
-    if settings.partner_mode in ("http", "navira"):
+    mode = (settings.partner_mode or "").strip().lower()
+    if mode == "extfisk":
+        from sepko.extfisk import ExtfiskPartnerAdapter
+
+        return ExtfiskPartnerAdapter(settings)
+    if mode in ("http", "navira"):
         return HttpPartnerAdapter(settings)
     return MockPartnerAdapter()
 

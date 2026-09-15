@@ -22,11 +22,14 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://sepko:sepko@localhost:5433/sepko"
     secret_key: str = "change-me-in-production"
     allowed_hosts: str = "127.0.0.1,localhost"
-    partner_mode: str = "mock"  # mock | navira | http
+    partner_mode: str = "mock"  # mock | navira | http | extfisk
     partner_base_url: str = ""
     partner_api_key: str = ""
     navira_base_url: str = ""
     navira_api_key: str = ""
+    extfisk_url: str = "http://62.4.59.86:3000/api/extfisk"
+    extfisk_api_key: str = ""
+    extfisk_environment: str = "TEST"
     cron_secret: str = ""
     superadmin_password: str = ""
     prostudio_admin_password: str = ""
@@ -56,6 +59,8 @@ class Settings(BaseSettings):
             raise ValueError("SEPKO_SECRET_KEY must be a strong random value in production")
         if self.partner_mode in ("navira", "http") and not (self.navira_api_key or self.partner_api_key):
             raise ValueError("Partner API key is required in production partner mode")
+        if self.partner_mode == "extfisk" and not (self.extfisk_api_key or "").strip():
+            raise ValueError("SEPKO_EXTFISK_API_KEY is required in production partner mode")
         return self
 
     @property

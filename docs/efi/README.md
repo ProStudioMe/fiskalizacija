@@ -3,7 +3,7 @@
 Primarni izvor: `docs/Fiskalizacija_uputstvo.zip` (raspakovano ovdje).
 Dopuna: [Elektronska fiskalizacija — Poreska uprava](https://www.gov.me/poreskauprava/elektronska-fiskalizacija)
 
-Sepko **ne** zove SOAP direktno. Interni ugovor je EFI v5; prava fiskalizacija ide preko **Navire**.
+Sepko **ne** zove SOAP direktno. Interni ugovor je EFI v5; slanje računa ide na **EXTFISK** HTTP XML (`EXTFISK.md`). Navira mapa polja ostaje referentna.
 
 ## Fajlovi
 
@@ -19,7 +19,8 @@ Sepko **ne** zove SOAP direktno. Interni ugovor je EFI v5; prava fiskalizacija i
 | `3 XML Primjeri/` | Uzorci poruka (Advance, Credit_note, …) |
 | `EN (old)/` | Arhiva v4.1/v4.2 |
 
-Mapa polja: [EFI-NAVIRA-MAP.md](EFI-NAVIRA-MAP.md)
+Mapa polja: [EFI-NAVIRA-MAP.md](EFI-NAVIRA-MAP.md)  
+EXTFISK HTTP XML: [EXTFISK.md](EXTFISK.md) (`POST http://62.4.59.86:3000/api/extfisk`). JIKR je za sad `TEST` dok ne stigne putanja ka Poreskoj.
 
 ## Endpointi (referenca, ne klijent)
 
