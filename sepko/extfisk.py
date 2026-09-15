@@ -35,6 +35,11 @@ DEFAULT_URL = "http://62.4.59.86:3366/api/extfisk"
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_S = (0.4, 0.8, 1.6)
 
+# Oracle TO_DATE na EXTFISK strani — ne ISO-8601 (inače ORA-01841)
+_DT_FMT = "%d.%m.%Y %H:%M:%S"
+_DATE_FMT = "%d.%m.%Y"
+_TAX_PERIOD_FMT = "%m/%Y"
+
 _INV_TYPE_XML = {
     "INVOICE": "RACUN",
     "CREDIT_NOTE": "POVRAT",
