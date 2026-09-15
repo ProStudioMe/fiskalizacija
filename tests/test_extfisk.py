@@ -17,7 +17,18 @@ from sepko.models import Tenant
 from sepko.schemas import BuyerIn, FiscalizeRequest, InvoiceLineIn, TotalsIn
 
 
-def _tenant() -> Tenant:
+def _tenant(**settings_extra) -> Tenant:
+    data = {
+        "busin_unit_code": "ps000bu001",
+        "tcr_code": "ps000cr001",
+        "soft_code": "sepko00001",
+        "operator_code": "op00000011",
+        "is_issuer_in_vat": True,
+        "company": {"address": "Bulevar 21. maj 24, Podgorica, Crna Gora"},
+    }
+    data.update(settings_extra)
+    import json
+
     return Tenant(
         id=1,
         slug="prostudio",
@@ -25,11 +36,7 @@ def _tenant() -> Tenant:
         pib="03452668",
         status="active",
         mode="test",
-        settings_json=(
-            '{"fiscal":{"busin_unit_code":"ps000bu001","tcr_code":"ps000cr001",'
-            '"soft_code":"sepko00001","operator_code":"op00000011","is_issuer_in_vat":true},'
-            '"company":{"address":"Bulevar 21. maj 24, Podgorica, Crna Gora"}}'
-        ),
+        settings_json=json.dumps(data, ensure_ascii=False),
     )
 
 
@@ -169,7 +176,32 @@ def test_missing_api_key():
     adapter = ExtfiskPartnerAdapter(_settings(extfisk_api_key=""))
     result = adapter.fiscalize(_tenant(), _req(), inv_ord_num=1)
     assert not result.ok
-    assert "SEPKO_EXTFISK_API_KEY" in (result.error_message or "")
+    assert "ApiKey" in (result.error_message or "") or "firmu" in (result.error_message or "")
+
+
+def test_tenant_api_key_preferred_over_env():
+    adapter = ExtfiskPartnerAdapter(_settings(extfisk_api_key="env-fallback-key"))
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b'{"status":"OK","jikr":"TEST"}'
+    mock_resp.json.return_value = {"status": "OK", "jikr": "TEST"}
+
+    with patch("sepko.extfisk.httpx.Client") as client_cls:
+        client = MagicMock()
+        client.__enter__ = MagicMock(return_value=client)
+        client.__exit__ = MagicMock(return_value=False)
+        client.post.return_value = mock_resp
+        client_cls.return_value = client
+        result = adapter.fiscalize(
+            _tenant(extfisk_api_key="tenant-pib-key"),
+            _req(),
+            inv_ord_num=1,
+        )
+
+    assert result.ok
+    xml = client.post.call_args.kwargs["content"].decode("utf-8")
+    assert "<ApiKey>tenant-pib-key</ApiKey>" in xml
+    assert "env-fallback-key" not in xml
 
 
 def test_http_500_offline_when_ikof_exists():
