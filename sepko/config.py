@@ -27,8 +27,9 @@ class Settings(BaseSettings):
     partner_api_key: str = ""
     navira_base_url: str = ""
     navira_api_key: str = ""
-    extfisk_url: str = "http://62.4.59.86:3000/api/extfisk"
-    extfisk_api_key: str = ""
+    # URL zajednički; ApiKey je po tenantu (settings_json), ne globalni .env
+    extfisk_url: str = "http://62.4.59.86:3366/api/extfisk"
+    extfisk_api_key: str = ""  # opcioni fallback / single-tenant; produkcija: po firmi
     extfisk_environment: str = "TEST"
     cron_secret: str = ""
     superadmin_password: str = ""
@@ -59,8 +60,7 @@ class Settings(BaseSettings):
             raise ValueError("SEPKO_SECRET_KEY must be a strong random value in production")
         if self.partner_mode in ("navira", "http") and not (self.navira_api_key or self.partner_api_key):
             raise ValueError("Partner API key is required in production partner mode")
-        if self.partner_mode == "extfisk" and not (self.extfisk_api_key or "").strip():
-            raise ValueError("SEPKO_EXTFISK_API_KEY is required in production partner mode")
+        # EXTFISK ApiKey je po tenantu (admin → EFI); SEPKO_EXTFISK_API_KEY je samo opcioni fallback
         return self
 
     @property

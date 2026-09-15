@@ -134,6 +134,8 @@ class TenantFiscal:
     # Enkriptovani tokeni (Fernet); u UI se ne prikazuju u plainu
     telekom_token: str = ""
     posta_token: str = ""
+    # EXTFISK ApiKey po firmi (mora odgovarati PIB-u) — ne globalni .env
+    extfisk_api_key: str = ""
 
     def as_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -143,6 +145,12 @@ class TenantFiscal:
 
     def has_posta_token(self) -> bool:
         return bool((self.posta_token or "").strip())
+
+    def has_extfisk_api_key(self) -> bool:
+        return bool((self.extfisk_api_key or "").strip())
+
+    def extfisk_api_key_plain(self) -> str:
+        return decrypt_secret(self.extfisk_api_key) if self.has_extfisk_api_key() else ""
 
     def active_token_plain(self) -> str:
         """Plain token aktivnog providera (Telekom/Pošta); inače prazno."""
@@ -219,6 +227,7 @@ def load_tenant_fiscal(tenant: Tenant) -> TenantFiscal:
         token_provider=provider,
         telekom_token=str(data.get("telekom_token") or ""),
         posta_token=str(data.get("posta_token") or ""),
+        extfisk_api_key=str(data.get("extfisk_api_key") or ""),
     )
 
 
@@ -230,6 +239,8 @@ def save_tenant_fiscal(
     posta_token_new: str | None = None,
     clear_telekom_token: bool = False,
     clear_posta_token: bool = False,
+    extfisk_api_key_new: str | None = None,
+    clear_extfisk_api_key: bool = False,
 ) -> None:
     """Čuva EFI kodove + tokene. Prazan novi token = zadrži postojeći."""
     data = _settings_dict(tenant)
@@ -239,6 +250,7 @@ def save_tenant_fiscal(
 
     telekom = str(data.get("telekom_token") or "")
     posta = str(data.get("posta_token") or "")
+    extfisk_key = str(data.get("extfisk_api_key") or "")
     if clear_telekom_token:
         telekom = ""
     elif telekom_token_new is not None and telekom_token_new.strip():
@@ -247,6 +259,10 @@ def save_tenant_fiscal(
         posta = ""
     elif posta_token_new is not None and posta_token_new.strip():
         posta = encrypt_secret(posta_token_new.strip())
+    if clear_extfisk_api_key:
+        extfisk_key = ""
+    elif extfisk_api_key_new is not None and extfisk_api_key_new.strip():
+        extfisk_key = encrypt_secret(extfisk_api_key_new.strip())
 
     data.update(
         {
@@ -258,6 +274,7 @@ def save_tenant_fiscal(
             "token_provider": provider,
             "telekom_token": telekom,
             "posta_token": posta,
+            "extfisk_api_key": extfisk_key,
         }
     )
     _write_settings(tenant, data)
