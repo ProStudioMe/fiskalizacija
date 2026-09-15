@@ -95,6 +95,11 @@
         {% if fiscal.has_posta_token() %}
         <wa-checkbox name="clear_posta_token" value="1">Ukloni Pošta token</wa-checkbox>
         {% endif %}
+        <hr class="settings-hr">
+        <wa-input type="password" password-toggle name="extfisk_api_key" label="EXTFISK ApiKey (po firmi / PIB)" value="" autocomplete="new-password" placeholder="{% if fiscal.has_extfisk_api_key() %}•••••••• (ostavi prazno da zadržiš){% else %}Ključ za ovaj PIB{% endif %}"></wa-input>
+        {% if fiscal.has_extfisk_api_key() %}
+        <wa-checkbox name="clear_extfisk_api_key" value="1">Ukloni EXTFISK ApiKey</wa-checkbox>
+        {% endif %}
         <div class="wa-form-actions">
           <wa-button type="submit" variant="brand">Sačuvaj EFI / tokene</wa-button>
         </div>

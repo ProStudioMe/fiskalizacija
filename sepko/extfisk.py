@@ -31,7 +31,7 @@ from sepko.signing import SigningError, build_iic_plain, load_tenant_pkcs12, sig
 
 log = logging.getLogger("sepko.extfisk")
 
-DEFAULT_URL = "http://62.4.59.86:3000/api/extfisk"
+DEFAULT_URL = "http://62.4.59.86:3366/api/extfisk"
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_S = (0.4, 0.8, 1.6)
 
@@ -336,7 +336,8 @@ class ExtfiskPartnerAdapter(PartnerAdapter):
             reuse_iic=reuse_iic,
             reuse_iic_signature=reuse_iic_signature,
         )
-        api_key = (self.settings.extfisk_api_key or "").strip()
+        # ApiKey po firmi (PIB); env je samo fallback za single-tenant / lokalni test
+        api_key = (fiscal.extfisk_api_key_plain() or self.settings.extfisk_api_key or "").strip()
         url = (self.settings.extfisk_url or DEFAULT_URL).strip() or DEFAULT_URL
         request_id = extfisk_request_id(tenant, inv_num)
         environment = extfisk_environment(self.settings, tenant)
@@ -398,7 +399,7 @@ class ExtfiskPartnerAdapter(PartnerAdapter):
                 inv_num=inv_num,
                 inv_ord_num=inv_ord_num,
                 navira_payload=meta,
-                error_message="EXTFISK API key not configured (SEPKO_EXTFISK_API_KEY)",
+                error_message="EXTFISK ApiKey nije podešen za ovu firmu (Admin → EFI / EXTFISK)",
             )
 
         http_ok, body, err, status = _post_xml(url, xml)
