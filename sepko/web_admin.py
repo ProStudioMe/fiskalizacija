@@ -429,8 +429,10 @@ def tenant_efi_update(
     token_provider: str = Form(""),
     telekom_token: str = Form(""),
     posta_token: str = Form(""),
+    extfisk_api_key: str = Form(""),
     clear_telekom_token: str = Form(""),
     clear_posta_token: str = Form(""),
+    clear_extfisk_api_key: str = Form(""),
     db: Session = Depends(get_db),
 ):
     user = _admin(request, db)
@@ -468,6 +470,8 @@ def tenant_efi_update(
         posta_token_new=posta_token,
         clear_telekom_token=clear_telekom_token in ("1", "on", "true"),
         clear_posta_token=clear_posta_token in ("1", "on", "true"),
+        extfisk_api_key_new=extfisk_api_key,
+        clear_extfisk_api_key=clear_extfisk_api_key in ("1", "on", "true"),
     )
     cur = load_tenant_fiscal(tenant)
     bits = []
@@ -483,6 +487,10 @@ def tenant_efi_update(
         bits.append("pošta uklonjena")
     elif posta_token.strip():
         bits.append("pošta postavljena")
+    if clear_extfisk_api_key in ("1", "on", "true"):
+        bits.append("extfisk key uklonjen")
+    elif extfisk_api_key.strip():
+        bits.append("extfisk key postavljen")
     _write_audit(
         db,
         user,

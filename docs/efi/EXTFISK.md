@@ -7,17 +7,19 @@ Izvor: `EXTFISK_uputstvo.docx`. Sepko šalje XML na ovaj servis; CIS/Poreska upr
 | Polje | Vrijednost |
 |-------|------------|
 | Metoda | `POST` |
-| URL | `http://62.4.59.86:3000/api/extfisk` |
+| URL | `http://62.4.59.86:3366/api/extfisk` |
 | Content-Type | `application/xml` (ili `text/xml`) |
 | Body | Sirovi XML `RegisterInvoiceRequest` |
 
 API key **nije** HTTP header — stoji u XML-u, u `<ApiKey>`. Ključ mora odgovarati PIB-u prodavca (`Seller/IDNum`).
 
+**Multi-tenant (~1000 firmi):** ApiKey je **po tenantu** (Admin → Tenanti → EFI / EXTFISK), enkriptovan u `settings_json`. Nije jedan globalni ključ u `.env`. `SEPKO_EXTFISK_URL` i `SEPKO_EXTFISK_ENVIRONMENT` ostaju zajednički; `SEPKO_EXTFISK_API_KEY` je samo opcioni fallback za single-tenant / lokalni test.
+
 ## Zaglavlje
 
 | Polje | Obavezno | Napomena |
 |-------|----------|----------|
-| `ApiKey` | da | Identifikuje firmu |
+| `ApiKey` | da | Identifikuje firmu (po PIB-u) |
 | `Environment` | da | `TEST` ili `PROD` |
 | `RequestId` | da | Isti ID → isti JIKR (ne fiskalizuje ponovo) |
 | `InvType` | da | Trenutno podržan tok: `RACUN` (`POVRAT` / `AVANS` / … kasnije) |
@@ -56,6 +58,7 @@ EFI `ORDER` (virman) se šalje kao `ACCOUNT`.
 ## Implementacija (Sepko)
 
 - Adapter: `sepko/extfisk.py` (`SEPKO_PARTNER_MODE=extfisk`)
-- Ključ samo u `.env` (`SEPKO_EXTFISK_API_KEY`), u XML-u `<ApiKey>`
+- URL: `SEPKO_EXTFISK_URL` (default `:3366`)
+- ApiKey: po firmi u adminu → XML `<ApiKey>`
 - `jikr=TEST` = uspješna fiskalizacija
 - Isti `RequestId` (hash PIB+InvNum) pri retry-u offline računa

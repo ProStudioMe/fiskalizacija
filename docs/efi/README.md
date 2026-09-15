@@ -20,7 +20,7 @@ Sepko **ne** zove SOAP direktno. Interni ugovor je EFI v5; slanje računa ide na
 | `EN (old)/` | Arhiva v4.1/v4.2 |
 
 Mapa polja: [EFI-NAVIRA-MAP.md](EFI-NAVIRA-MAP.md)  
-EXTFISK HTTP XML: [EXTFISK.md](EXTFISK.md) (`POST http://62.4.59.86:3000/api/extfisk`). JIKR je za sad `TEST` dok ne stigne putanja ka Poreskoj.
+EXTFISK HTTP XML: [EXTFISK.md](EXTFISK.md) (`POST http://62.4.59.86:3366/api/extfisk`). JIKR je za sad `TEST` dok ne stigne putanja ka Poreskoj. ApiKey je po tenantu (PIB).
 
 ## Endpointi (referenca, ne klijent)
 
