@@ -310,7 +310,7 @@ def test_create_tenant_and_suspend(admin_client):
         data={
             "csrf_token": token,
             "name": "Nova Firma DOO",
-            "pib": "03452668",
+            "pib": "03462668",
             "slug": "novafirma",
             "mode": "test",
             "license_type": "monthly",

@@ -33,7 +33,7 @@ def _tenant(**settings_extra) -> Tenant:
         id=1,
         slug="prostudio",
         name="PROSTUDIO.ME DOO",
-        pib="03452668",
+        pib="03462668",
         status="active",
         mode="test",
         settings_json=json.dumps(data, ensure_ascii=False),
@@ -97,7 +97,7 @@ def test_xml_api_key_inside_body_not_header():
     assert root.findtext("ApiKey") == "test-api-key"
     assert root.findtext("Environment") == "TEST"
     assert root.findtext("InvType") == "RACUN"
-    assert root.findtext("Seller/IDNum") == "03452668"
+    assert root.findtext("Seller/IDNum") == "03462668"
     assert root.findtext("Seller/Town") == "Podgorica"
     assert root.findtext("Buyer/BuyerType") == "PRAVNO"
     assert root.findtext("Invoice/PayMethods/PayMethod/Type") == "ACCOUNT"

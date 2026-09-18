@@ -153,7 +153,7 @@ def ensure_client_tenants(db: Session) -> None:
             dict(
                 slug="prostudio",
                 name="PROSTUDIO.ME DOO",
-                pib="03452668",
+                pib="03462668",
                 email="finansije@prostudio.me",
                 full_name="ProStudio Admin",
                 fiscal=TenantFiscal(

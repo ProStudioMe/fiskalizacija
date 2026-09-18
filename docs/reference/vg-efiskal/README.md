@@ -4,7 +4,7 @@ Izvor: [https://pos.fiskalizacija.me/](https://pos.fiskalizacija.me/)
 Snimci: `docs/reference/vg-efiskal/*.png` (17 screenshotova, 28.08.2026)  
 Napomena: ovo je **UX/produkt referenca**, ne kopija koda. Sepko ima svoj UI i Navira kao fiskal partner.
 
-Primjer tenant iz snimaka: **PROSTUDIO.ME DOO** (PIB 03452668), Cloud POS, produkcija.
+Primjer tenant iz snimaka: **PROSTUDIO.ME DOO** (PIB 03462668), Cloud POS, produkcija.
 
 ## Šta radi aplikacija (mapa ekrana)
 
