@@ -22,11 +22,3 @@ backups/
 *-DESKTOP-*
 tmp/
 _pull_aside/
-
-# Large binary fiscalization packs (keep maps/README in git)
-docs/Fiskalizacija_uputstvo.zip
-docs/efi/**/*.docx
-docs/efi/**/*.xlsx
-docs/efi/**/*.rar
-docs/efi/**/*.zip
-docs/efi/**/*.png
