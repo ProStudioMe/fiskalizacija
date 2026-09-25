@@ -226,7 +226,7 @@ def fiscalize_invoice(
         else None
     )
 
-    adapter = partner or get_partner_adapter()
+    adapter = partner or get_partner_adapter(tenant)
     result = adapter.fiscalize(
         tenant,
         request,
@@ -931,7 +931,7 @@ def register_cash_deposit(
         if existing:
             existing.status = "superseded"
 
-    adapter = partner or get_partner_adapter()
+    adapter = partner or get_partner_adapter(tenant)
     result = adapter.register_cash_deposit(tenant, request, change_datetime=change_dt)
 
     row = CashDeposit(

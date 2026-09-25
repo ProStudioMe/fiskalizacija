@@ -24,6 +24,7 @@
     <tr>
       <th>Firma</th>
       <th>PIB</th>
+      <th>Fiskal</th>
       <th>Status</th>
       <th>Licenca</th>
       <th>Važi do</th>
@@ -39,6 +40,7 @@
         <div class="cell-secondary">{{ t.slug }} · {{ t.mode }}</div>
       </td>
       <td>{{ t.pib }}</td>
+      <td><span class="pill-tag {% if row.channel == 'poreska' %}ok{% elif row.channel == 'navira' %}{% else %}warn{% endif %}">{{ row.channel_label }}</span></td>
       <td><span class="badge {{ t.status }}">{{ t.status }}</span></td>
       <td>{{ row.license_label }}</td>
       <td>

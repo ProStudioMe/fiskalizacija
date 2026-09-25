@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://sepko:sepko@localhost:5433/sepko"
     secret_key: str = "change-me-in-production"
     allowed_hosts: str = "127.0.0.1,localhost"
-    partner_mode: str = "mock"  # mock | navira | http | extfisk
+    partner_mode: str = "mock"  # mock | navira | http | extfisk | poreska
     partner_base_url: str = ""
     partner_api_key: str = ""
     navira_base_url: str = ""
@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     extfisk_url: str = "http://62.4.59.86:3366/api/extfisk"
     extfisk_api_key: str = ""  # opcioni fallback / single-tenant; produkcija: po firmi
     extfisk_environment: str = "TEST"
+    # Zvanični CIS SOAP (Poreska uprava) — docs/efi Tehnička spec v5
+    cis_test_url: str = "https://efitest.tax.gov.me/fs-v1/FiscalizationService"
+    cis_prod_url: str = "https://efi.tax.gov.me/fs-v1/FiscalizationService"
     cron_secret: str = ""
     superadmin_password: str = ""
     prostudio_admin_password: str = ""

@@ -94,6 +94,17 @@ def render(request: Request, name: str, context: dict | None = None):
 
     # Prevodi za jezik tenanta (ako postoji u kontekstu)
     tenant = ctx.get("tenant")
+    if tenant is not None and "fiscal_channel" not in (context or {}):
+        try:
+            from sepko.efi import fiscal_channel_label
+            from sepko.partner import resolve_fiscal_channel
+
+            ch = resolve_fiscal_channel(tenant)
+            ctx["fiscal_channel"] = ch
+            ctx["fiscal_channel_label"] = fiscal_channel_label(ch)
+            ctx["partner_mode"] = ch
+        except Exception:
+            pass
     lang = "cnr"
     if tenant is not None:
         try:

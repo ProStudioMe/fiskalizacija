@@ -17,15 +17,19 @@ from sqlalchemy.orm import Session
 from sepko.catalog import ensure_tax_rates
 from sepko.db import get_db
 from sepko.efi import (
+    ADMIN_FISCAL_CHANNELS,
+    FISCAL_CHANNEL_LABELS,
     FISCAL_TOKEN_LABELS,
     FISCAL_TOKEN_PROVIDERS,
     TenantCompany,
     TenantFiscal,
+    fiscal_channel_label,
     load_tenant_company,
     load_tenant_fiscal,
     save_tenant_company,
     save_tenant_fiscal,
 )
+from sepko.partner import resolve_fiscal_channel
 from sepko.i18n import (
     export_language_map,
     import_language_map,
@@ -243,7 +247,17 @@ def tenants_list(
     for t in rows:
         days = license_days_left(t.license_until, today=today)
         alert = license_alert(t, today=today)
-        cards.append({"tenant": t, "days": days, "alert": alert, "license_label": license_label(t.license_type)})
+        ch = resolve_fiscal_channel(t)
+        cards.append(
+            {
+                "tenant": t,
+                "days": days,
+                "alert": alert,
+                "license_label": license_label(t.license_type),
+                "channel": ch,
+                "channel_label": fiscal_channel_label(ch),
+            }
+        )
     return render(
         request,
         "admin/tenants.html",
@@ -390,6 +404,9 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
                 "license_types": LICENSE_TYPES,
                 "license_labels": LICENSE_LABELS,
                 "token_providers": [(c, FISCAL_TOKEN_LABELS[c]) for c in FISCAL_TOKEN_PROVIDERS],
+                "fiscal_channels": [(c, FISCAL_CHANNEL_LABELS[c]) for c in ADMIN_FISCAL_CHANNELS],
+                "effective_channel": resolve_fiscal_channel(tenant),
+                "effective_channel_label": fiscal_channel_label(resolve_fiscal_channel(tenant)),
                 "days": license_days_left(tenant.license_until, today=today),
                 "alert": license_alert(tenant, today=today),
                 "license_label": license_label(tenant.license_type),
@@ -415,6 +432,52 @@ def tenant_detail(request: Request, tenant_id: int, db: Session = Depends(get_db
     )
 
 
+@router.post("/tenanti/{tenant_id}/kanal")
+def tenant_channel_update(
+    request: Request,
+    tenant_id: int,
+    csrf_token: str = Form(""),
+    fiscal_channel: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Samo kanal slanja (Navira / PU) — ne dira EFI kodove ni tokene."""
+    user = _admin(request, db)
+    if not validate_csrf(request, csrf_token):
+        flash(request, "Nevažeći CSRF token.", "error")
+        return redirect(f"/admin/tenanti/{tenant_id}")
+    tenant = db.get(Tenant, tenant_id)
+    if not tenant:
+        flash(request, "Tenant nije pronađen.", "error")
+        return redirect("/admin/tenanti")
+    prev = load_tenant_fiscal(tenant)
+    channel = fiscal_channel.strip().lower()
+    if channel not in FISCAL_CHANNEL_LABELS:
+        channel = ""
+    save_tenant_fiscal(
+        tenant,
+        TenantFiscal(
+            busin_unit_code=prev.busin_unit_code,
+            tcr_code=prev.tcr_code,
+            soft_code=prev.soft_code,
+            operator_code=prev.operator_code,
+            is_issuer_in_vat=prev.is_issuer_in_vat,
+            token_provider=prev.token_provider,
+            fiscal_channel=channel,
+        ),
+    )
+    cur = load_tenant_fiscal(tenant)
+    _write_audit(
+        db,
+        user,
+        "tenant.kanal",
+        tenant_id=tenant.id,
+        detail=f"fiskal {prev.fiscal_channel or 'global'}→{cur.fiscal_channel or 'global'}",
+    )
+    db.commit()
+    flash(request, f"Fiskalizacija: {fiscal_channel_label(cur.fiscal_channel)}.")
+    return redirect(f"/admin/tenanti/{tenant.id}")
+
+
 @router.post("/tenanti/{tenant_id}/efi")
 def tenant_efi_update(
     request: Request,
@@ -426,6 +489,7 @@ def tenant_efi_update(
     soft_code: str = Form(""),
     operator_code: str = Form(""),
     is_issuer_in_vat: str = Form("true"),
+    fiscal_channel: str = Form(""),
     token_provider: str = Form(""),
     telekom_token: str = Form(""),
     posta_token: str = Form(""),
@@ -465,6 +529,7 @@ def tenant_efi_update(
             operator_code=operator_code.strip(),
             is_issuer_in_vat=is_issuer_in_vat in ("true", "on", "1", "da"),
             token_provider=token_provider.strip().lower(),
+            fiscal_channel=fiscal_channel.strip().lower(),
         ),
         telekom_token_new=telekom_token,
         posta_token_new=posta_token,
@@ -477,8 +542,10 @@ def tenant_efi_update(
     bits = []
     if (company.website or "") != (company_website.strip()[:255]):
         bits.append("web")
+    if prev.fiscal_channel != cur.fiscal_channel:
+        bits.append(f"fiskal {prev.fiscal_channel or 'global'}→{cur.fiscal_channel or 'global'}")
     if prev.token_provider != cur.token_provider:
-        bits.append(f"kanal {prev.token_provider or '—'}→{cur.token_provider or '—'}")
+        bits.append(f"token {prev.token_provider or '—'}→{cur.token_provider or '—'}")
     if clear_telekom_token in ("1", "on", "true"):
         bits.append("telekom uklonjen")
     elif telekom_token.strip():

@@ -85,7 +85,7 @@
       <details class="settings-system">
         <summary>{{ t('settings.system_info', 'Sistem') }}</summary>
         <p class="settings-meta">{{ t('settings.admin_footer_hint', 'Režim, EFI kodovi, tokeni i web u footeru podešava platform admin.') }}</p>
-        <p class="settings-meta">{{ t('settings.partner_label', 'Partner') }}: {{ partner_mode }} · {{ t('settings.api_label', 'API') }}: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}{{ t('settings.no_api_key', 'nema ključa') }}{% endfor %}</p>
+        <p class="settings-meta">{{ t('settings.fiscal_channel', 'Fiskalni kanal') }}: {{ fiscal_channel_label or partner_mode }} · {{ t('settings.api_label', 'API') }}: {% for p in api_key_prefixes %}<code>{{ p }}…</code> {% else %}{{ t('settings.no_api_key', 'nema ključa') }}{% endfor %}</p>
       </details>
 
       <div class="wa-form-actions settings-form-foot">

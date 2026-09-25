@@ -478,14 +478,47 @@ class HttpPartnerAdapter(PartnerAdapter):
         )
 
 
-def get_partner_adapter() -> PartnerAdapter:
-    settings = get_settings()
-    mode = (settings.partner_mode or "").strip().lower()
-    if mode == "extfisk":
+def normalize_partner_mode(mode: str | None) -> str:
+    m = (mode or "").strip().lower()
+    if m in ("http", "navira"):
+        return "navira"
+    if m in ("poreska", "cis", "efi"):
+        return "poreska"
+    if m == "extfisk":
+        return "extfisk"
+    if m == "mock":
+        return "mock"
+    return m or "mock"
+
+
+def resolve_fiscal_channel(
+    tenant: Tenant | None = None,
+    settings: Settings | None = None,
+) -> str:
+    """Efektivni kanal: tenant.fiscal_channel ili SEPKO_PARTNER_MODE."""
+    settings = settings or get_settings()
+    if tenant is not None:
+        stored = (load_tenant_fiscal(tenant).fiscal_channel or "").strip().lower()
+        if stored in ("navira", "extfisk", "poreska", "mock"):
+            return stored
+    return normalize_partner_mode(settings.partner_mode)
+
+
+def get_partner_adapter(
+    tenant: Tenant | None = None,
+    settings: Settings | None = None,
+) -> PartnerAdapter:
+    settings = settings or get_settings()
+    channel = resolve_fiscal_channel(tenant, settings)
+    if channel == "poreska":
+        from sepko.pu.adapter import PuPartnerAdapter
+
+        return PuPartnerAdapter(settings)
+    if channel == "extfisk":
         from sepko.extfisk import ExtfiskPartnerAdapter
 
         return ExtfiskPartnerAdapter(settings)
-    if mode in ("http", "navira"):
+    if channel == "navira":
         return HttpPartnerAdapter(settings)
     return MockPartnerAdapter()
 

@@ -177,6 +177,7 @@ class FiscalCodesOut(BaseModel):
     operator_code: str = ""
     is_issuer_in_vat: bool = True
     token_provider: str = ""
+    fiscal_channel: str = ""
     has_telekom_token: bool = False
     has_posta_token: bool = False
 
@@ -184,6 +185,7 @@ class FiscalCodesOut(BaseModel):
 class SettingsOut(BaseModel):
     tenant: TenantOut
     partner_mode: str
+    fiscal_channel: str = ""
     webhook_url: str | None
     api_key_prefixes: list[str]
     fiscal: FiscalCodesOut

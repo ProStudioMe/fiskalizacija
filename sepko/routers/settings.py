@@ -6,6 +6,7 @@ from sepko.config import get_settings
 from sepko.db import get_db
 from sepko.models import ApiKey, Tenant
 from sepko.efi import load_tenant_fiscal
+from sepko.partner import resolve_fiscal_channel
 from sepko.schemas import FiscalCodesOut, SettingsOut, TenantOut
 
 router = APIRouter(prefix="/v1", tags=["settings"])
@@ -27,9 +28,11 @@ def settings(
         .all()
     )
     fiscal = load_tenant_fiscal(tenant)
+    channel = resolve_fiscal_channel(tenant)
     return SettingsOut(
         tenant=TenantOut.model_validate(tenant),
         partner_mode=get_settings().partner_mode,
+        fiscal_channel=channel,
         webhook_url=tenant.webhook_url,
         api_key_prefixes=[k.key_prefix for k in keys],
         fiscal=FiscalCodesOut(
@@ -39,6 +42,7 @@ def settings(
             operator_code=fiscal.operator_code,
             is_issuer_in_vat=fiscal.is_issuer_in_vat,
             token_provider=fiscal.token_provider,
+            fiscal_channel=fiscal.fiscal_channel,
             has_telekom_token=fiscal.has_telekom_token(),
             has_posta_token=fiscal.has_posta_token(),
         ),

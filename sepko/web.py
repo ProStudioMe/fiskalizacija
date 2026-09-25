@@ -20,6 +20,7 @@ from sepko.efi import (
     TenantCompany,
     TenantUiSettings,
     UI_LANGUAGES,
+    fiscal_channel_label,
     load_tenant_company,
     load_tenant_fiscal,
     load_tenant_ui,
@@ -29,6 +30,7 @@ from sepko.efi import (
     save_tenant_company,
     save_tenant_ui,
 )
+from sepko.partner import resolve_fiscal_channel
 from sepko.catalog import ARTICLE_COLORS, ensure_tax_rates, resolve_vat
 from sepko.finansije import safe_filename
 from sepko.models import (
@@ -3938,6 +3940,8 @@ def info_page(request: Request, db: Session = Depends(get_db)):
             "fiscal": fiscal,
             "version": __version__,
             "partner_mode": get_settings().partner_mode,
+            "fiscal_channel": resolve_fiscal_channel(tenant),
+            "fiscal_channel_label": fiscal_channel_label(resolve_fiscal_channel(tenant)),
             "license_alert": alert,
             "license_days": days,
             "license_label": license_label(tenant.license_type),
@@ -3972,6 +3976,8 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "tenant": tenant,
             "section": "osnovna",
             "partner_mode": get_settings().partner_mode,
+            "fiscal_channel": resolve_fiscal_channel(tenant),
+            "fiscal_channel_label": fiscal_channel_label(resolve_fiscal_channel(tenant)),
             "api_key_prefixes": [k.key_prefix for k in keys],
             "fiscal": load_tenant_fiscal(tenant),
             "ui": load_tenant_ui(tenant),

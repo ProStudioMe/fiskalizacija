@@ -1,7 +1,7 @@
-"""EFI v5 šifrarnici i mapiranje — interni ugovor prije Navire.
+"""EFI v5 šifrarnici i mapiranje.
 
 Izvor: docs/efi/ (Funkcionalna/Tehnička spec v5, Prilog 2 XML).
-SOAP/XAdES ostaje Naviri; ovdje su samo polja i pravila.
+Kanal slanja (Navira / EXTFISK / Poreska CIS) bira se po tenantu.
 """
 from __future__ import annotations
 
@@ -121,6 +121,23 @@ FISCAL_TOKEN_LABELS = {
     "posta": "Pošta Crne Gore (token)",
 }
 
+# Kuda ide RegisterInvoice — po tenantu; prazno = SEPKO_PARTNER_MODE
+FISCAL_CHANNELS = ("", "navira", "poreska", "extfisk", "mock")
+FISCAL_CHANNEL_LABELS = {
+    "": "Nasljeđuj globalni (SEPKO_PARTNER_MODE)",
+    "navira": "Navira",
+    "poreska": "Poreska uprava (PU)",
+    "extfisk": "EXTFISK (HTTP XML)",
+    "mock": "Demo / mock",
+}
+# Redoslijed u adminu: prvo dva glavna kanala
+ADMIN_FISCAL_CHANNELS = ("navira", "poreska", "extfisk", "mock", "")
+
+
+def fiscal_channel_label(channel: str | None) -> str:
+    key = (channel or "").strip().lower()
+    return FISCAL_CHANNEL_LABELS.get(key, key or FISCAL_CHANNEL_LABELS[""])
+
 
 @dataclass
 class TenantFiscal:
@@ -136,6 +153,8 @@ class TenantFiscal:
     posta_token: str = ""
     # EXTFISK ApiKey po firmi (mora odgovarati PIB-u) — ne globalni .env
     extfisk_api_key: str = ""
+    # navira | extfisk | poreska | mock | "" (naslijedi SEPKO_PARTNER_MODE)
+    fiscal_channel: str = ""
 
     def as_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -218,6 +237,9 @@ def load_tenant_fiscal(tenant: Tenant) -> TenantFiscal:
     provider = str(data.get("token_provider") or "").strip().lower()
     if provider not in FISCAL_TOKEN_PROVIDERS:
         provider = ""
+    channel = str(data.get("fiscal_channel") or "").strip().lower()
+    if channel not in FISCAL_CHANNELS:
+        channel = ""
     return TenantFiscal(
         busin_unit_code=str(data.get("busin_unit_code") or ""),
         tcr_code=str(data.get("tcr_code") or ""),
@@ -228,6 +250,7 @@ def load_tenant_fiscal(tenant: Tenant) -> TenantFiscal:
         telekom_token=str(data.get("telekom_token") or ""),
         posta_token=str(data.get("posta_token") or ""),
         extfisk_api_key=str(data.get("extfisk_api_key") or ""),
+        fiscal_channel=channel,
     )
 
 
@@ -247,6 +270,9 @@ def save_tenant_fiscal(
     provider = (fiscal.token_provider or "").strip().lower()
     if provider not in FISCAL_TOKEN_PROVIDERS:
         provider = ""
+    channel = (fiscal.fiscal_channel or "").strip().lower()
+    if channel not in FISCAL_CHANNELS:
+        channel = ""
 
     telekom = str(data.get("telekom_token") or "")
     posta = str(data.get("posta_token") or "")
@@ -275,6 +301,7 @@ def save_tenant_fiscal(
             "telekom_token": telekom,
             "posta_token": posta,
             "extfisk_api_key": extfisk_key,
+            "fiscal_channel": channel,
         }
     )
     _write_settings(tenant, data)

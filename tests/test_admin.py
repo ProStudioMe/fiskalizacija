@@ -389,6 +389,36 @@ def test_translation_save_and_export(admin_client):
     assert "nav.pregled" in payload["translations"]
 
 
+def test_admin_saves_fiscal_channel(admin_client):
+    from sepko.efi import load_tenant_fiscal
+
+    client, Session = admin_client
+    _admin_login(client)
+    db = Session()
+    tenant = db.query(Tenant).filter(Tenant.slug == "philia").one()
+    tid = tenant.id
+    db.close()
+    page = client.get(f"/admin/tenanti/{tid}")
+    assert page.status_code == 200
+    assert "Fiskalizacija" in page.text
+    assert "Poreska uprava" in page.text
+    assert f'action="/admin/tenanti/{tid}/kanal"' in page.text
+    r = client.post(
+        f"/admin/tenanti/{tid}/kanal",
+        data={
+            "csrf_token": _csrf(page.text),
+            "fiscal_channel": "poreska",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    db = Session()
+    tenant = db.get(Tenant, tid)
+    fiscal = load_tenant_fiscal(tenant)
+    assert fiscal.fiscal_channel == "poreska"
+    db.close()
+
+
 def test_tenant_detail_has_license_invoice_form(admin_client):
     client, Session = admin_client
     _admin_login(client)

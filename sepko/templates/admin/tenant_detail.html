@@ -68,10 +68,28 @@
 
   <div>
     <div class="card">
+      <h2>Fiskalizacija</h2>
+      <p class="muted">Ko šalje račune za ovu firmu — Navira ili Poreska uprava. Ne dira EFI kodove.</p>
+      <form method="post" action="/admin/tenanti/{{ view.id }}/kanal" class="wa-form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <wa-select name="fiscal_channel" label="Kanal za {{ view.name }}" value="{{ fiscal.fiscal_channel }}">
+          {% for code, label in fiscal_channels %}
+          <wa-option value="{{ code }}" {% if fiscal.fiscal_channel == code %}selected{% endif %}>{{ label }}</wa-option>
+          {% endfor %}
+        </wa-select>
+        <p class="muted">Aktivno: <strong>{{ effective_channel_label }}</strong>{% if not fiscal.fiscal_channel %} (naslijeđeno){% endif %}.
+          PU treba <code>{{ view.slug }}.p12</code> u SEPKO_CERT_DIR.</p>
+        <div class="wa-form-actions">
+          <wa-button type="submit" variant="brand">Sačuvaj kanal</wa-button>
+        </div>
+      </form>
+    </div>
+    <div class="card" style="margin-top:1rem">
       <h2>EFI kodovi / tokeni / web</h2>
       <p class="muted">Samo platform admin. Token se ne prikazuje nakon spremanja.</p>
       <form method="post" action="/admin/tenanti/{{ view.id }}/efi" class="wa-form-stack">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="fiscal_channel" value="{{ fiscal.fiscal_channel }}">
         <wa-input name="company_website" label="Web (footer PDF)" value="{{ company.website }}" placeholder="https://primjer.me"></wa-input>
         <wa-input name="busin_unit_code" label="BusinUnitCode" value="{{ fiscal.busin_unit_code }}" maxlength="10"></wa-input>
         <wa-input name="tcr_code" label="TCRCode (ENU)" value="{{ fiscal.tcr_code }}" maxlength="10"></wa-input>

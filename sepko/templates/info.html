@@ -22,7 +22,7 @@
   <section class="info-blocks">
     <div class="info-block">
       <h3>{{ brand }}</h3>
-      <p>verzija: {{ version }} · partner: {{ partner_mode }}</p>
+      <p>verzija: {{ version }} · {{ t('settings.fiscal_channel', 'Fiskalni kanal') }}: {{ fiscal_channel_label }}</p>
       <p class="muted" style="margin-top:0.5rem">Nosilac: <strong>{{ company_name }}</strong></p>
       <p style="margin-top:0.65rem">
         <a href="{{ company_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ company_domain }}">
@@ -54,8 +54,9 @@
       <h3>Fiskalizacija</h3>
       <p>
         Okruženje: {{ 'Produkcija' if tenant.mode == 'prod' else 'Test' }}<br>
-        EFI / token: {% if fiscal.busin_unit_code and fiscal.tcr_code %}podešeno{% else %}nije podešeno{% endif %}
-        {% if fiscal.token_provider %} · kanal {{ fiscal.token_provider }}{% endif %}
+        EFI / token: {% if fiscal.busin_unit_code and fiscal.tcr_code %}{{ t('common.configured', 'podešeno') }}{% else %}{{ t('common.not_configured', 'nije podešeno') }}{% endif %}
+        {% if fiscal_channel_label %} · {{ fiscal_channel_label }}{% endif %}
+        {% if fiscal.token_provider %} · {{ fiscal.token_provider }}{% endif %}
       </p>
       <p class="muted">Kodove i tokene podešava platform admin.</p>
     </div>

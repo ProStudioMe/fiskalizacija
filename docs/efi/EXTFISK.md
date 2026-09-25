@@ -68,7 +68,7 @@ EXTFISK parsira datume preko Oracle — **ne** šalji offset (`+00:00` / `Z`), i
 
 ## Implementacija (Sepko)
 
-- Adapter: `sepko/extfisk.py` (`SEPKO_PARTNER_MODE=extfisk`)
+- Adapter: `sepko/extfisk.py` (globalno `SEPKO_PARTNER_MODE=extfisk` ili tenant `fiscal_channel=extfisk`)
 - URL: `SEPKO_EXTFISK_URL` (default `:3366`)
 - ApiKey: po firmi u adminu → XML `<ApiKey>`
 - `jikr=TEST` = uspješna fiskalizacija

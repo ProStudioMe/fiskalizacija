@@ -1,8 +1,9 @@
 """PKCS#12 / KPM potpisivanje fiskalnih poruka (JSON, XML, IIC).
 
-SOAP/XAdES prema CIS-u i dalje radi Navira. Ovaj modul:
+PU CIS (enveloped XMLDSig + IKOF MD5) je u sepko.pu.
+Ovaj modul:
 - učitava .p12/.pfx (cryptography)
-- potpisuje IIC (IKOF) string i JSON payload RSA-SHA256
+- potpisuje IIC string i JSON payload RSA-SHA256 (Navira/EXTFISK)
 - nudi opciono PKCS#11 (pametna kartica) kad je modul dostupan
 """
 from __future__ import annotations
